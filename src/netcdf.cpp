@@ -1125,10 +1125,11 @@ NcBool NcVar::put( const ncbyte* vals, const long* count )
 {
 	/* no need to check type() vs. TYPE, invoked C function will do that */
 	if (! the_file->data_mode())
-	  return FALSE;
+		return FALSE;
 	size_t start[NC_MAX_DIMS];
-	for (int i = 0; i < num_dims(); i++)
-	  start[i] = the_cur[i];
+	for (int i = 0; i < num_dims(); i++) {
+		start[i] = the_cur[i];
+	}
 	return NcError::set_err(
 				nc_put_vara_schar (the_file->id(), the_id, start, (const size_t *)count, vals)
 				) == NC_NOERR;
@@ -1154,6 +1155,57 @@ NcVar_put_nd_array(float)
 NcVar_put_nd_array(double)
 NcVar_put_nd_array2(ncint64, longlong)
 NcVar_put_nd_array2(ncuint64, ulonglong)
+
+#define NcVar_puts_nd_array2(TYPE,NCTYPE)						  \
+NcBool NcVar::puts( const TYPE* vals, const long* count, const long* stride )			  \
+{										  \
+	/* no need to check type() vs. TYPE, invoked C function will do that */   \
+	if (! the_file->data_mode())						  \
+	  return FALSE;								  \
+	size_t start[NC_MAX_DIMS];							  \
+	for (int i = 0; i < num_dims(); i++)					  \
+	  start[i] = the_cur[i];							  \
+	return NcError::set_err(												  \
+				makename2(nc_put_vars_,NCTYPE) (the_file->id(), the_id, start, (const size_t *) count, (const ptrdiff_t *) stride, vals) \
+				) == NC_NOERR;									\
+}
+
+#define NcVar_puts_nd_array(TYPE) NcVar_puts_nd_array2(TYPE,TYPE)
+
+NcBool NcVar::puts( const ncbyte* vals, const long* count, const long* stride )
+{
+	/* no need to check type() vs. TYPE, invoked C function will do that */
+	if (! the_file->data_mode())
+		return FALSE;
+	size_t start[NC_MAX_DIMS];
+	for (int i = 0; i < num_dims(); i++) {
+		start[i] = the_cur[i];
+	}
+	return NcError::set_err(
+				nc_put_vars_schar (the_file->id(), the_id, start, (const size_t *)count, (const ptrdiff_t *)stride, vals)
+				) == NC_NOERR;
+}
+
+NcBool NcVar::puts( const char* vals, const long* count, const long* stride )
+{
+	/* no need to check type() vs. TYPE, invoked C function will do that */
+	if (! the_file->data_mode())
+	  return FALSE;
+	size_t start[NC_MAX_DIMS];
+	for (int i = 0; i < num_dims(); i++)
+	  start[i] = the_cur[i];
+	return NcError::set_err(
+				nc_put_vars_text (the_file->id(), the_id, start, (const size_t *)count, (const ptrdiff_t *)stride, vals)
+				) == NC_NOERR;
+}
+
+NcVar_puts_nd_array(short)
+NcVar_puts_nd_array(int)
+NcVar_puts_nd_array(long)
+NcVar_puts_nd_array(float)
+NcVar_puts_nd_array(double)
+NcVar_puts_nd_array2(ncint64, longlong)
+NcVar_puts_nd_array2(ncuint64, ulonglong)
 
 #define NcVar_get_array2(TYPE,NCTYPE)							  \
 NcBool NcVar::get( TYPE* vals,							  \
@@ -1189,15 +1241,17 @@ NcBool NcVar::get( TYPE* vals,							  \
 
 #define NcVar_get_array(TYPE) NcVar_get_array2(TYPE,TYPE)
 
-NcBool NcVar::get( ncbyte* vals,
-			 long edge0,
-			 long edge1,
-			 long edge2,
-			 long edge3,
-			 long edge4) const
-{
+NcBool NcVar::get(
+	ncbyte* vals,
+	long edge0,
+	long edge1,
+	long edge2,
+	long edge3,
+	long edge4
+) const {
 	if (! the_file->data_mode())
-	  return FALSE;
+		return FALSE;
+
 	size_t count[5];
 	count[0] = edge0;
 	count[1] = edge1;
@@ -1205,30 +1259,34 @@ NcBool NcVar::get( ncbyte* vals,
 	count[3] = edge3;
 	count[4] = edge4;
 	for (int i = 0; i < 5; i++) {
-	if (count[i]) {
-		if (num_dims() < i)
-		  return FALSE;
-	} else
-	  break;
+		if (count[i]) {
+			if (num_dims() < i) {
+				return FALSE;
+			}
+		} else {
+			break;
+		}
 	}
 	size_t start[5];
 	for (int j = 0; j < 5; j++) {
-	 start[j] = the_cur[j];
+		start[j] = the_cur[j];
 	}
 	return NcError::set_err(
 				nc_get_vara_schar (the_file->id(), the_id, start, count, vals)
 				) == NC_NOERR;
 }
 
-NcBool NcVar::get( char* vals,
-			 long edge0,
-			 long edge1,
-			 long edge2,
-			 long edge3,
-			 long edge4) const
-{
+NcBool NcVar::get(
+	char* vals,
+	long edge0,
+	long edge1,
+	long edge2,
+	long edge3,
+	long edge4
+) const {
 	if (! the_file->data_mode())
-	  return FALSE;
+		return FALSE;
+
 	size_t count[5];
 	count[0] = edge0;
 	count[1] = edge1;
@@ -1236,15 +1294,17 @@ NcBool NcVar::get( char* vals,
 	count[3] = edge3;
 	count[4] = edge4;
 	for (int i = 0; i < 5; i++) {
-	if (count[i]) {
-		if (num_dims() < i)
-		  return FALSE;
-	} else
-	  break;
+		if (count[i]) {
+			if (num_dims() < i) {
+				return FALSE;
+			}
+		} else {
+			break;
+		}
 	}
 	size_t start[5];
 	for (int j = 0; j < 5; j++) {
-	 start[j] = the_cur[j];
+		start[j] = the_cur[j];
 	}
 	return NcError::set_err(
 				nc_get_vara_text (the_file->id(), the_id, start, count, vals)
@@ -1274,23 +1334,31 @@ NcBool NcVar::get( TYPE* vals, const long* count ) const			  \
 
 #define NcVar_get_nd_array(TYPE) NcVar_get_nd_array2(TYPE,TYPE)
 
-NcBool NcVar::get( ncbyte* vals, const long* count ) const
-{
+NcBool NcVar::get(
+	ncbyte* vals,
+	const long* count
+) const {
 	if (! the_file->data_mode())
-	  return FALSE;
+		return FALSE;
+
 	size_t start[NC_MAX_DIMS];
-	for (int i = 0; i < num_dims(); i++)
-	start[i] = the_cur[i];
+	for (int i = 0; i < num_dims(); i++) {
+		start[i] = the_cur[i];
+	}
 	return nc_get_vara_schar (the_file->id(), the_id, start,  (const size_t *) count, vals) == NC_NOERR;
 }
 
-NcBool NcVar::get( char* vals, const long* count ) const
-{
+NcBool NcVar::get(
+	char* vals,
+	const long* count
+) const {
 	if (! the_file->data_mode())
-	  return FALSE;
+		return FALSE;
+
 	size_t start[NC_MAX_DIMS];
-	for (int i = 0; i < num_dims(); i++)
-	start[i] = the_cur[i];
+	for (int i = 0; i < num_dims(); i++) {
+		start[i] = the_cur[i];
+	}
 	return nc_get_vara_text (the_file->id(), the_id, start, (const size_t*) count, vals) == NC_NOERR;
 }
 
@@ -1302,10 +1370,68 @@ NcVar_get_nd_array(double)
 NcVar_get_nd_array2(ncint64, longlong)
 NcVar_get_nd_array2(ncuint64, ulonglong)
 
+#define NcVar_gets_nd_array2(TYPE,NCTYPE)						  \
+NcBool NcVar::gets( TYPE* vals, const long* count, const long* stride ) const			  \
+{										  \
+	if (! the_file->data_mode())						  \
+	  return FALSE;								  \
+	size_t start[NC_MAX_DIMS];							  \
+	for (int i = 0; i < num_dims(); i++)					  \
+	start[i] = the_cur[i];							  \
+	return NcError::set_err(												  \
+				makename2(nc_get_vars_,NCTYPE) (the_file->id(), the_id, start,  (const size_t *) count, (const ptrdiff_t *) stride, vals) \
+				) == NC_NOERR;	 \
+}
+
+#define NcVar_gets_nd_array(TYPE) NcVar_gets_nd_array2(TYPE,TYPE)
+
+NcBool NcVar::gets(
+	ncbyte* vals,
+	const long* count,
+	const long* stride
+) const {
+	if (! the_file->data_mode())
+		return FALSE;
+
+	size_t start[NC_MAX_DIMS];
+	for (int i = 0; i < num_dims(); i++) {
+		start[i] = the_cur[i];
+	}
+	return nc_get_vars_schar (the_file->id(), the_id, start,  (const size_t *) count, (const ptrdiff_t *) stride, vals) == NC_NOERR;
+}
+
+NcBool NcVar::gets(
+	char* vals,
+	const long* count,
+	const long* stride
+) const {
+	if (! the_file->data_mode())
+		return FALSE;
+
+	size_t start[NC_MAX_DIMS];
+	for (int i = 0; i < num_dims(); i++) {
+		start[i] = the_cur[i];
+	}
+	return nc_get_vars_text (the_file->id(), the_id, start, (const size_t*) count, (const ptrdiff_t *) stride, vals) == NC_NOERR;
+}
+
+NcVar_gets_nd_array(short)
+NcVar_gets_nd_array(int)
+NcVar_gets_nd_array(long)
+NcVar_gets_nd_array(float)
+NcVar_gets_nd_array(double)
+NcVar_gets_nd_array2(ncint64, longlong)
+NcVar_gets_nd_array2(ncuint64, ulonglong)
+
 // If no args, set cursor to all zeros.	 Else set initial elements of cursor
 // to args provided, rest to zeros.
-NcBool NcVar::set_cur(long c0, long c1, long c2, long c3, long c4)
-{
+NcBool NcVar::set_cur(
+	long c0,
+	long c1,
+	long c2,
+	long c3,
+	long c4
+) {
 	long t[6];
 	t[0] = c0;
 	t[1] = c1;
@@ -1313,30 +1439,33 @@ NcBool NcVar::set_cur(long c0, long c1, long c2, long c3, long c4)
 	t[3] = c3;
 	t[4] = c4;
 	t[5] = -1;
-	for(int j = 0; j < 6; j++) { // find how many parameters were used
-	int i;
-	if (t[j] == -1) {
-		if (num_dims() < j)
-		  return FALSE;	// too many for variable's dimensionality
-		for (i = 0; i < j; i++) {
-		if (t[i] >= get_dim(i)->size() && ! get_dim(i)->is_unlimited())
-		  return FALSE;	// too big for dimension
-		the_cur[i] = t[i];
+	for (int j = 0; j < 6; j++) { // find how many parameters were used
+		int i;
+		if (t[j] == -1) {
+			if (num_dims() < j) {
+				return FALSE;	// too many for variable's dimensionality
+			}
+			for (i = 0; i < j; i++) {
+				if (t[i] >= get_dim(i)->size() && ! get_dim(i)->is_unlimited()) {
+					return FALSE;	// too big for dimension
+				}
+				the_cur[i] = t[i];
+			}
+			for (i = j; i < num_dims(); i++) {
+				the_cur[i] = 0;
+			}
+			return TRUE;
 		}
-		for(i = j; i < num_dims(); i++)
-		  the_cur[i] = 0;
-		return TRUE;
-	}
 	}
 	return TRUE;
 }
 
-NcBool NcVar::set_cur(long* cur)
-{
-	for(int i = 0; i < num_dims(); i++) {
-	if (cur[i] >= get_dim(i)->size() && ! get_dim(i)->is_unlimited())
-	  return FALSE;
-	the_cur[i] = cur[i];
+NcBool NcVar::set_cur(long* cur) {
+	for (int i = 0; i < num_dims(); i++) {
+		if (cur[i] >= get_dim(i)->size() && ! get_dim(i)->is_unlimited()) {
+			return FALSE;
+		}
+		the_cur[i] = cur[i];
 	}
 	return TRUE;
 }
@@ -1359,20 +1488,24 @@ NcBool NcVar::add_att(NcToken aname, TYPE val)					  \
 NcBool NcVar::add_att(NcToken aname, ncbyte val)
 {
 	if (! the_file->define_mode())
-	  return FALSE;
-	if (nc_put_att_schar (the_file->id(), the_id, aname, (nc_type) NcTypeEnum(ncbyte),
-		 1, &val) != NC_NOERR)
-	  return FALSE;
+		return FALSE;
+
+	if (nc_put_att_schar (the_file->id(), the_id, aname, (nc_type) NcTypeEnum(ncbyte), 1, &val) != NC_NOERR) {
+		return FALSE;
+	}
+
 	return TRUE;
 }
 
 NcBool NcVar::add_att(NcToken aname, char val)
 {
 	if (! the_file->define_mode())
+		return FALSE;
+
+	if (nc_put_att_text (the_file->id(), the_id, aname, 1, &val) != NC_NOERR) {
 	  return FALSE;
-	if (nc_put_att_text (the_file->id(), the_id, aname,
-		 1, &val) != NC_NOERR)
-	  return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -1383,24 +1516,31 @@ NcVar_add_scalar_att(double)
 NcVar_add_scalar_att2(ncint64, longlong)
 NcVar_add_scalar_att2(ncuint64, ulonglong)
 
-NcBool NcVar::add_att(NcToken aname, float val)
-{
+NcBool NcVar::add_att(
+	NcToken aname,
+	float val
+) {
 	if (! the_file->define_mode())
 	  return FALSE;
+
 	float fval = (float) val;	// workaround for bug, val passed as double??
-	if (nc_put_att_float(the_file->id(), the_id, aname, (nc_type) ncFloat,
-		 1, &fval) != NC_NOERR)
-	  return FALSE;
+	if (nc_put_att_float(the_file->id(), the_id, aname, (nc_type) ncFloat, 1, &fval) != NC_NOERR) {
+		return FALSE;
+	}
 	return TRUE;
 }
 
-NcBool NcVar::add_att(NcToken aname, const char* val)
-{
+NcBool NcVar::add_att(
+	NcToken aname,
+	const char* val
+) {
 	if (! the_file->define_mode())
 	  return FALSE;
-	if (nc_put_att_text(the_file->id(), the_id, aname,
-		 strlen(val), val) != NC_NOERR)
+
+	if (nc_put_att_text(the_file->id(), the_id, aname, strlen(val), val) != NC_NOERR) {
 	  return FALSE;
+	}
+
 	return TRUE;
 }
 
@@ -1419,27 +1559,31 @@ NcBool NcVar::add_att(NcToken aname, int len, const TYPE* vals)			  \
 
 #define NcVar_add_vector_att(TYPE) NcVar_add_vector_att2(TYPE,TYPE)
 
-NcBool NcVar::add_att(NcToken aname, int len, const ncbyte* vals)
-{
+NcBool NcVar::add_att(
+	NcToken aname,
+	int len,
+	const ncbyte* vals
+) {
 	if (! the_file->define_mode())
 	  return FALSE;
-	if (NcError::set_err(
-			 nc_put_att_schar (the_file->id(), the_id, aname, (nc_type) NcTypeEnum(ncbyte),
-		 len, vals)
-			 ) != NC_NOERR)
-	  return FALSE;
+
+	if (NcError::set_err( nc_put_att_schar (the_file->id(), the_id, aname, (nc_type) NcTypeEnum(ncbyte), len, vals)) != NC_NOERR) {
+		return FALSE;
+	}
 	return TRUE;
 }
 
-NcBool NcVar::add_att(NcToken aname, int len, const char* vals)
-{
+NcBool NcVar::add_att(
+	NcToken aname,
+	int len,
+	const char* vals
+) {
 	if (! the_file->define_mode())
 	  return FALSE;
-	if (NcError::set_err(
-			 nc_put_att_text (the_file->id(), the_id, aname,
-		 len, vals)
-			 ) != NC_NOERR)
-	  return FALSE;
+
+	if (NcError::set_err( nc_put_att_text (the_file->id(), the_id, aname, len, vals)) != NC_NOERR) {
+		return FALSE;
+	}
 	return TRUE;
 }
 
@@ -1451,116 +1595,135 @@ NcVar_add_vector_att(double)
 NcVar_add_vector_att2(ncint64, longlong)
 NcVar_add_vector_att2(ncuint64, ulonglong)
 
-NcBool NcVar::rename(NcToken newname)
-{
+NcBool NcVar::rename(
+	NcToken newname
+) {
 	if (strlen(newname) > strlen(the_name)) {
-	if (! the_file->define_mode())
-		return FALSE;
+		if (! the_file->define_mode())
+			return FALSE;
 	}
-	NcBool ret = NcError::set_err(
-				  nc_rename_var(the_file->id(), the_id, newname)
-				  ) == NC_NOERR;
+	NcBool ret =
+		NcError::set_err(
+			nc_rename_var(the_file->id(), the_id, newname)
+			) == NC_NOERR;
 	if (ret) {
-	delete [] the_name;
-	the_name = new char [1 + strlen(newname)];
-	strcpy(the_name, newname);
+		delete [] the_name;
+		the_name = new char [1 + strlen(newname)];
+		strcpy(the_name, newname);
 	}
 	return ret;
 }
 
-int NcVar::id( void ) const
-{
+int NcVar::id( void ) const {
 	return the_id;
 }
 
-NcBool NcVar::sync(void)
-{
+NcBool NcVar::sync( void ) {
 	if (the_name) {
-	delete [] the_name;
+		delete [] the_name;
 	}
 	if (the_cur) {
-	delete [] the_cur;
+		delete [] the_cur;
 	}
 	if (cur_rec) {
-	delete [] cur_rec;
+		delete [] cur_rec;
 	}
 	char nam[NC_MAX_NAME];
 	if (the_file 
 	&& NcError::set_err(
 				nc_inq_varname(the_file->id(), the_id, nam)
 				) == NC_NOERR) {
-	the_name = new char[1 + strlen(nam)];
-	strcpy(the_name, nam);
+		the_name = new char[1 + strlen(nam)];
+		strcpy(the_name, nam);
 	} else {
-	the_name = 0;
-	return FALSE;
+		the_name = 0;
+		return FALSE;
 	}
 	init_cur(); 
 	return TRUE;
 }
 
 
-NcVar::NcVar(NcFile* nc, int id)
+NcVar::NcVar(
+	NcFile* nc,
+	int id
+)
    : NcTypedComponent(nc), the_id(id)
 {
 	char nam[NC_MAX_NAME];
 	if (the_file 
 	&& NcError::set_err(
 				nc_inq_varname(the_file->id(), the_id, nam)
-				) == NC_NOERR) {
-	the_name = new char[1 + strlen(nam)];
-	strcpy(the_name, nam);
+				) == NC_NOERR
+	) {
+		the_name = new char[1 + strlen(nam)];
+		strcpy(the_name, nam);
 	} else {
-	the_name = 0;
+		the_name = 0;
 	}
 	init_cur();
 }
 
-int NcVar::attnum( NcToken attrname ) const
-{
+int NcVar::attnum(
+	NcToken attrname
+) const {
 	int num;
-	for(num=0; num < num_atts(); num++) {
-	char aname[NC_MAX_NAME];
-	NcError::set_err(
-			 nc_inq_attname(the_file->id(), the_id, num, aname)
-			 );
-	if (strcmp(aname, attrname) == 0)
-	  break;
+	for (num=0; num < num_atts(); num++) {
+		char aname[NC_MAX_NAME];
+		NcError::set_err(
+			 nc_inq_attname(the_file->id(), the_id, num, aname));
+		if (strcmp(aname, attrname) == 0) {
+			break;
+		}
 	}
 	return num;			// num_atts() if no such attribute
 }
 
-NcToken NcVar::attname( int attnum ) const // caller must delete[]
-{
-	if (attnum < 0 || attnum >= num_atts())
-	  return 0;
+NcToken NcVar::attname(   // caller must delete[]
+	int attnum
+) const {
+	if (attnum < 0 || attnum >= num_atts()) {
+		return 0;
+	}
 	char aname[NC_MAX_NAME];
 	if (NcError::set_err(
 			 nc_inq_attname(the_file->id(), the_id, attnum, aname)
-			 ) != NC_NOERR)
-	  return 0;
+			 ) != NC_NOERR
+	) {
+		return 0;
+	}
 	char* rname = new char[1 + strlen(aname)];
 	strcpy(rname, aname);
 	return rname;
 }
 
-void NcVar::init_cur( void )
-{
+void NcVar::init_cur( void ) {
 	the_cur = new long[NC_MAX_DIMS]; // *** don't know num_dims() yet?
 	cur_rec = new long[NC_MAX_DIMS]; // *** don't know num_dims() yet?
 	for(int i = 0; i < NC_MAX_DIMS; i++) { 
-	the_cur[i] = 0; cur_rec[i] = 0; }
+		the_cur[i] = 0;
+		cur_rec[i] = 0;
+	}
 }
 
-NcAtt::NcAtt(NcFile* nc, const NcVar* var, NcToken name)
-   : NcTypedComponent(nc), the_variable(var)
+NcAtt::NcAtt(
+	NcFile* nc,
+	const NcVar* var,
+	NcToken name
+) :
+	NcTypedComponent(nc),
+	the_variable(var)
 {
 	the_name = new char[1 + strlen(name)];
 	strcpy(the_name, name);
 }
 
-NcAtt::NcAtt(NcFile* nc, NcToken name)
-   : NcTypedComponent(nc), the_variable(NULL)
+NcAtt::NcAtt(
+	NcFile* nc,
+	NcToken name
+) :
+	NcTypedComponent(nc),
+	the_variable(NULL)
 {
 	the_name = new char[1 + strlen(name)];
 	strcpy(the_name, name);
@@ -1571,22 +1734,18 @@ NcAtt::~NcAtt( void )
 	delete [] the_name;
 }
 
-NcToken NcAtt::name( void ) const
-{
+NcToken NcAtt::name( void ) const {
 	return the_name;
 }
 
-NcType NcAtt::type( void ) const
-{
+NcType NcAtt::type( void ) const {
 	nc_type typ;
 	NcError::set_err(
-			 nc_inq_atttype(the_file->id(), the_variable->id(), the_name, &typ)
-			 );
+			 nc_inq_atttype(the_file->id(), the_variable->id(), the_name, &typ));
 	return (NcType) typ;
 }
 
-long NcAtt::num_vals( void ) const
-{
+long NcAtt::num_vals( void ) const {
 	size_t len;
 	NcError::set_err(
 			 nc_inq_attlen(the_file->id(), the_variable->id(), the_name, &len)
@@ -1594,8 +1753,7 @@ long NcAtt::num_vals( void ) const
 	return len;
 }
 
-NcBool NcAtt::is_valid( void ) const
-{
+NcBool NcAtt::is_valid( void ) const {
 	int num;
 	return the_file->is_valid() &&
 	  (the_variable->id() == NC_GLOBAL || the_variable->is_valid()) &&
@@ -1604,8 +1762,7 @@ NcBool NcAtt::is_valid( void ) const
 			 ) == NC_NOERR;
 }
 
-NcValues* NcAtt::values( void ) const
-{
+NcValues* NcAtt::values( void ) const {
 	int status;
 	NcValues* valp;
 	if (type() == ncString) {
@@ -1637,70 +1794,71 @@ NcValues* NcAtt::values( void ) const
 		valp = get_space();
 	}
 	switch (type()) {
-	case ncFloat:
-	status = NcError::set_err(
+		case ncFloat:
+			status = NcError::set_err(
 				  nc_get_att_float(the_file->id(), the_variable->id(), the_name,
 				   (float *)valp->base())
 				  );
-	break;
-	case ncDouble:
-	status = NcError::set_err(
+			break;
+		case ncDouble:
+			status = NcError::set_err(
 				  nc_get_att_double(the_file->id(), the_variable->id(), the_name,
 				   (double *)valp->base())
 				  );
-	break;
-	case ncInt64:
-	status = NcError::set_err(
+			break;
+		case ncInt64:
+			status = NcError::set_err(
 				  nc_get_att_longlong(the_file->id(), the_variable->id(), the_name,
 				(long long *)valp->base())
 				  );
-	break;
-	case ncUInt64:
-	status = NcError::set_err(
+			break;
+		case ncUInt64:
+			status = NcError::set_err(
 				  nc_get_att_ulonglong(the_file->id(), the_variable->id(), the_name,
 				(unsigned long long *)valp->base())
 				  );
-	break;
-	case ncInt:
-	status = NcError::set_err(
+			break;
+		case ncInt:
+			status = NcError::set_err(
 				  nc_get_att_int(the_file->id(), the_variable->id(), the_name,
 				(int *)valp->base())
 				  );
-	break;
-	case ncShort:
-	status = NcError::set_err(
+			break;
+		case ncShort:
+			status = NcError::set_err(
 				  nc_get_att_short(the_file->id(), the_variable->id(), the_name,
 				  (short *)valp->base())
 				  );
-	break;
-	case ncByte:
-	status = NcError::set_err(
+			break;
+		case ncByte:
+			status = NcError::set_err(
 				  nc_get_att_schar(the_file->id(), the_variable->id(), the_name,
 				  (signed char *)valp->base())
 				  );
-	break;
-	case ncChar:
-	status = NcError::set_err(
+			break;
+		case ncChar:
+			status = NcError::set_err(
 				  nc_get_att_text(the_file->id(), the_variable->id(), the_name,
 				  (char *)valp->base())
 				  );
-	break;
-	case ncNoType:
-	default:
-	return 0;
+			break;
+		case ncNoType:
+		default:
+			return 0;
 	}
 	if (status != NC_NOERR) {
-	delete valp;
-	return 0;
+		delete valp;
+		return 0;
 	}
 	return valp;
 }
 
-NcBool NcAtt::rename(NcToken newname)
-{
+NcBool NcAtt::rename(
+	NcToken newname
+) {
 	if (strlen(newname) > strlen(the_name)) {
-	if (! the_file->define_mode())
-		return FALSE;
+		if (! the_file->define_mode())
+			return FALSE;
 	}
 	return NcError::set_err(
 				nc_rename_att(the_file->id(), the_variable->id(),
@@ -1708,8 +1866,7 @@ NcBool NcAtt::rename(NcToken newname)
 				) == NC_NOERR;
 }
 
-NcBool NcAtt::remove( void )
-{
+NcBool NcAtt::remove( void ) {
 	if (! the_file->define_mode())
 	return FALSE;
 	return NcError::set_err(
@@ -1717,35 +1874,31 @@ NcBool NcAtt::remove( void )
 		) == NC_NOERR;
 }
 
-NcError::NcError( Behavior b )
-{
+NcError::NcError( Behavior b ) {
 	the_old_state = ncopts;	// global variable in version 2 C interface
 	the_old_err = ncerr;	// global variable in version 2 C interface
 	ncopts = (int) b;
 }
 
-NcError::~NcError( void )
-{
+NcError::~NcError( void ) {
 	ncopts = the_old_state;
 	ncerr = the_old_err;
 }
 
-int NcError::get_err( void )	// returns most recent error
-{
+int NcError::get_err( void ) {	// returns most recent error
 	return ncerr;
 }
 
-int NcError::set_err (int err)
-{
+int NcError::set_err (int err) {
 	ncerr = err;
 	// Check ncopts and handle appropriately
 	if(err != NC_NOERR) {
-	if(ncopts == verbose_nonfatal || ncopts == verbose_fatal) {
-		std::cout << nc_strerror(err) << std::endl;
-	}
-	if(ncopts == silent_fatal || ncopts == verbose_fatal) {
-		exit(ncopts);
-	}
+		if(ncopts == verbose_nonfatal || ncopts == verbose_fatal) {
+			std::cout << nc_strerror(err) << std::endl;
+		}
+		if(ncopts == silent_fatal || ncopts == verbose_fatal) {
+			exit(ncopts);
+		}
 	}
 	return err;
 }

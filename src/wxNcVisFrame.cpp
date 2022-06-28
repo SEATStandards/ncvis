@@ -51,6 +51,9 @@ wxNcVisFrame::wxNcVisFrame(
 	m_varActive(NULL),
 	m_sColorMap(0)
 {
+	m_lDisplayedDims[0] = -1;
+	m_lDisplayedDims[1] = -1;
+
 	OpenFiles(vecFilenames);
 
 	InitializeWindow();
@@ -157,7 +160,7 @@ void wxNcVisFrame::InitializeWindow() {
 	CreateStatusBar();
 
 	// Status bar
-	SetStatusText( _T("NcVis 2022.06.26") );
+	SetStatusText( _T("NcVis 2022.06.27") );
 
 	SetSizerAndFit(topsizer);
 }
@@ -243,6 +246,8 @@ void wxNcVisFrame::OpenFiles(
 		_EXCEPTION();
 	}
 
+	m_strUnstructDimName = varLon->get_dim(0)->name();
+
 	DataArray1D<double> dLon(varLon->get_dim(0)->size());
 	DataArray1D<double> dLat(varLat->get_dim(0)->size());
 
@@ -260,8 +265,31 @@ void wxNcVisFrame::OpenFiles(
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::LoadData() {
+
+	_ASSERT(m_lDisplayedDims[0] < m_varActive->num_dims());
+
 	m_varActive->set_cur(&(m_lVarActiveDims[0]));
-	m_varActive->get(&(m_data[0]), 1, m_varActive->get_dim(1)->size());
+	if (m_lDisplayedDims[0] == m_varActive->num_dims()-1) {
+		std::vector<long> vecSize(m_varActive->num_dims(), 1);
+		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
+
+		m_varActive->get(&(m_data[0]), &(vecSize[0]));
+
+	} else {
+		std::vector<long> vecSize(m_varActive->num_dims(), 1);
+		std::vector<long> vecStride(m_varActive->num_dims(), 1);
+		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
+		for (long d = m_lDisplayedDims[0]+1; d < m_varActive->num_dims(); d++) {
+			vecStride[d] = m_varActive->get_dim(d)->size();
+		}
+
+		//for (long d = 0; d < m_lVarActiveDims.size(); d++) {
+		//	std::cout << m_lVarActiveDims[d] << " " << vecSize[d] << " " << vecStride[d] << std::endl;
+		//}
+
+		m_varActive->gets(&(m_data[0]), &(vecSize[0]), &(vecStride[0]));
+	}
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -372,6 +400,13 @@ void wxNcVisFrame::OnVariableSelected(
 	auto itVar = m_mapVarNames[vc].find(strValue);
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
 	m_lVarActiveDims.resize(m_varActive->num_dims(), 0);
+
+	for (long d = 0; d < m_varActive->num_dims(); d++) {
+		if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
+			m_lDisplayedDims[0] = d;
+		}
+	}
+
 	if (m_varActive->get_dim(1)->size() != m_data.GetRows()) {
 		std::cout << "Dimension mismatch between variable and data storage" << std::endl;
 		return;
@@ -388,15 +423,21 @@ void wxNcVisFrame::OnVariableSelected(
 		wxString strDim = wxString(m_varActive->get_dim(d)->name()) + ":";
 		m_dimsizer->Add(new wxStaticText(this, -1, strDim), 0, wxEXPAND | wxALL, 4);
 
-		wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSize(22,nCtrlHeight));
+		wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSize(26,nCtrlHeight));
 		m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, _T("0"), wxDefaultPosition, wxSize(40, nCtrlHeight), wxTE_CENTRE);
-		wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSize(22,nCtrlHeight));
+		wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSize(26,nCtrlHeight));
 
 		m_dimsizer->Add(wxDimDown, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 2);
 		m_dimsizer->Add(m_vecwxDimIndex[d], 0, wxEXPAND | wxTOP | wxBOTTOM, 2);
 		m_dimsizer->Add(wxDimUp, 0, wxEXPAND | wxRIGHT | wxTOP | wxBOTTOM, 2);
 
-		if (d == 1) {
+		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
+			wxDimDown->Enable(false);
+			m_vecwxDimIndex[d]->SetValue(_T(":"));
+			m_vecwxDimIndex[d]->Enable(false);
+			wxDimUp->Enable(false);
+
+		} else if (m_varActive->get_dim(d)->size() == 1) {
 			wxDimDown->Enable(false);
 			m_vecwxDimIndex[d]->Enable(false);
 			wxDimUp->Enable(false);

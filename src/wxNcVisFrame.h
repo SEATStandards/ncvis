@@ -153,6 +153,11 @@ private:
 	std::vector<NcFile *> m_vecpncfiles;
 
 	///	<summary>
+	///		Unstructured index dimension name.
+	///	</summary>
+	std::string m_strUnstructDimName;
+
+	///	<summary>
 	///		NetCDF variable currently loaded.
 	///	</summary>
 	NcVar * m_varActive;
@@ -161,6 +166,11 @@ private:
 	///		Current auxiliary dimension indices for loaded variable.
 	///	</summary>
 	std::vector<long> m_lVarActiveDims;
+
+	///	<summary>
+	///		Currently displayed variable dimension indices.
+	///	</summary>
+	long m_lDisplayedDims[2];
 
 	///	<summary>
 	///		Map between variables found among files and file index where they can be

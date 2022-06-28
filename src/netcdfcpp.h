@@ -259,6 +259,18 @@ public:
 	NcBool put( const ncint64* vals, const long* counts );
 	NcBool put( const ncuint64* vals, const long* counts );
 
+	// Put n-dimensional arrays, starting at [0, 0, ..., 0] by default,
+	// may be reset with set_cur().
+	NcBool puts( const ncbyte* vals, const long* counts, const long* stride );
+	NcBool puts( const char* vals, const long* counts, const long* stride );
+	NcBool puts( const short* vals, const long* counts, const long* stride );
+	NcBool puts( const int* vals, const long* counts, const long* stride );
+	NcBool puts( const long* vals, const long* counts, const long* stride );
+	NcBool puts( const float* vals, const long* counts, const long* stride );
+	NcBool puts( const double* vals, const long* counts, const long* stride );
+	NcBool puts( const ncint64* vals, const long* counts, const long* stride );
+	NcBool puts( const ncuint64* vals, const long* counts, const long* stride );
+
 	// Get scalar or 1, ..., 5 dimensional arrays by providing enough
 	// arguments.  Arguments are edge lengths, and their number must not
 	// exceed variable's dimensionality.  Start corner is [0,0,..., 0] by
@@ -293,6 +305,18 @@ public:
 	NcBool get( double* vals, const long* counts ) const;
 	NcBool get( ncint64* vals, const long* counts ) const;
 	NcBool get( ncuint64* vals, const long* counts ) const;
+
+	// Get n-dimensional arrays, starting at [0, 0, ..., 0] by default,
+	// may be reset with set_cur().
+	NcBool gets( ncbyte* vals, const long* counts, const long* stride ) const;
+	NcBool gets( char* vals, const long* counts, const long* stride ) const;
+	NcBool gets( short* vals, const long* counts, const long* stride ) const;
+	NcBool gets( int* vals, const long* counts, const long* stride ) const;
+	NcBool gets( long* vals, const long* counts, const long* stride ) const;
+	NcBool gets( float* vals, const long* counts, const long* stride ) const;
+	NcBool gets( double* vals, const long* counts, const long* stride ) const;
+	NcBool gets( ncint64* vals, const long* counts, const long* stride ) const;
+	NcBool gets( ncuint64* vals, const long* counts, const long* stride ) const;
 
 	NcBool set_cur(
 		long c0=-1,
