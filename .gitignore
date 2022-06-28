@@ -30,6 +30,7 @@
 *.exe
 *.out
 *.app
+ncvis
 
 # vim swp files
 *.swp

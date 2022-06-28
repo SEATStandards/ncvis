@@ -98,7 +98,7 @@ void wxImagePanel::OnMouseMotion(wxMouseEvent & evt) {
 	double dX = m_dSampleLon[pos.x];
 	double dY = m_dSampleLat[m_dSampleLat.GetRows() - pos.y - 1];
 
-	size_t sI = static_cast<size_t>(pos.y * m_dSampleLon.GetRows() + pos.x);
+	size_t sI = static_cast<size_t>((m_dSampleLat.GetRows() - pos.y - 1) * m_dSampleLon.GetRows() + pos.x);
 
 	if (m_imagemap.GetRows() <= sI) {
 		return;

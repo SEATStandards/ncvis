@@ -15,6 +15,8 @@
 #include "wxNcVisFrame.h"
 #include "GridDataSampler.h"
 
+#include <vector>
+
 ////////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
@@ -37,30 +39,25 @@ wxIMPLEMENT_APP(wxNcVisApp);
 bool wxNcVisApp::OnInit() {
 	wxInitAllImageHandlers();
 
-	if ((argc < 1) || (argc > 2)) {
-		std::cout << "Usage: " << argv[0] << " [filename]" << std::endl;
+	if (argc < 2) {
+		std::cout << "Usage: " << argv[0] << " <filename> [filename] ... " << std::endl;
 		return false;
 	}
 
-	if (argc == 1) {
-		wxNcVisFrame * frame =
-			new wxNcVisFrame(
-				"NcVis",
-				wxPoint(50, 50),
-				wxSize(450, 340));
-
-		frame->Show( true );
-
-	} else {
-		wxNcVisFrame * frame =
-			new wxNcVisFrame(
-				"NcVis",
-				wxPoint(50, 50),
-				wxSize(450, 340),
-				argv[1]);
-
-		frame->Show( true );
+	std::vector<std::string> vecFilenames;
+	for (int v = 1; v < argc; v++) {
+		vecFilenames.push_back(std::string(argv[v]));
 	}
+
+	wxNcVisFrame * frame =
+		new wxNcVisFrame(
+			"NcVis",
+			wxPoint(50, 50),
+			wxSize(450, 340),
+			vecFilenames);
+
+	frame->Show( true );
+
 	return true;
 }
 

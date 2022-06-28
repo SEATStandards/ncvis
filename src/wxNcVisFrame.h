@@ -17,6 +17,9 @@
 #include "ColorMap.h"
 #include "GridDataSampler.h"
 
+#include <map>
+#include <vector>
+
 ////////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
@@ -31,16 +34,8 @@ public:
 	wxNcVisFrame(
 		const wxString & title,
 		const wxPoint & pos,
-		const wxSize & size);
-
-	///	<summary>
-	///		Constructor.
-	///	</summary>
-	wxNcVisFrame(
-		const wxString & title,
-		const wxPoint & pos,
 		const wxSize & size,
-		const wxString & strFilename);
+		const std::vector<std::string> & vecFilenames);
 
 	///	<summary>
 	///		Initialize the wxNcVisFrame.
@@ -50,7 +45,7 @@ public:
 	///	<summary>
 	///		Open the specified file.
 	///	</summary>
-	void OpenFile(const wxString & strFilename);
+	void OpenFiles(const std::vector<std::string> & strFilenames);
 
 	///	<summary>
 	///		Load data from the active variable.
@@ -150,12 +145,12 @@ private:
 	///	<summary>
 	///		Filename being displayed.
 	///	</summary>
-	wxString m_strFilename;
+	std::vector<std::string> m_vecFilenames;
 
 	///	<summary>
 	///		NetCDF file being worked on.
 	///	</summary>
-	NcFile * m_pncfile;
+	std::vector<NcFile *> m_vecpncfiles;
 
 	///	<summary>
 	///		NetCDF variable currently loaded.
@@ -168,9 +163,10 @@ private:
 	std::vector<long> m_lVarActiveDims;
 
 	///	<summary>
-	///		List of variables in the file.
+	///		Map between variables found among files and file index where they can be
+	///		found.  Variables are further indexed by number of dimensions.
 	///	</summary>
-	std::vector<std::string> m_vecVarNames[10];
+	std::map<std::string, std::vector<size_t> > m_mapVarNames[10];
 
 private:
 	///	<summary>

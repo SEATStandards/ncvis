@@ -22,7 +22,8 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const std::string & strInputData
+		const DataArray1D<double> & dLon,
+		const DataArray1D<double> & dLat
 	) = 0;
 
 	///	<summary>
@@ -43,7 +44,8 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const std::string & strInputData
+		const DataArray1D<double> & dLon,
+		const DataArray1D<double> & dLat
 	);
 
 	///	<summary>
@@ -70,7 +72,8 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const std::string & strInputData
+		const DataArray1D<double> & dLon,
+		const DataArray1D<double> & dLat
 	);
 
 	///	<summary>

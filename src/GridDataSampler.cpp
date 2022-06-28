@@ -11,75 +11,19 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingQuadTree::Initialize(
-	const std::string & strInputData
+	const DataArray1D<double> & dLon,
+	const DataArray1D<double> & dLat
 ) {
-	std::string strLonName("lon");
-	std::string strLatName("lat");
+	_ASSERT(dLon.GetRows() == dLat.GetRows());
 
-	// Load the data file, if provided
-	NcFile * pncdata = NULL;
-	if (strInputData.length() != 0) {
-		pncdata = new NcFile(strInputData.c_str());
-		if (!pncdata->is_valid()) {
-			_EXCEPTION1("Unable to open data file \"%s\"", strInputData.c_str());
-		}
-	}
+	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
-	// Generate quadtree from datafile
-	_ASSERT(pncdata != NULL);
+	long iReportSize = static_cast<long>(dLon.GetRows()) / 100;
+	for (long i = 0; i < dLon.GetRows(); i++) {
 
-	AnnounceStartBlock("Generating quadtree from datafile");
+		double dLonStandard = LonDegToStandardRange(dLon[i]);
 
-	NcVar * varLon = pncdata->get_var(strLonName.c_str());
-	if (varLon == NULL) {
-		_EXCEPTION2("Unable to read longitude variable \"%s\" from data file \"%s\"",
-			strLonName.c_str(), strInputData.c_str());
-	}
-	if (varLon->num_dims() != 1) {
-		_EXCEPTION2("Longitude variable \"%s\" in data file \"%s\" must have dimension 1",
-			strLonName.c_str(), strInputData.c_str());
-	}
-
-	NcVar * varLat = pncdata->get_var(strLatName.c_str());
-	if (varLon == NULL) {
-		_EXCEPTION2("Unable to read latitude variable \"%s\" from data file \"%s\"",
-			strLatName.c_str(), strInputData.c_str());
-	}
-	if (varLat->num_dims() != 1) {
-		_EXCEPTION2("Latitude variable \"%s\" in data file \"%s\" must have dimension 1",
-			strLatName.c_str(), strInputData.c_str());
-	}
-
-	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
-		_EXCEPTION4("Longitude variable \"%s\" (size %li) and latitude variable \"%s\" (size %li) must have same size",
-			varLon->name(), varLon->get_dim(0)->size(),
-			varLat->name(), varLat->get_dim(0)->size());
-	}
-
-	DataArray1D<double> dLon(varLon->get_dim(0)->size());
-	DataArray1D<double> dLat(varLat->get_dim(0)->size());
-
-	varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
-	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
-
-	long iReportSize = varLon->get_dim(0)->size() / 100;
-	for (long i = 0; i < varLon->get_dim(0)->size(); i++) {
-
-		// TODO: Convert to standard range
-		if (dLon[i] < 0.0) {
-			dLon[i] += 360.0;
-		}
-		if (dLon[i] >= 360.0) {
-			dLon[i] -= 360.0;
-		}
-		if (dLat[i] <= -90.0) {
-			dLat[i] += 1.0e-7;
-		}
-		if (dLat[i] >= 90.0) {
-			dLat[i] -= 1.0e-7;
-		}
-
-		m_quadtree.insert(dLon[i], dLat[i], i);
+		m_quadtree.insert(dLonStandard, dLat[i], i);
 
 		if ((i+1) % iReportSize == 0) {
 			Announce("%li%% complete", i / iReportSize);
@@ -127,65 +71,13 @@ void GridDataSamplerUsingQuadTree::Sample(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingKDTree::Initialize(
-	const std::string & strInputData
+	const DataArray1D<double> & dLon,
+	const DataArray1D<double> & dLat
 ) {
-	std::string strLonName("lon");
-	std::string strLatName("lat");
+	AnnounceStartBlock("Generating kdtree from from lat/lon arrays");
 
-	// Create a kdtree
-	m_kdtree = kd_create(3);
-	if (m_kdtree == NULL) {
-		_EXCEPTIONT("kd_create(3) failed");
-	}
-
-	// Load the data file, if provided
-	NcFile * pncdata = NULL;
-	if (strInputData.length() != 0) {
-		pncdata = new NcFile(strInputData.c_str());
-		if (!pncdata->is_valid()) {
-			_EXCEPTION1("Unable to open data file \"%s\"", strInputData.c_str());
-		}
-	}
-
-	// Generate quadtree from datafile
-	_ASSERT(pncdata != NULL);
-
-	AnnounceStartBlock("Generating kdtree from datafile");
-
-	NcVar * varLon = pncdata->get_var(strLonName.c_str());
-	if (varLon == NULL) {
-		_EXCEPTION2("Unable to read longitude variable \"%s\" from data file \"%s\"",
-			strLonName.c_str(), strInputData.c_str());
-	}
-	if (varLon->num_dims() != 1) {
-		_EXCEPTION2("Longitude variable \"%s\" in data file \"%s\" must have dimension 1",
-			strLonName.c_str(), strInputData.c_str());
-	}
-
-	NcVar * varLat = pncdata->get_var(strLatName.c_str());
-	if (varLon == NULL) {
-		_EXCEPTION2("Unable to read latitude variable \"%s\" from data file \"%s\"",
-			strLatName.c_str(), strInputData.c_str());
-	}
-	if (varLat->num_dims() != 1) {
-		_EXCEPTION2("Latitude variable \"%s\" in data file \"%s\" must have dimension 1",
-			strLatName.c_str(), strInputData.c_str());
-	}
-
-	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
-		_EXCEPTION4("Longitude variable \"%s\" (size %li) and latitude variable \"%s\" (size %li) must have same size",
-			varLon->name(), varLon->get_dim(0)->size(),
-			varLat->name(), varLat->get_dim(0)->size());
-	}
-
-	DataArray1D<double> dLon(varLon->get_dim(0)->size());
-	DataArray1D<double> dLat(varLat->get_dim(0)->size());
-
-	varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
-	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
-
-	long iReportSize = varLon->get_dim(0)->size() / 100;
-	for (long i = 0; i < varLon->get_dim(0)->size(); i++) {
+	long iReportSize = static_cast<long>(dLon.GetRows()) / 100;
+	for (long i = 0; i < static_cast<long>(dLon.GetRows()); i++) {
 
 		double dX;
 		double dY;
