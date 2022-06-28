@@ -392,22 +392,24 @@ void wxNcVisFrame::OnVariableSelected(
 ) {
 	std::cout << "VARIABLE SELECTED" << std::endl;
 
-	std::string strValue = event.GetString().ToStdString();
-
 	// Store a map between current dimnames and dimvalues
-	for (long d = 0; d < m_varActive->num_dims(); d++) {
-		auto itDimBookmark = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
-		if (itDimBookmark == m_mapDimBookmarks.end()) {
-			m_mapDimBookmarks.insert(
-				std::pair<std::string, long>(
-					m_varActive->get_dim(d)->name(),
-					m_lVarActiveDims[d]));
-		} else {
-			itDimBookmark->second = m_lVarActiveDims[d];
+	if ((m_varActive != NULL) && (m_lVarActiveDims.size() == m_varActive->num_dims())) {
+		for (long d = 0; d < m_varActive->num_dims(); d++) {
+			auto itDimBookmark = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
+			if (itDimBookmark == m_mapDimBookmarks.end()) {
+				m_mapDimBookmarks.insert(
+					std::pair<std::string, long>(
+						m_varActive->get_dim(d)->name(),
+						m_lVarActiveDims[d]));
+			} else {
+				itDimBookmark->second = m_lVarActiveDims[d];
+			}
 		}
 	}
 
 	// Load the data
+	std::string strValue = event.GetString().ToStdString();
+
 	int vc = static_cast<int>(event.GetId() - ID_VARSELECTOR);
 	_ASSERT((vc >= 0) && (vc <= 9));
 	auto itVar = m_mapVarNames[vc].find(strValue);
