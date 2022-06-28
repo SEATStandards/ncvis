@@ -394,14 +394,33 @@ void wxNcVisFrame::OnVariableSelected(
 
 	std::string strValue = event.GetString().ToStdString();
 
+	// Store a map between current dimnames and dimvalues
+	for (long d = 0; d < m_varActive->num_dims(); d++) {
+		auto itDimBookmark = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
+		if (itDimBookmark == m_mapDimBookmarks.end()) {
+			m_mapDimBookmarks.insert(
+				std::pair<std::string, long>(
+					m_varActive->get_dim(d)->name(),
+					m_lVarActiveDims[d]));
+		} else {
+			itDimBookmark->second = m_lVarActiveDims[d];
+		}
+	}
+
 	// Load the data
 	int vc = static_cast<int>(event.GetId() - ID_VARSELECTOR);
 	_ASSERT((vc >= 0) && (vc <= 9));
 	auto itVar = m_mapVarNames[vc].find(strValue);
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
-	m_lVarActiveDims.resize(m_varActive->num_dims(), 0);
+	m_lVarActiveDims.resize(m_varActive->num_dims());
 
 	for (long d = 0; d < m_varActive->num_dims(); d++) {
+		auto itDimCurrent = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
+		if (itDimCurrent != m_mapDimBookmarks.end()) {
+			m_lVarActiveDims[d] = itDimCurrent->second;
+		} else {
+			m_lVarActiveDims[d] = 0;
+		}
 		if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
 			m_lDisplayedDims[0] = d;
 		}
@@ -423,8 +442,11 @@ void wxNcVisFrame::OnVariableSelected(
 		wxString strDim = wxString(m_varActive->get_dim(d)->name()) + ":";
 		m_dimsizer->Add(new wxStaticText(this, -1, strDim), 0, wxEXPAND | wxALL, 4);
 
+		char szDimValue[8];
+		snprintf(szDimValue, 8, "%li", m_lVarActiveDims[d]);
+
 		wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSize(26,nCtrlHeight));
-		m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, _T("0"), wxDefaultPosition, wxSize(40, nCtrlHeight), wxTE_CENTRE);
+		m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, wxString(szDimValue), wxDefaultPosition, wxSize(40, nCtrlHeight), wxTE_CENTRE);
 		wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSize(26,nCtrlHeight));
 
 		m_dimsizer->Add(wxDimDown, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 2);

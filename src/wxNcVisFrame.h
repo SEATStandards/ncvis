@@ -163,6 +163,11 @@ private:
 	NcVar * m_varActive;
 
 	///	<summary>
+	///		Bookmarked dimensions.
+	///	</summary>
+	std::map<std::string, long> m_mapDimBookmarks;
+
+	///	<summary>
 	///		Current auxiliary dimension indices for loaded variable.
 	///	</summary>
 	std::vector<long> m_lVarActiveDims;
