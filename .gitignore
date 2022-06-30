@@ -30,7 +30,9 @@
 *.exe
 *.out
 *.app
-ncvis
+
+# the local bin directory
+bin/*
 
 # vim swp files
 *.swp
