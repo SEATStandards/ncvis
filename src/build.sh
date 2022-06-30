@@ -1,3 +1,21 @@
 #!/bin/bash
 
-clang++ -std=c++11 -I/opt/homebrew/include -I/opt/homebrew/lib/wx/include/osx_cocoa-unicode-3.1 -I/opt/homebrew/include/wx-3.1 -D_FILE_OFFSET_BITS=64 -DWXUSINGDLL -D__WXMAC__ -D__WXOSX__ -D__WXOSX_COCOA__ -L/opt/homebrew/lib   -framework IOKit -framework Carbon -framework Cocoa -framework QuartzCore -framework AudioToolbox -framework System -framework OpenGL -lwx_osx_cocoau_xrc-3.1 -lwx_osx_cocoau_html-3.1 -lwx_osx_cocoau_qa-3.1 -lwx_osx_cocoau_core-3.1 -lwx_baseu_xml-3.1 -lwx_baseu_net-3.1 -lwx_baseu-3.1 -lnetcdf -o ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp schrift.cpp
+# set the C++ compiler
+CXX=g++
+# set the install prefix
+PREFIX="$(pwd -P)/../"
+
+# get the wxwidgets build flags
+WXFLAGS=`wx-config --cxxflags --libs --cppflags`
+
+# get the netCDF build flags
+NCFLAGS=`nc-config --cflags --libs`
+
+# infer the RPATH needed for dynamic linking to wxwidgets
+RPATH=`wx-config --prefix`/lib
+
+# create the install directory
+mkdir -p ${PREFIX}/bin
+
+# build the executable
+$CXX -std=c++11 -fpermissive ${WXFLAGS} ${NCFLAGS} -Wl,-rpath=${RPATH} -o ${PREFIX}/bin/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp schrift.cpp
