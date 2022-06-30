@@ -15,6 +15,7 @@
 #include "CoordTransforms.h"
 #include "GridDataSampler.h"
 #include "ColorMap.h"
+#include "schrift.h"
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -65,6 +66,14 @@ public:
 
 public:
 	///	<summary>
+	///		Format a label bar label from a value.
+	///	</summary>
+	void FormatLabelBarLabel(
+		double dValue,
+		std::string & str
+	);
+
+	///	<summary>
 	///		Generate the image from the image map.
 	///	</summary>
 	void GenerateImageFromImageMap(
@@ -101,6 +110,30 @@ public:
 
 public:
 	///	<summary>
+	///		Draw the specified character at the specified location on the image,
+	///		using font information from m_sft.  The coordinate (x,y) indicates
+	///		the top-left corner of the character.
+	///	</summary>
+	void DrawCharacter(
+		unsigned char c,
+		size_t x,
+		size_t y,
+		int * pwidth = NULL,
+		int * pheight = NULL);
+
+	///	<summary>
+	///		Draw the specified string at the specified location on the image.
+	///		using font information from m_sft.  The coordinate (x,y) indicates
+	///		the top-left corner of the string.
+	///	</summary>
+	void DrawString(
+		const std::string & str,
+		size_t x,
+		size_t y,
+		int * pwidth = NULL,
+		int * pheight = NULL);
+
+	///	<summary>
 	///		Repaint the panel now.
 	///	</summary>
 	void PaintNow();
@@ -115,6 +148,11 @@ private:
 	///		Colormap.
 	///	</summary>
 	ColorMap m_colormap;
+
+	///	<summary>
+	///		Font information for label bar.
+	///	</summary>
+	SFT m_sft;
 
 	///	<summary>
 	///		Longitude region displayed in plot.

@@ -41,9 +41,11 @@ wxNcVisFrame::wxNcVisFrame(
 	const wxString & title,
 	const wxPoint & pos,
 	const wxSize & size,
+	const std::string & strNcVisResourceDir,
 	const std::vector<std::string> & vecFilenames
 ) :
 	wxFrame(NULL, wxID_ANY, title, pos, size),
+	m_strNcVisResourceDir(strNcVisResourceDir),
 	m_wxColormapButton(NULL),
 	m_wxDataTransButton(NULL),
 	m_dimsizer(NULL),

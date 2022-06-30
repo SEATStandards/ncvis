@@ -35,6 +35,7 @@ public:
 		const wxString & title,
 		const wxPoint & pos,
 		const wxSize & size,
+		const std::string & strNcVisResourceDir,
 		const std::vector<std::string> & vecFilenames);
 
 	///	<summary>
@@ -46,6 +47,13 @@ public:
 	///		Open the specified file.
 	///	</summary>
 	void OpenFiles(const std::vector<std::string> & strFilenames);
+
+	///	<summary>
+	///		Get the NcVis resource directory.
+	///	</summary>
+	const std::string & GetResourceDir() const {
+		return m_strNcVisResourceDir;
+	}
 
 	///	<summary>
 	///		Load data from the active variable.
@@ -142,6 +150,11 @@ private:
 	wxImagePanel * m_imagepanel;
 
 private:
+	///	<summary>
+	///		Directory containing ncvis resources.
+	///	</summary>
+	std::string m_strNcVisResourceDir;
+
 	///	<summary>
 	///		Filename being displayed.
 	///	</summary>

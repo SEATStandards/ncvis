@@ -15,6 +15,7 @@
 #include "wxNcVisFrame.h"
 #include "GridDataSampler.h"
 
+#include <cstdlib>
 #include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -49,11 +50,18 @@ bool wxNcVisApp::OnInit() {
 		vecFilenames.push_back(std::string(argv[v]));
 	}
 
+	char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
+	if (szNcVisResourceDir == NULL) {
+		std::cout << "ERROR: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
+		return false;
+	}
+
 	wxNcVisFrame * frame =
 		new wxNcVisFrame(
 			"NcVis",
 			wxPoint(50, 50),
-			wxSize(450, 340),
+			wxSize(842, 462),
+			szNcVisResourceDir,
 			vecFilenames);
 
 	frame->Show( true );
