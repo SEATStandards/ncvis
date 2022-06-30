@@ -12,6 +12,6 @@ conda activate ncvis
 
 # Install
 
-The executable can be built simply by running `sh ./src/build.sh`.  The script
+The executable can be built simply by running `sh ./build.sh`.  The script
 has some configurable flags, such as the install prefix.  By default the
 install is created in `/.../bin/` of the source tree.
