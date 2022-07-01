@@ -61,6 +61,22 @@ public:
 	void LoadData();
 
 	///	<summary>
+	///		Get a pointer to the data.
+	///	</summary>
+	const DataArray1D<float> & GetData() const {
+		return m_data;
+	}
+
+	///	<summary>
+	///		Sample the data.
+	///	</summary>
+	void SampleData(
+		const DataArray1D<double> & dSampleX,
+		const DataArray1D<double> & dSampleY,
+		DataArray1D<int> & imagemap
+	);
+
+	///	<summary>
 	///		Set the bounds displayed.
 	///	</summary>
 	void SetDisplayedBounds(
@@ -194,6 +210,13 @@ private:
 	std::vector<NcFile *> m_vecpncfiles;
 
 	///	<summary>
+	///		Dimension data, stored persistently to avoid having to reload.
+	///	</summary>
+	typedef std::map<size_t, std::vector<double> > DimDataFileIdAndCoordMap;
+	typedef std::map<std::string, DimDataFileIdAndCoordMap> DimDataMap;
+	DimDataMap m_mapDimData;
+
+	///	<summary>
 	///		Unstructured index dimension name.
 	///	</summary>
 	std::string m_strUnstructDimName;
@@ -207,6 +230,11 @@ private:
 	///		Bookmarked dimensions.
 	///	</summary>
 	std::map<std::string, long> m_mapDimBookmarks;
+
+	///	<summary>
+	///		Flag indicating currently loaded data is unstructured.
+	///	</summary>
+	bool m_fIsVarActiveUnstructured;
 
 	///	<summary>
 	///		Current auxiliary dimension indices for loaded variable.

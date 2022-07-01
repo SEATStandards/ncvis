@@ -14,6 +14,7 @@
 
 #include "wxNcVisFrame.h"
 #include "GridDataSampler.h"
+#include "netcdfcpp.h"
 
 #include <cstdlib>
 #include <vector>
@@ -38,8 +39,11 @@ wxIMPLEMENT_APP(wxNcVisApp);
 ////////////////////////////////////////////////////////////////////////////////
 
 bool wxNcVisApp::OnInit() {
-	wxInitAllImageHandlers();
 
+	// Turn off fatal errors in NetCDF
+	NcError error(NcError::silent_nonfatal);
+
+	// Process command line arguments
 	if (argc < 2) {
 		std::cout << "Usage: " << argv[0] << " <filename> [filename] ... " << std::endl;
 		return false;

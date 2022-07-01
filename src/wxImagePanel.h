@@ -17,6 +17,8 @@
 #include "ColorMap.h"
 #include "schrift.h"
 
+class wxNcVisFrame;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
@@ -28,9 +30,7 @@ public:
 	///		Constructor.
 	///	</summary>
 	wxImagePanel(
-		wxFrame * parent,
-		const GridDataSampler * pgds,
-		const DataArray1D<float> * pdata
+		wxNcVisFrame * parent
 	);
 
 public:
@@ -188,6 +188,11 @@ public:
 
 private:
 	///	<summary>
+	///		Pointer to parent frame.
+	///	</summary>
+	wxNcVisFrame * m_pncvisparent;
+
+	///	<summary>
 	///		Colormap.
 	///	</summary>
 	ColorMap m_colormap;
@@ -211,16 +216,6 @@ private:
 	///		Data range displayed in plot.
 	///	</summary>
 	float m_dDataRange[2];
-
-	///	<summary>
-	///		Pointer to the grid data sampler.
-	///	</summary>
-	const GridDataSampler * m_pgds;
-
-	///	<summary>
-	///		Pointer to the data.
-	///	</summary>
-	const DataArray1D<float> * m_pdata;
 
 	///	<summary>
 	///		Array of sample longitudes.

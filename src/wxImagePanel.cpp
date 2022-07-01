@@ -55,17 +55,13 @@ static const int LABELBAR_FONTHEIGHT = 14;
 ////////////////////////////////////////////////////////////////////////////////
 
 wxImagePanel::wxImagePanel(
-	wxFrame * parent,
-	const GridDataSampler * pgds,
-	const DataArray1D<float> * pdata
+	wxNcVisFrame * parent
 ) :
 	wxPanel(parent),
-	m_pgds(pgds),
-	m_pdata(pdata),
 	m_fResize(false)
 {
-	wxNcVisFrame * ncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
-	_ASSERT(ncvisparent != NULL);
+	m_pncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
+	_ASSERT(m_pncvisparent != NULL);
 
 	int nPanelWidth = DISPLAY_WIDTH_DEFAULT + LABELBAR_IMAGEWIDTH + 2*DISPLAY_BORDER;
 	int nPanelHeight = DISPLAY_HEIGHT_DEFAULT + 2*DISPLAY_BORDER;
@@ -81,7 +77,7 @@ wxImagePanel::wxImagePanel(
 	m_sft.yOffset = 0;
 	m_sft.flags = SFT_DOWNWARD_Y;
 
-	std::string strFontPath = ncvisparent->GetResourceDir() + "/Ubuntu-Regular.ttf";
+	std::string strFontPath = m_pncvisparent->GetResourceDir() + "/Ubuntu-Regular.ttf";
 
 	m_sft.font = sft_loadfile(strFontPath.c_str());
 	if (m_sft.font == NULL) {
@@ -127,13 +123,11 @@ void wxImagePanel::OnIdle(wxIdleEvent & evt) {
 		SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
 		// Sample the datafile
-		m_pgds->Sample(m_dSampleLon, m_dSampleLat, m_imagemap);
+		m_imagemap.Allocate(m_dSampleLon.GetRows() * m_dSampleLat.GetRows());
+		m_pncvisparent->SampleData(m_dSampleLon, m_dSampleLat, m_imagemap);
 
 		// Generate the image
-		GenerateImageFromImageMap();
-
-		// Paint
-		PaintNow();
+		GenerateImageFromImageMap(true);
 	}
 }
 
@@ -145,13 +139,12 @@ void wxImagePanel::OnMouseMotion(wxMouseEvent & evt) {
 	pos.x -= DISPLAY_BORDER;
 	pos.y -= DISPLAY_BORDER;
 
-	wxNcVisFrame * ncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
 	if ((pos.x < 0) || (pos.x >= m_dSampleLon.GetRows())) {
-		ncvisparent->SetStatusMessage(_T(""), true);
+		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
 	if ((pos.y < 0) || (pos.y >= m_dSampleLat.GetRows())) {
-		ncvisparent->SetStatusMessage(_T(""), true);
+		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
 
@@ -163,26 +156,22 @@ void wxImagePanel::OnMouseMotion(wxMouseEvent & evt) {
 	if (m_imagemap.GetRows() <= sI) {
 		return;
 	}
-	if (m_pdata == NULL) {
+
+	const DataArray1D<float> & data = m_pncvisparent->GetData();
+	if (m_imagemap[sI] >= data.GetRows()) {
 		return;
 	}
 
 	char szMessage[64];
-	snprintf(szMessage, 64, " (X: %f Y: %f I: %i) %f", dX, dY, m_imagemap[sI], (*m_pdata)[m_imagemap[sI]]);
+	snprintf(szMessage, 64, " (X: %f Y: %f I: %i) %f", dX, dY, m_imagemap[sI], data[m_imagemap[sI]]);
 
-	if (ncvisparent != NULL) {
-		ncvisparent->SetStatusMessage(szMessage, true);
-	}
-
+	m_pncvisparent->SetStatusMessage(szMessage, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::OnMouseLeaveWindow(wxMouseEvent & evt) {
-	wxNcVisFrame * ncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
-	if (ncvisparent != NULL) {
-		ncvisparent->SetStatusMessage(_T(""), true);
-	}
+	m_pncvisparent->SetStatusMessage(_T(""), true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -272,7 +261,6 @@ void wxImagePanel::FormatLabelBarLabel(
 void wxImagePanel::GenerateImageFromImageMap(
 	bool fRedraw
 ) {
-
 	wxSize wxs = this->GetSize();
 
 	size_t sWidth = wxs.GetWidth();
@@ -284,6 +272,8 @@ void wxImagePanel::GenerateImageFromImageMap(
 	m_image.Resize(wxs, wxPoint(0,0), 0, 0, 0);
 
 	unsigned char * imagedata = m_image.GetData();
+
+	const DataArray1D<float> & data = m_pncvisparent->GetData();
 
 	// Draw border
 	for (size_t j = 0; j < sHeight; j++) {
@@ -313,7 +303,7 @@ void wxImagePanel::GenerateImageFromImageMap(
 			size_t ix = i + DISPLAY_BORDER;
 
 			m_colormap.Sample(
-				(*m_pdata)[m_imagemap[s]],
+				data[m_imagemap[s]],
 				m_dDataRange[0],
 				m_dDataRange[1],
 				imagedata[3 * sWidth * jx + 3 * ix + 0],
@@ -453,13 +443,11 @@ void wxImagePanel::SetCoordinateRange(
 		m_dSampleLat[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sImageHeight);
 	}
 
-	wxNcVisFrame * ncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
-	if (ncvisparent != NULL) {
-		ncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
-	}
+	m_pncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
 	if (fRedraw) {
-		m_pgds->Sample(m_dSampleLon, m_dSampleLat, m_imagemap);
+		m_imagemap.Allocate(m_dSampleLon.GetRows() * m_dSampleLat.GetRows());
+		m_pncvisparent->SampleData(m_dSampleLon, m_dSampleLat, m_imagemap);
 
 		GenerateImageFromImageMap(true);
 	}
@@ -477,9 +465,7 @@ void wxImagePanel::SetDataRange(
 	m_dDataRange[0] = dDataMin;
 	m_dDataRange[1] = dDataMax;
 
-	wxNcVisFrame * ncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
-	_ASSERT(ncvisparent != NULL);
-	ncvisparent->SetDisplayedDataRange(dDataMin, dDataMax);
+	m_pncvisparent->SetDisplayedDataRange(dDataMin, dDataMax);
 
 	if (fRedraw) {
 		GenerateImageFromImageMap(true);

@@ -58,10 +58,14 @@ wxNcVisFrame::wxNcVisFrame(
 	m_dimsizer(NULL),
 	m_imagepanel(NULL),
 	m_varActive(NULL),
+	m_fIsVarActiveUnstructured(false),
 	m_sColorMap(0)
 {
-	m_lDisplayedDims[0] = -1;
-	m_lDisplayedDims[1] = -1;
+	m_lDisplayedDims[0] = (-1);
+	m_lDisplayedDims[1] = (-1);
+
+	m_data.Allocate(1);
+	m_data[0] = 0.0;
 
 	OpenFiles(vecFilenames);
 
@@ -126,9 +130,10 @@ void wxNcVisFrame::InitializeWindow() {
 			continue;
 		}
 
-		char szName[16];
-		snprintf(szName, 16, "(%lu) %iD vars", m_mapVarNames[vc].size(), vc);
-		m_vecwxVarSelector[vc] = new wxComboBox(this, ID_VARSELECTOR + vc, szName);
+		m_vecwxVarSelector[vc] =
+			new wxComboBox(this, ID_VARSELECTOR + vc,
+				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc));
+
 		Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
 		m_vecwxVarSelector[vc]->SetEditable(false);
 		for (auto itVar = m_mapVarNames[vc].begin(); itVar != m_mapVarNames[vc].end(); itVar++) {
@@ -169,7 +174,7 @@ void wxNcVisFrame::InitializeWindow() {
 	m_vecwxRange[1]->Enable(false);
 
 	// Image panel
-	m_imagepanel = new wxImagePanel(this, &m_gdsqt, &m_data);
+	m_imagepanel = new wxImagePanel(this);
 
 	//topsizer->Add(infobox, 0, wxALIGN_CENTER, 0);
 	topsizer->Add(ctrlsizer, 0, wxALIGN_CENTER, 0);
@@ -182,7 +187,7 @@ void wxNcVisFrame::InitializeWindow() {
 	CreateStatusBar();
 
 	// Status bar
-	SetStatusText( _T("NcVis 2022.06.27") );
+	SetStatusMessage(_T(""), true);
 
 	SetSizerAndFit(topsizer);
 }
@@ -192,12 +197,13 @@ void wxNcVisFrame::InitializeWindow() {
 void wxNcVisFrame::OpenFiles(
 	const std::vector<std::string> & vecFilenames
 ) {
+	std::cout << "TEST" << std::endl;
+
 	_ASSERT(m_vecpncfiles.size() == 0);
 
 	m_vecFilenames = vecFilenames;
 
 	// Enumerate all variables, recording dimension variables
-	std::set<std::string> setDimVars;
 	for (size_t f = 0; f < vecFilenames.size(); f++) {
 		NcFile * pfile = new NcFile(vecFilenames[f].c_str());
 		if (!pfile->is_valid()) {
@@ -215,7 +221,11 @@ void wxNcVisFrame::OpenFiles(
 			}
 
 			for (long d = 0; d < var->num_dims(); d++) {
-				setDimVars.insert(var->get_dim(d)->name());
+				auto prDimInsert =
+					m_mapDimData.insert(
+						DimDataMap::value_type(
+							var->get_dim(d)->name(),
+							DimDataFileIdAndCoordMap()));
 			}
 
 			auto itVar = m_mapVarNames[sVarDims].find(var->name());
@@ -228,46 +238,79 @@ void wxNcVisFrame::OpenFiles(
 				m_mapVarNames[sVarDims].insert(pr);
 			}
 		}
-	}
 
-	// Identify longitude and latitude
-	auto itLon = m_mapVarNames[1].find("lon");
-	if (itLon == m_mapVarNames[1].end()) {
-		std::cout << "Error: Variable \"lon\" not found in input files" << std::endl;
-		_EXCEPTION();
-	}
-	auto itLat = m_mapVarNames[1].find("lat");
-	if (itLat == m_mapVarNames[1].end()) {
-		std::cout << "Error: Variable \"lat\" not found in input files" << std::endl;
-		_EXCEPTION();
-	}
+		std::cout << f << std::endl;
 
-	// Remove dimension variables
-	for (auto it = setDimVars.begin(); it != setDimVars.end(); it++) {
-		for (size_t sVarDims = 0; sVarDims < 10; sVarDims++) {
-			m_mapVarNames[sVarDims].erase(*it);
+		// Load dimension data into persistent storage
+		for (auto itVarDim = m_mapDimData.begin(); itVarDim != m_mapDimData.end(); itVarDim++) {
+			NcVar * varDim = pfile->get_var(itVarDim->first.c_str());
+			if (varDim != NULL) {
+				if (varDim->num_dims() != 1) {
+					std::cout << "ERROR: NetCDF fileset contains a dimension variable \"" << itVarDim->first
+						<< "\" which has dimension different than 1" << std::endl;
+					_EXCEPTION();
+				}
+
+				Announce("Dimension variable \"%s\" in file %lu (%li values)",
+					itVarDim->first.c_str(), f, varDim->get_dim(0)->size());
+				auto prDimDataInfo =
+					itVarDim->second.insert(
+						DimDataFileIdAndCoordMap::value_type(
+							f, std::vector<double>()));
+
+				prDimDataInfo.first->second.resize(varDim->get_dim(0)->size());
+				varDim->get(&(prDimDataInfo.first->second[0]), varDim->get_dim(0)->size());
+
+				//TODO: Verify dimension data is monotone
+			}
 		}
 	}
 
-	// Get these variables
+	std::cout << "TEST2" << std::endl;
+
+	// Remove dimension variables from the variable name map
+	for (auto it = m_mapDimData.begin(); it != m_mapDimData.end(); it++) {
+		m_mapVarNames[1].erase(it->first);
+	}
+
+	// Check if lon and lat are dimension variables; if they are then they
+	// should not be coordinates on the unstructured mesh.
+	auto itLonDimVar = m_mapDimData.find("lon");
+	auto itLatDimVar = m_mapDimData.find("lat");
+
+	if ((itLonDimVar == m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
+		std::cout << "ERROR: In input file \"lat\" is a dimension variable but \"lon\" is not" << std::endl;
+		_EXCEPTION();
+	}
+	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar == m_mapDimData.end())) {
+		std::cout << "ERROR: In input file \"lat\" is a dimension variable but \"lon\" is not" << std::endl;
+		_EXCEPTION();
+	}
+	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
+		return;
+	}
+
+	// Identify longitude and latitude to determine if unstructured grid is needed
+	auto itLon = m_mapVarNames[1].find("lon");
+	if (itLon == m_mapVarNames[1].end()) {
+		return;
+	}
+	auto itLat = m_mapVarNames[1].find("lat");
+	if (itLat == m_mapVarNames[1].end()) {
+		return;
+	}
+
+	// Check if lat and lon are the same length
 	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var("lon");
 	_ASSERT(varLon != NULL);
 	NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var("lat");
 	_ASSERT(varLat != NULL);
 
-	if (varLon->num_dims() != 1) {
-		std::cout << "Error: Only 1D \"lon\" variable supported" << std::endl;
-		_EXCEPTION();
-	}
-	if (varLat->num_dims() != 1) {
-		std::cout << "Error: Only 1D \"lat\" variable supported" << std::endl;
-		_EXCEPTION();
-	}
 	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
-		std::cout << "Error: Variables \"lon\" and \"lat\" must have the same length" << std::endl;
-		_EXCEPTION();
+		return;
 	}
 
+	// At this point we can assume that the mesh is unstructured
 	m_strUnstructDimName = varLon->get_dim(0)->name();
 
 	DataArray1D<double> dLon(varLon->get_dim(0)->size());
@@ -288,30 +331,204 @@ void wxNcVisFrame::OpenFiles(
 
 void wxNcVisFrame::LoadData() {
 
-	_ASSERT(m_lDisplayedDims[0] < m_varActive->num_dims());
+	// Assume data is not unstructured
+	m_fIsVarActiveUnstructured = false;
 
-	m_varActive->set_cur(&(m_lVarActiveDims[0]));
-	if (m_lDisplayedDims[0] == m_varActive->num_dims()-1) {
-		std::vector<long> vecSize(m_varActive->num_dims(), 1);
-		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
-
-		m_varActive->get(&(m_data[0]), &(vecSize[0]));
-
-	} else {
-		std::vector<long> vecSize(m_varActive->num_dims(), 1);
-		std::vector<long> vecStride(m_varActive->num_dims(), 1);
-		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
-		for (long d = m_lDisplayedDims[0]+1; d < m_varActive->num_dims(); d++) {
-			vecStride[d] = m_varActive->get_dim(d)->size();
-		}
-
-		//for (long d = 0; d < m_lVarActiveDims.size(); d++) {
-		//	std::cout << m_lVarActiveDims[d] << " " << vecSize[d] << " " << vecStride[d] << std::endl;
-		//}
-
-		m_varActive->gets(&(m_data[0]), &(vecSize[0]), &(vecStride[0]));
+	// 0D data
+	if (m_varActive->num_dims() == 0) {
+		m_data.Allocate(1);
+		m_varActive->get(&(m_data[0]), 1);
+		return;
 	}
 
+	// 1D data (including unstructured grid data)
+	if (m_lDisplayedDims[1] == (-1)) {
+		_ASSERT(m_lDisplayedDims[0] < m_varActive->num_dims());
+		_ASSERT(m_varActive->num_dims() == m_lVarActiveDims.size());
+
+		if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
+			m_fIsVarActiveUnstructured = true;
+		}
+
+		// Reallocate space, if necessary
+		std::vector<long> vecSize(m_varActive->num_dims(), 1);
+		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
+
+		if (m_data.GetRows() != vecSize[m_lDisplayedDims[0]]) {
+			m_data.Allocate(vecSize[m_lDisplayedDims[0]]);
+		}
+
+		// Load data
+		m_varActive->set_cur(&(m_lVarActiveDims[0]));
+		if (m_lDisplayedDims[0] == m_varActive->num_dims()-1) {
+			m_varActive->get(&(m_data[0]), &(vecSize[0]));
+
+		} else {
+			std::vector<long> vecStride(m_varActive->num_dims(), 1);
+			for (long d = m_lDisplayedDims[0]+1; d < m_varActive->num_dims(); d++) {
+				vecStride[d] = m_varActive->get_dim(d)->size();
+			}
+
+			m_varActive->gets(&(m_data[0]), &(vecSize[0]), &(vecStride[0]));
+		}
+
+	// 2D data
+	} else {
+		_ASSERT(m_lDisplayedDims[0] != m_lDisplayedDims[1]);
+		_ASSERT(m_lDisplayedDims[0] < m_varActive->num_dims());
+		_ASSERT(m_lDisplayedDims[1] < m_varActive->num_dims());
+		_ASSERT(m_varActive->num_dims() == m_lVarActiveDims.size());
+
+		// Reallocate space, if necessary
+		std::vector<long> vecSize(m_varActive->num_dims(), 1);
+		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
+		vecSize[m_lDisplayedDims[1]] = m_varActive->get_dim(m_lDisplayedDims[1])->size();
+
+		if (m_data.GetRows() != vecSize[m_lDisplayedDims[0]] * vecSize[m_lDisplayedDims[1]]) {
+			m_data.Allocate(vecSize[m_lDisplayedDims[0]] * vecSize[m_lDisplayedDims[1]]);
+		}
+
+		// Load data
+		m_varActive->set_cur(&(m_lVarActiveDims[0]));
+		if ((m_lDisplayedDims[0] == m_varActive->num_dims()-2) &&
+		    (m_lDisplayedDims[1] == m_varActive->num_dims()-1)
+		) {
+			m_varActive->get(&(m_data[0]), &(vecSize[0]));
+
+		} else {
+			std::vector<long> vecStride(m_varActive->num_dims(), 1);
+			for (long d = m_lDisplayedDims[0]+1; d < m_varActive->num_dims(); d++) {
+				vecStride[d] = m_varActive->get_dim(d)->size();
+			}
+
+			m_varActive->gets(&(m_data[0]), &(vecSize[0]), &(vecStride[0]));
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+// TODO: Sometimes you need to resample when variable is changed
+// TODO: Change from DataArray1D to a vector
+void wxNcVisFrame::SampleData(
+	const DataArray1D<double> & dSampleX,
+	const DataArray1D<double> & dSampleY,
+	DataArray1D<int> & imagemap
+) {
+	_ASSERT(imagemap.GetRows() >= dSampleX.GetRows() * dSampleY.GetRows());
+	_ASSERT(m_data.GetRows() > 0);
+
+	// Active variable is an unstructured variable; use sampling
+	if (m_fIsVarActiveUnstructured) {
+		m_gdsqt.Sample(dSampleX, dSampleY, imagemap);
+
+	// No displayed variables
+	} else if ((m_lDisplayedDims[0] == (-1)) && (m_lDisplayedDims[1] == (-1))) {
+		for (size_t s = 0; s < imagemap.GetRows(); s++) {
+			imagemap[s] = 0;
+		}
+
+	// One displayed variable
+	} else if (m_lDisplayedDims[1] == (-1)) {
+		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
+
+		// TODO: Fix
+		for (size_t s = 0; s < imagemap.GetRows(); s++) {
+			imagemap[s] = 0;
+		}
+
+	// Two displayed variables
+	} else {
+		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
+		_ASSERT((m_lDisplayedDims[1] >= 0) && (m_lDisplayedDims[1] < m_varActive->num_dims()));
+
+		std::string strDim0 = m_varActive->get_dim(m_lDisplayedDims[0])->name();
+		std::string strDim1 = m_varActive->get_dim(m_lDisplayedDims[1])->name();
+
+		// Load in coordinate arrays, substituting integer arrays if not present
+		// Note that dimension 0 corresponds to Y and dimension 1 to X
+		std::vector<double> vecDim0Values_temp;
+		std::vector<double> vecDim1Values_temp;
+
+		std::vector<double> * pvecDim0Values;
+		std::vector<double> * pvecDim1Values;
+
+		auto itDim0 = m_mapDimData.find(strDim0);
+		if ((itDim0 != m_mapDimData.end()) && (itDim0->second.size() != 0)) {
+			auto itDimData = itDim0->second.begin();
+			pvecDim0Values = &(itDimData->second);
+		} else {
+			vecDim0Values_temp.resize(m_varActive->get_dim(m_lDisplayedDims[0])->size());
+			for (size_t i = 0; i < m_varActive->get_dim(m_lDisplayedDims[0])->size(); i++) {
+				vecDim0Values_temp[i] = static_cast<double>(i);
+			}
+			pvecDim0Values = &vecDim0Values_temp;
+		}
+		auto itDim1 = m_mapDimData.find(strDim1);
+		if ((itDim1 != m_mapDimData.end()) && (itDim1->second.size() != 0)) {
+			auto itDimData = itDim1->second.begin();
+			pvecDim1Values = &(itDimData->second);
+		} else {
+			vecDim1Values_temp.resize(m_varActive->get_dim(m_lDisplayedDims[1])->size());
+			for (size_t i = 0; i < m_varActive->get_dim(m_lDisplayedDims[1])->size(); i++) {
+				vecDim1Values_temp[i] = static_cast<double>(i);
+			}
+			pvecDim1Values = &vecDim1Values_temp;
+		}
+
+		// Determine which data coordinates correspond to the sample coordinates
+		std::vector<int> veccoordmapX(dSampleX.GetRows(), 0);
+		std::vector<int> veccoordmapY(dSampleY.GetRows(), 0);
+
+		for (size_t s = 0; s < dSampleX.GetRows(); s++) {
+			for (size_t t = 1; t < pvecDim1Values->size()-1; t++) {
+				double dLeft = 0.5 * ((*pvecDim1Values)[t-1] + (*pvecDim1Values)[t]);
+				double dRight = 0.5 * ((*pvecDim1Values)[t] + (*pvecDim1Values)[t+1]);
+				if ((t == 1) && (dSampleX[s] < dLeft)) {
+					veccoordmapX[s] = 0;
+					break;
+				}
+				if ((t == pvecDim1Values->size()-2) && (dSampleX[s] > dRight)) {
+					veccoordmapX[s] = pvecDim1Values->size()-1;
+					break;
+				}
+				if ((dSampleX[s] >= dLeft) && (dSampleX[s] <= dRight)) {
+					veccoordmapX[s] = t;
+					break;
+				}
+			}
+		}
+
+		for (size_t s = 0; s < dSampleY.GetRows(); s++) {
+			for (size_t t = 1; t < pvecDim0Values->size()-1; t++) {
+				double dLeft = 0.5 * ((*pvecDim0Values)[t-1] + (*pvecDim0Values)[t]);
+				double dRight = 0.5 * ((*pvecDim0Values)[t] + (*pvecDim0Values)[t+1]);
+				if ((t == 1) && (dSampleY[s] < dLeft)) {
+					veccoordmapY[s] = 0;
+					break;
+				}
+				if ((t == pvecDim0Values->size()-2) && (dSampleY[s] > dRight)) {
+					veccoordmapY[s] = pvecDim0Values->size()-1;
+					break;
+				}
+				if ((dSampleY[s] >= dLeft) && (dSampleY[s] <= dRight)) {
+					veccoordmapY[s] = t;
+					break;
+				}
+			}
+		}
+
+		// Assemble the image map
+		{
+			size_t s = 0;
+			for (size_t j = 0; j < dSampleY.GetRows(); j++) {
+			for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+				imagemap[s] = veccoordmapY[j] * pvecDim1Values->size() + veccoordmapX[i];
+				s++;
+			}
+			}
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -366,7 +583,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.06.30");
+		wxString strMessageBak = _T("NcVis 2022.07.01");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -395,8 +612,8 @@ void wxNcVisFrame::OnExit(
 void wxNcVisFrame::OnAbout(
 	wxCommandEvent & event
 ) {
-	wxMessageBox( "NetCDF Visualizer\nDeveloped by Paul A. Ullrich\nFunding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project \"SEATS: Simplifying ESM Analysis Through Standards.\"",
-				  "About Hello World", wxOK | wxICON_INFORMATION );
+	wxMessageBox( "Developed by Paul A. Ullrich\n\nFunding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project \"SEATS: Simplifying ESM Analysis Through Standards.\"",
+				  "NetCDF Visualizer (ncvis)", wxOK | wxICON_INFORMATION );
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -451,15 +668,20 @@ void wxNcVisFrame::OnVariableSelected(
 		}
 	}
 
-	// Load the data
+	// Change the active variable
 	std::string strValue = event.GetString().ToStdString();
 
 	int vc = static_cast<int>(event.GetId() - ID_VARSELECTOR);
 	_ASSERT((vc >= 0) && (vc <= 9));
 	auto itVar = m_mapVarNames[vc].find(strValue);
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
+	_ASSERT(m_varActive != NULL);
+
 	m_lVarActiveDims.resize(m_varActive->num_dims());
 
+	// Initialize displayed dimension(s) and active dimensions
+	m_lDisplayedDims[0] = (-1);
+	m_lDisplayedDims[1] = (-1);
 	for (long d = 0; d < m_varActive->num_dims(); d++) {
 		auto itDimCurrent = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
 		if (itDimCurrent != m_mapDimBookmarks.end()) {
@@ -472,11 +694,27 @@ void wxNcVisFrame::OnVariableSelected(
 		}
 	}
 
-	if (m_varActive->get_dim(1)->size() != m_data.GetRows()) {
-		std::cout << "Dimension mismatch between variable and data storage" << std::endl;
-		return;
+	if (m_lDisplayedDims[0] == (-1)) {
+		if (m_varActive->num_dims() == 0) {
+			m_lDisplayedDims[1] = (-1);
+		} else if (m_varActive->num_dims() == 1) {
+			m_lDisplayedDims[0] = 0;
+		} else {
+			m_lDisplayedDims[0] = m_varActive->num_dims()-2;
+			m_lDisplayedDims[1] = m_varActive->num_dims()-1;
+		}
 	}
+
+	// Load the data
 	LoadData();
+
+	// Revert all other combo boxes
+	for (int vc = 0; vc < 10; vc++) {
+		if ((m_vecwxVarSelector[vc] != NULL) && (vc != m_varActive->num_dims())) {
+			m_vecwxVarSelector[vc]->ChangeValue(
+				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc));
+		}
+	}
 
 	// Get the height of the control
 	wxSize wxsizeButton = m_wxColormapButton->GetSize();
@@ -501,7 +739,13 @@ void wxNcVisFrame::OnVariableSelected(
 
 		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
 			wxDimDown->Enable(false);
-			m_vecwxDimIndex[d]->SetValue(_T(":"));
+			if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
+				m_vecwxDimIndex[d]->SetValue(_T("XY"));
+			} else if (d == m_lDisplayedDims[0]) {
+				m_vecwxDimIndex[d]->SetValue(_T("Y"));
+			} else {
+				m_vecwxDimIndex[d]->SetValue(_T("X"));
+			}
 			m_vecwxDimIndex[d]->Enable(false);
 			wxDimUp->Enable(false);
 
@@ -516,6 +760,8 @@ void wxNcVisFrame::OnVariableSelected(
 			wxDimUp->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
 		}
 	}
+
+	// TODO: This code leads to two PAINT messages being sent
 	m_dimsizer->Layout();
 	Layout();
 	
