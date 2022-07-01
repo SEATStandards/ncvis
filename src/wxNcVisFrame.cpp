@@ -7,6 +7,7 @@
 
 #include "wxNcVisFrame.h"
 
+#include "STLStringHelper.h"
 #include <set>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -17,6 +18,9 @@ enum {
 	ID_DATATRANS = 3,
 	ID_BOUNDS = 4,
 	ID_ZOOMOUT = 5,
+	ID_RANGEMIN = 6,
+	ID_RANGEMAX = 7,
+	ID_RANGERESETMINMAX = 8,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
@@ -31,7 +35,10 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_MENU(wxID_ABOUT, wxNcVisFrame::OnAbout)
 	EVT_BUTTON(ID_COLORMAP, wxNcVisFrame::OnColorMapClicked)
 	EVT_BUTTON(ID_DATATRANS, wxNcVisFrame::OnDataTransClicked)
-	EVT_TEXT(ID_BOUNDS, wxNcVisFrame::OnBoundsChanged)
+	EVT_TEXT_ENTER(ID_BOUNDS, wxNcVisFrame::OnBoundsChanged)
+	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
+	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
+	EVT_BUTTON(ID_RANGERESETMINMAX, wxNcVisFrame::OnRangeResetMinMax)
 	EVT_BUTTON(ID_ZOOMOUT, wxNcVisFrame::OnZoomOutClicked)
 wxEND_EVENT_TABLE()
 
@@ -103,7 +110,6 @@ void wxNcVisFrame::InitializeWindow() {
 	ctrlsizer->Add(m_wxColormapButton, 0, wxEXPAND | wxALL, 2);
 	ctrlsizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
 	ctrlsizer->Add(new wxButton(this, -1, _T("Axes")), 0, wxEXPAND | wxALL, 2);
-	ctrlsizer->Add(new wxButton(this, -1, _T("Range")), 0, wxEXPAND | wxALL, 2);
 	ctrlsizer->Add(new wxButton(this, -1, _T("Auto (qt)")), 0, wxEXPAND | wxALL, 2);
 	ctrlsizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
 
@@ -135,11 +141,11 @@ void wxNcVisFrame::InitializeWindow() {
 	m_dimsizer = new wxBoxSizer(wxHORIZONTAL);
 	m_dimsizer->Add(new wxStaticText(this, -1, ""), 0, wxALL, 4);
 
-	// Displayed bounds
+	// Displayed coordinate bounds
 	wxBoxSizer *boundssizer = new wxBoxSizer(wxHORIZONTAL);
 
 	for (int i = 0; i < 4; i++) {
-		m_vecwxImageBounds[i] = new wxTextCtrl(this, ID_BOUNDS, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE);
+		m_vecwxImageBounds[i] = new wxTextCtrl(this, ID_BOUNDS, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE | wxTE_PROCESS_ENTER);
 	}
 	boundssizer->Add(new wxStaticText(this, -1, "X:"), 0, wxEXPAND | wxALL, 4);
 	boundssizer->Add(m_vecwxImageBounds[0], 0, wxEXPAND | wxALL, 2);
@@ -149,6 +155,19 @@ void wxNcVisFrame::InitializeWindow() {
 	boundssizer->Add(m_vecwxImageBounds[3], 0, wxEXPAND | wxALL, 2);
 	boundssizer->Add(new wxButton(this, ID_ZOOMOUT, _T("Zoom Out")), 0, wxEXPAND | wxALL, 2);
 
+	// Displayed color range
+	wxBoxSizer *rangesizer = new wxBoxSizer(wxHORIZONTAL);
+
+	m_vecwxRange[0] = new wxTextCtrl(this, ID_RANGEMIN, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+	m_vecwxRange[1] = new wxTextCtrl(this, ID_RANGEMAX, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+	rangesizer->Add(new wxStaticText(this, -1, "Min:"), 0, wxEXPAND | wxALL, 4);
+	rangesizer->Add(m_vecwxRange[0], 0, wxEXPAND | wxALL, 2);
+	rangesizer->Add(new wxStaticText(this, -1, "Max:"), 0, wxEXPAND | wxALL, 4);
+	rangesizer->Add(m_vecwxRange[1], 0, wxEXPAND | wxALL, 2);
+	rangesizer->Add(new wxButton(this, ID_RANGERESETMINMAX, _T("Reset Min/Max")), 0, wxEXPAND | wxALL, 2);
+	m_vecwxRange[0]->Enable(false);
+	m_vecwxRange[1]->Enable(false);
+
 	// Image panel
 	m_imagepanel = new wxImagePanel(this, &m_gdsqt, &m_data);
 
@@ -157,6 +176,7 @@ void wxNcVisFrame::InitializeWindow() {
 	topsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
 	topsizer->Add(m_dimsizer, 0, wxALIGN_CENTER, 0);
 	topsizer->Add(boundssizer, 0, wxALIGN_CENTER, 0);
+	topsizer->Add(rangesizer, 0, wxALIGN_CENTER, 0);
 	topsizer->Add(m_imagepanel, 1, wxALIGN_CENTER | wxSHAPED);
 
 	CreateStatusBar();
@@ -302,19 +322,41 @@ void wxNcVisFrame::SetDisplayedBounds(
 	double dY0,
 	double dY1
 ) {
-	char szBounds[16];
+	m_vecwxImageBounds[0]->ChangeValue(wxString::Format(wxT("%.7g"), dX0));
+	m_vecwxImageBounds[1]->ChangeValue(wxString::Format(wxT("%.7g"), dX1));
+	m_vecwxImageBounds[2]->ChangeValue(wxString::Format(wxT("%.7g"), dY0));
+	m_vecwxImageBounds[3]->ChangeValue(wxString::Format(wxT("%.7g"), dY1));
+}
 
-	snprintf(szBounds, 16, "%f", dX0);
-	m_vecwxImageBounds[0]->ChangeValue(wxString(szBounds));
+////////////////////////////////////////////////////////////////////////////////
 
-	snprintf(szBounds, 16, "%f", dX1);
-	m_vecwxImageBounds[1]->ChangeValue(wxString(szBounds));
+void wxNcVisFrame::SetDisplayedDataRange(
+	float dDataMin,
+	float dDataMax
+) {
+	m_vecwxRange[0]->ChangeValue(wxString::Format(wxT("%.7g"), dDataMin));
+	m_vecwxRange[1]->ChangeValue(wxString::Format(wxT("%.7g"), dDataMax));
+}
 
-	snprintf(szBounds, 16, "%f", dY0);
-	m_vecwxImageBounds[2]->ChangeValue(wxString(szBounds));
+////////////////////////////////////////////////////////////////////////////////
 
-	snprintf(szBounds, 16, "%f", dY1);
-	m_vecwxImageBounds[3]->ChangeValue(wxString(szBounds));
+void wxNcVisFrame::SetDataRangeByMinMax() {
+	if (m_data.GetRows() == 0) {
+		return;
+	}
+
+	float dDataMin = m_data[0];
+	float dDataMax = m_data[0];
+	for (int i = 1; i < m_data.GetRows(); i++) {
+		if (m_data[i] < dDataMin) {
+			dDataMin = m_data[i];
+		}
+		if (m_data[i] > dDataMax) {
+			dDataMax = m_data[i];
+		}
+	}
+
+	m_imagepanel->SetDataRange(dDataMin, dDataMax, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -324,7 +366,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.06.26");
+		wxString strMessageBak = _T("NcVis 2022.06.30");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -337,7 +379,7 @@ void wxNcVisFrame::SetStatusMessage(
 void wxNcVisFrame::OnHello(
 	wxCommandEvent & event
 ) {
-	wxLogMessage("Hello world from wxWidgets!");
+	wxLogMessage("Hello world!");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -353,7 +395,7 @@ void wxNcVisFrame::OnExit(
 void wxNcVisFrame::OnAbout(
 	wxCommandEvent & event
 ) {
-	wxMessageBox( "This is a wxWidgets' Hello world sample",
+	wxMessageBox( "NetCDF Visualizer\nDeveloped by Paul A. Ullrich\nFunding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project \"SEATS: Simplifying ESM Analysis Through Standards.\"",
 				  "About Hello World", wxOK | wxICON_INFORMATION );
 }
 
@@ -477,22 +519,13 @@ void wxNcVisFrame::OnVariableSelected(
 	m_dimsizer->Layout();
 	Layout();
 	
-	//GetSizer()->Fit(this);
-
 	// Set the data range
-	float dDataMin = m_data[0];
-	float dDataMax = m_data[0];
-	for (int i = 1; i < m_data.GetRows(); i++) {
-		if (m_data[i] > dDataMax) {
-			dDataMax = m_data[i];
-		}
-		if (m_data[i] < dDataMin) {
-			dDataMin = m_data[i];
-		}
-	}
-	m_imagepanel->SetDataRange(dDataMin, dDataMax);
+	m_vecwxRange[0]->Enable(true);
+	m_vecwxRange[1]->Enable(true);
 
-	m_imagepanel->GenerateImageFromImageMap(true);
+	SetDataRangeByMinMax();
+
+	//m_imagepanel->GenerateImageFromImageMap(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -502,6 +535,65 @@ void wxNcVisFrame::OnBoundsChanged(
 ) {
 	std::cout << "BOUNDS CHANGED" << std::endl;
 
+	std::string strX0 = m_vecwxImageBounds[0]->GetValue().ToStdString();
+	std::string strX1 = m_vecwxImageBounds[1]->GetValue().ToStdString();
+	std::string strY0 = m_vecwxImageBounds[2]->GetValue().ToStdString();
+	std::string strY1 = m_vecwxImageBounds[3]->GetValue().ToStdString();
+
+	if (!STLStringHelper::IsFloat(strX0) ||
+	    !STLStringHelper::IsFloat(strX1) ||
+	    !STLStringHelper::IsFloat(strY0) ||
+	    !STLStringHelper::IsFloat(strY1)
+	) {
+		SetDisplayedBounds(
+			m_imagepanel->GetXRangeMin(),
+			m_imagepanel->GetXRangeMax(),
+			m_imagepanel->GetYRangeMin(),
+			m_imagepanel->GetYRangeMax());
+		return;
+	}
+
+	double dX0 = stof(strX0);
+	double dX1 = stof(strX1);
+	double dY0 = stof(strY0);
+	double dY1 = stof(strY1);
+
+	m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnRangeChanged(
+	wxCommandEvent & event
+) {
+	std::cout << "RANGE CHANGED" << std::endl;
+
+	std::string strMin = m_vecwxRange[0]->GetValue().ToStdString();
+	std::string strMax = m_vecwxRange[1]->GetValue().ToStdString();
+
+	if (!STLStringHelper::IsFloat(strMin) || !STLStringHelper::IsFloat(strMax)) {
+		SetDisplayedDataRange(
+			m_imagepanel->GetDataRangeMin(),
+			m_imagepanel->GetDataRangeMax());
+		return;
+	}
+
+	float dRangeMin = stof(strMin);
+	float dRangeMax = stof(strMax);
+
+	if (dRangeMin > dRangeMax) {
+		dRangeMin = dRangeMax;
+	}
+
+	m_imagepanel->SetDataRange(dRangeMin, dRangeMax, true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnRangeResetMinMax(
+	wxCommandEvent & event
+) {
+	SetDataRangeByMinMax();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

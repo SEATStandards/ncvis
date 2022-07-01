@@ -241,6 +241,16 @@ void wxImagePanel::FormatLabelBarLabel(
 	if (dValue == 0.0) {
 		str = "0";
 		return;
+	} else if ((fabs(dValue) >= 1.0e6) || (fabs(dValue) < 1.0e-3)) {
+		snprintf(sz, 16, "%.3g", dValue);
+	} else {
+		snprintf(sz, 16, "%.7g", dValue);
+	}
+
+	/*
+	if (dValue == 0.0) {
+		str = "0";
+		return;
 	}
 	if (fabs(dValue) >= 1000.0) {
 		snprintf(sz, 16, "%1.3e", dValue);
@@ -253,6 +263,7 @@ void wxImagePanel::FormatLabelBarLabel(
 	} else {
 		snprintf(sz, 16, "%1.3e", dValue);
 	}
+	*/
 	str = sz;
 }
 
@@ -465,6 +476,10 @@ void wxImagePanel::SetDataRange(
 
 	m_dDataRange[0] = dDataMin;
 	m_dDataRange[1] = dDataMax;
+
+	wxNcVisFrame * ncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
+	_ASSERT(ncvisparent != NULL);
+	ncvisparent->SetDisplayedDataRange(dDataMin, dDataMax);
 
 	if (fRedraw) {
 		GenerateImageFromImageMap(true);

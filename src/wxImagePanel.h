@@ -110,6 +110,49 @@ public:
 
 public:
 	///	<summary>
+	///		Get the x coordinate range minimum.
+	///	</summary>
+	double GetXRangeMin() const {
+		return m_dXrange[0];
+	}
+
+	///	<summary>
+	///		Get the x coordinate range maximum.
+	///	</summary>
+	double GetXRangeMax() const {
+		return m_dXrange[1];
+	}
+
+	///	<summary>
+	///		Get the x coordinate range minimum.
+	///	</summary>
+	double GetYRangeMin() const {
+		return m_dYrange[0];
+	}
+
+	///	<summary>
+	///		Get the x coordinate range maximum.
+	///	</summary>
+	double GetYRangeMax() const {
+		return m_dYrange[1];
+	}
+
+	///	<summary>
+	///		Get the data range minimum.
+	///	</summary>
+	float GetDataRangeMin() const {
+		return m_dDataRange[0];
+	}
+
+	///	<summary>
+	///		Get the data range maximum.
+	///	</summary>
+	float GetDataRangeMax() const {
+		return m_dDataRange[1];
+	}
+
+public:
+	///	<summary>
 	///		Draw the specified character at the specified location on the image,
 	///		using font information from m_sft.  The coordinate (x,y) indicates
 	///		the top-left corner of the character.

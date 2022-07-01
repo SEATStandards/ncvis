@@ -71,6 +71,19 @@ public:
 	);
 
 	///	<summary>
+	///		Update the data range displayed in the controls.
+	///	</summary>
+	void SetDisplayedDataRange(
+		float dDataMin,
+		float dDataMax
+	);
+
+	///	<summary>
+	///		Set the data range using the min/max of visible data.
+	///	</summary>
+	void SetDataRangeByMinMax();
+
+	///	<summary>
 	///		Set the status message.
 	///	</summary>
 	void SetStatusMessage(
@@ -102,6 +115,16 @@ private:
 	///		Callback triggered when the bounds of the domain have been edited.
 	///	</summary>
 	void OnBoundsChanged(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when the range has been edited.
+	///	</summary>
+	void OnRangeChanged(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when the range reset min/max button is pressed.
+	///	</summary>
+	void OnRangeResetMinMax(wxCommandEvent & event);
 
 	///	<summary>
 	///		Callback triggered when the zoom out button is pressed.
@@ -138,6 +161,11 @@ private:
 	///		Sizer containing variable dimensions.
 	///	</summary>
 	wxBoxSizer * m_dimsizer;
+
+	///	<summary>
+	///		Text controls for indicating displayed bounds.
+	///	</summary>
+	wxTextCtrl * m_vecwxRange[2];
 
 	///	<summary>
 	///		Text controls for indicating dimension indices.
