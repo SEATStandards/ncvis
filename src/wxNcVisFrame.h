@@ -68,6 +68,16 @@ public:
 	}
 
 	///	<summary>
+	///		Map an array of sample coordinates in 1D to indices in
+	///		the dimension variable of the active variable.
+	///	</summary>
+	void MapSampleCoords1DFromActiveVar(
+		const DataArray1D<double> & dSample,
+		long lDim,
+		std::vector<int> & veccoordmap
+	);
+
+	///	<summary>
 	///		Sample the data.
 	///	</summary>
 	void SampleData(

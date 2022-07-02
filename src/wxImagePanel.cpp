@@ -232,6 +232,12 @@ void wxImagePanel::FormatLabelBarLabel(
 		return;
 	} else if ((fabs(dValue) >= 1.0e6) || (fabs(dValue) < 1.0e-3)) {
 		snprintf(sz, 16, "%.3g", dValue);
+	} else if (fabs(dValue) < 0.01) {
+		snprintf(sz, 16, "%.4g", dValue);
+	} else if (fabs(dValue) < 0.1) {
+		snprintf(sz, 16, "%.5g", dValue);
+	} else if (fabs(dValue) < 1.0) {
+		snprintf(sz, 16, "%.6g", dValue);
 	} else {
 		snprintf(sz, 16, "%.7g", dValue);
 	}

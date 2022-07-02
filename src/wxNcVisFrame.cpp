@@ -197,8 +197,6 @@ void wxNcVisFrame::InitializeWindow() {
 void wxNcVisFrame::OpenFiles(
 	const std::vector<std::string> & vecFilenames
 ) {
-	std::cout << "TEST" << std::endl;
-
 	_ASSERT(m_vecpncfiles.size() == 0);
 
 	m_vecFilenames = vecFilenames;
@@ -239,8 +237,6 @@ void wxNcVisFrame::OpenFiles(
 			}
 		}
 
-		std::cout << f << std::endl;
-
 		// Load dimension data into persistent storage
 		for (auto itVarDim = m_mapDimData.begin(); itVarDim != m_mapDimData.end(); itVarDim++) {
 			NcVar * varDim = pfile->get_var(itVarDim->first.c_str());
@@ -258,15 +254,45 @@ void wxNcVisFrame::OpenFiles(
 						DimDataFileIdAndCoordMap::value_type(
 							f, std::vector<double>()));
 
-				prDimDataInfo.first->second.resize(varDim->get_dim(0)->size());
-				varDim->get(&(prDimDataInfo.first->second[0]), varDim->get_dim(0)->size());
+				std::vector<double> & dDimData = prDimDataInfo.first->second;
 
-				//TODO: Verify dimension data is monotone
+				prDimDataInfo.first->second.resize(varDim->get_dim(0)->size());
+				varDim->get(&(dDimData[0]), varDim->get_dim(0)->size());
+
+				// Verify dimension data is monotone
+				if (dDimData.size() > 1) {
+					bool fMonotone = true;
+					bool fIncreasing = (dDimData[1] > dDimData[0]);
+					if (dDimData[1] == dDimData[0]) {
+						fMonotone = false;
+					}
+					if (fMonotone) {
+						if (fIncreasing) {
+							for (size_t i = 2; i < dDimData.size(); i++) {
+								if (dDimData[i] <= dDimData[i-1]) {
+									fMonotone = false;
+									break;
+								}
+							}
+
+						} else {
+							for (size_t i = 2; i < dDimData.size(); i++) {
+								if (dDimData[i] >= dDimData[i-1]) {
+									fMonotone = false;
+									break;
+								}
+							}
+						}
+					}
+					if (!fMonotone) {
+						std::cout << "ERROR: NetCDF fileset contains a dimension variable \""
+							<< itVarDim->first << "\" that is non-monotone" << std::endl;
+						_EXCEPTION();
+					}
+				}
 			}
 		}
 	}
-
-	std::cout << "TEST2" << std::endl;
 
 	// Remove dimension variables from the variable name map
 	for (auto it = m_mapDimData.begin(); it != m_mapDimData.end(); it++) {
@@ -408,6 +434,58 @@ void wxNcVisFrame::LoadData() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
+	const DataArray1D<double> & dSample,
+	long lDim,
+	std::vector<int> & veccoordmap
+) {
+	_ASSERT(lDim < m_varActive->num_dims());
+
+	veccoordmap.resize(dSample.GetRows(), 0);
+
+	std::string strDim = m_varActive->get_dim(lDim)->name();
+
+	// Load in coordinate arrays, substituting integer arrays if not present
+	// Note that dimension 0 corresponds to Y and dimension 1 to X
+	std::vector<double> * pvecDimValues;
+	std::vector<double> vecDimValues_temp;
+
+	auto itDim = m_mapDimData.find(strDim);
+	if ((itDim != m_mapDimData.end()) && (itDim->second.size() != 0)) {
+		auto itDimData = itDim->second.begin();
+		pvecDimValues = &(itDimData->second);
+	} else {
+		vecDimValues_temp.resize(m_varActive->get_dim(lDim)->size());
+		for (size_t i = 0; i < m_varActive->get_dim(lDim)->size(); i++) {
+			vecDimValues_temp[i] = static_cast<double>(i);
+		}
+		pvecDimValues = &vecDimValues_temp;
+	}
+
+	std::cout << dSample.GetRows() << " " << pvecDimValues->size()-1 << std::endl;
+	// Determine which data coordinates correspond to the sample coordinates
+	for (size_t s = 0; s < dSample.GetRows(); s++) {
+		for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
+			double dLeft = 0.5 * ((*pvecDimValues)[t-1] + (*pvecDimValues)[t]);
+			double dRight = 0.5 * ((*pvecDimValues)[t] + (*pvecDimValues)[t+1]);
+			if ((t == 1) && (dSample[s] < dLeft)) {
+				veccoordmap[s] = 0;
+				break;
+			}
+			if ((t == pvecDimValues->size()-2) && (dSample[s] > dRight)) {
+				veccoordmap[s] = pvecDimValues->size()-1;
+				break;
+			}
+			if ((dSample[s] >= dLeft) && (dSample[s] <= dRight)) {
+				veccoordmap[s] = t;
+				break;
+			}
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 // TODO: Sometimes you need to resample when variable is changed
 // TODO: Change from DataArray1D to a vector
 void wxNcVisFrame::SampleData(
@@ -432,9 +510,17 @@ void wxNcVisFrame::SampleData(
 	} else if (m_lDisplayedDims[1] == (-1)) {
 		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
 
-		// TODO: Fix
-		for (size_t s = 0; s < imagemap.GetRows(); s++) {
-			imagemap[s] = 0;
+		std::vector<int> veccoordmapX(dSampleX.GetRows(), 0);
+
+		MapSampleCoords1DFromActiveVar(dSampleX, m_lDisplayedDims[0], veccoordmapX);
+
+		// Assemble the image map
+		size_t s = 0;
+		for (size_t j = 0; j < dSampleY.GetRows(); j++) {
+		for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+			imagemap[s] = veccoordmapX[i];
+			s++;
+		}
 		}
 
 	// Two displayed variables
@@ -442,91 +528,21 @@ void wxNcVisFrame::SampleData(
 		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
 		_ASSERT((m_lDisplayedDims[1] >= 0) && (m_lDisplayedDims[1] < m_varActive->num_dims()));
 
-		std::string strDim0 = m_varActive->get_dim(m_lDisplayedDims[0])->name();
-		std::string strDim1 = m_varActive->get_dim(m_lDisplayedDims[1])->name();
-
-		// Load in coordinate arrays, substituting integer arrays if not present
-		// Note that dimension 0 corresponds to Y and dimension 1 to X
-		std::vector<double> vecDim0Values_temp;
-		std::vector<double> vecDim1Values_temp;
-
-		std::vector<double> * pvecDim0Values;
-		std::vector<double> * pvecDim1Values;
-
-		auto itDim0 = m_mapDimData.find(strDim0);
-		if ((itDim0 != m_mapDimData.end()) && (itDim0->second.size() != 0)) {
-			auto itDimData = itDim0->second.begin();
-			pvecDim0Values = &(itDimData->second);
-		} else {
-			vecDim0Values_temp.resize(m_varActive->get_dim(m_lDisplayedDims[0])->size());
-			for (size_t i = 0; i < m_varActive->get_dim(m_lDisplayedDims[0])->size(); i++) {
-				vecDim0Values_temp[i] = static_cast<double>(i);
-			}
-			pvecDim0Values = &vecDim0Values_temp;
-		}
-		auto itDim1 = m_mapDimData.find(strDim1);
-		if ((itDim1 != m_mapDimData.end()) && (itDim1->second.size() != 0)) {
-			auto itDimData = itDim1->second.begin();
-			pvecDim1Values = &(itDimData->second);
-		} else {
-			vecDim1Values_temp.resize(m_varActive->get_dim(m_lDisplayedDims[1])->size());
-			for (size_t i = 0; i < m_varActive->get_dim(m_lDisplayedDims[1])->size(); i++) {
-				vecDim1Values_temp[i] = static_cast<double>(i);
-			}
-			pvecDim1Values = &vecDim1Values_temp;
-		}
-
-		// Determine which data coordinates correspond to the sample coordinates
 		std::vector<int> veccoordmapX(dSampleX.GetRows(), 0);
 		std::vector<int> veccoordmapY(dSampleY.GetRows(), 0);
 
-		for (size_t s = 0; s < dSampleX.GetRows(); s++) {
-			for (size_t t = 1; t < pvecDim1Values->size()-1; t++) {
-				double dLeft = 0.5 * ((*pvecDim1Values)[t-1] + (*pvecDim1Values)[t]);
-				double dRight = 0.5 * ((*pvecDim1Values)[t] + (*pvecDim1Values)[t+1]);
-				if ((t == 1) && (dSampleX[s] < dLeft)) {
-					veccoordmapX[s] = 0;
-					break;
-				}
-				if ((t == pvecDim1Values->size()-2) && (dSampleX[s] > dRight)) {
-					veccoordmapX[s] = pvecDim1Values->size()-1;
-					break;
-				}
-				if ((dSampleX[s] >= dLeft) && (dSampleX[s] <= dRight)) {
-					veccoordmapX[s] = t;
-					break;
-				}
-			}
-		}
+		MapSampleCoords1DFromActiveVar(dSampleY, m_lDisplayedDims[0], veccoordmapY);
+		MapSampleCoords1DFromActiveVar(dSampleX, m_lDisplayedDims[1], veccoordmapX);
 
-		for (size_t s = 0; s < dSampleY.GetRows(); s++) {
-			for (size_t t = 1; t < pvecDim0Values->size()-1; t++) {
-				double dLeft = 0.5 * ((*pvecDim0Values)[t-1] + (*pvecDim0Values)[t]);
-				double dRight = 0.5 * ((*pvecDim0Values)[t] + (*pvecDim0Values)[t+1]);
-				if ((t == 1) && (dSampleY[s] < dLeft)) {
-					veccoordmapY[s] = 0;
-					break;
-				}
-				if ((t == pvecDim0Values->size()-2) && (dSampleY[s] > dRight)) {
-					veccoordmapY[s] = pvecDim0Values->size()-1;
-					break;
-				}
-				if ((dSampleY[s] >= dLeft) && (dSampleY[s] <= dRight)) {
-					veccoordmapY[s] = t;
-					break;
-				}
-			}
-		}
+		size_t sDimXSize = m_varActive->get_dim(m_lDisplayedDims[1])->size();
 
 		// Assemble the image map
-		{
-			size_t s = 0;
-			for (size_t j = 0; j < dSampleY.GetRows(); j++) {
-			for (size_t i = 0; i < dSampleX.GetRows(); i++) {
-				imagemap[s] = veccoordmapY[j] * pvecDim1Values->size() + veccoordmapX[i];
-				s++;
-			}
-			}
+		size_t s = 0;
+		for (size_t j = 0; j < dSampleY.GetRows(); j++) {
+		for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+			imagemap[s] = veccoordmapY[j] * sDimXSize + veccoordmapX[i];
+			s++;
+		}
 		}
 	}
 }
