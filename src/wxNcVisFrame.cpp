@@ -783,7 +783,7 @@ void wxNcVisFrame::GenerateDimensionControls() {
 	// Get the height of the control
 	wxSize wxsizeButton = m_wxColormapButton->GetSize();
 	int nCtrlHeight = wxsizeButton.GetHeight();
-	wxSize wxSquareSize(nCtrlHeight, nCtrlHeight);
+	wxSize wxSquareSize(nCtrlHeight+2, nCtrlHeight);
 
 	// Add dimension controls
 	m_vecwxImageBounds[0] = NULL;
