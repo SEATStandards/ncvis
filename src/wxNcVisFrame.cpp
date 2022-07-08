@@ -6,7 +6,9 @@
 ///
 
 #include "wxNcVisFrame.h"
+#include <wx/gbsizer.h>
 
+#include "wxNcVisOptsDialog.h"
 #include "STLStringHelper.h"
 #include <set>
 
@@ -21,20 +23,27 @@ enum {
 	ID_RANGEMIN = 6,
 	ID_RANGEMAX = 7,
 	ID_RANGERESETMINMAX = 8,
+	ID_OPTIONS = 9,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
 	ID_DIMUP = 400,
+	ID_DIMRESET = 500,
+	ID_AXESX = 600,
+	ID_AXESY = 700,
+	ID_AXESXY = 800,
 };
 
 ////////////////////////////////////////////////////////////////////////////////
 
 wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
-	EVT_MENU(ID_Hello,   wxNcVisFrame::OnHello)
-	EVT_MENU(wxID_EXIT,  wxNcVisFrame::OnExit)
+	EVT_CLOSE(wxNcVisFrame::OnClose)
+	EVT_MENU(ID_Hello, wxNcVisFrame::OnHello)
+	EVT_MENU(wxID_EXIT, wxNcVisFrame::OnExit)
 	EVT_MENU(wxID_ABOUT, wxNcVisFrame::OnAbout)
 	EVT_BUTTON(ID_COLORMAP, wxNcVisFrame::OnColorMapClicked)
 	EVT_BUTTON(ID_DATATRANS, wxNcVisFrame::OnDataTransClicked)
+	EVT_BUTTON(ID_OPTIONS, wxNcVisFrame::OnOptionsClicked)
 	EVT_TEXT_ENTER(ID_BOUNDS, wxNcVisFrame::OnBoundsChanged)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
@@ -55,14 +64,23 @@ wxNcVisFrame::wxNcVisFrame(
 	m_strNcVisResourceDir(strNcVisResourceDir),
 	m_wxColormapButton(NULL),
 	m_wxDataTransButton(NULL),
-	m_dimsizer(NULL),
+	m_panelsizer(NULL),
+	m_ctrlsizer(NULL),
+	m_rightsizer(NULL),
+	m_vardimsizer(NULL),
 	m_imagepanel(NULL),
+	m_wxNcVisOptsDialog(NULL),
 	m_varActive(NULL),
 	m_fIsVarActiveUnstructured(false),
 	m_sColorMap(0)
 {
 	m_lDisplayedDims[0] = (-1);
 	m_lDisplayedDims[1] = (-1);
+
+	m_vecwxImageBounds[0] = NULL;
+	m_vecwxImageBounds[1] = NULL;
+	m_vecwxImageBounds[2] = NULL;
+	m_vecwxImageBounds[3] = NULL;
 
 	m_data.Allocate(1);
 	m_data[0] = 0.0;
@@ -76,10 +94,20 @@ wxNcVisFrame::wxNcVisFrame(
 
 void wxNcVisFrame::InitializeWindow() {
 
+	// Initialize options dialog
+	m_wxNcVisOptsDialog =
+		new wxNcVisOptsDialog(
+			_T("NcVis Options"),
+			wxPoint(60, 60),
+			wxSize(400, 400),
+			m_strNcVisResourceDir);
+
+	m_wxNcVisOptsDialog->Hide();
+
 	// Create menu
 	wxMenu *menuFile = new wxMenu;
-	menuFile->Append(ID_Hello, "&Hello...\tCtrl-H",
-					 "Help string shown in status bar for this menu item");
+	//menuFile->Append(ID_Hello, "&Hello...\tCtrl-H",
+	//				 "Help string shown in status bar for this menu item");
 	menuFile->AppendSeparator();
 	menuFile->Append(wxID_EXIT);
 
@@ -95,8 +123,21 @@ void wxNcVisFrame::InitializeWindow() {
 	// Create a top-level panel to hold all the contents of the frame
     wxPanel * panel = new wxPanel(this, wxID_ANY);
 
-	// Vertical structure
-	wxSizer * topsizer = new wxBoxSizer(wxVERTICAL);
+	// Master panel sizer (controls on top, image panel on bottom)
+	m_panelsizer = new wxBoxSizer(wxVERTICAL);
+
+	// Variable controls (menu to left, variables to right)
+	m_ctrlsizer = new wxBoxSizer(wxHORIZONTAL);
+
+	// Vertical menu bar
+	wxBoxSizer * menusizer = new wxBoxSizer(wxVERTICAL);
+
+	// Variable controls
+	m_rightsizer = new wxStaticBoxSizer(wxVERTICAL, this);
+	m_rightsizer->SetMinSize(600,220);
+
+	m_ctrlsizer->Add(menusizer, 0);
+	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
 /*
 	// Info box
 	wxTextCtrl *infobox = new wxTextCtrl(this, -1,
@@ -105,27 +146,23 @@ void wxNcVisFrame::InitializeWindow() {
       Maximize();
 */
 	// First line of controls
-	wxBoxSizer *ctrlsizer = new wxBoxSizer(wxHORIZONTAL);
-
 	ColorMapLibrary colormaplib;
 	m_wxColormapButton = new wxButton(this, ID_COLORMAP, colormaplib.GetColorMapName(0));
 	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
 
-	ctrlsizer->Add(m_wxColormapButton, 0, wxEXPAND | wxALL, 2);
-	ctrlsizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
-	ctrlsizer->Add(new wxButton(this, -1, _T("Axes")), 0, wxEXPAND | wxALL, 2);
-	ctrlsizer->Add(new wxButton(this, -1, _T("Auto (qt)")), 0, wxEXPAND | wxALL, 2);
-	ctrlsizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
-
-	ctrlsizer->SetSizeHints(this);
+	menusizer->Add(m_wxColormapButton, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(new wxButton(this, -1, _T("Auto (qt)")), 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
 
 	// Variable selector
 	wxBoxSizer *varsizer = new wxBoxSizer(wxHORIZONTAL);
 
-	for (int vc = 0; vc < 10; vc++) {
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
 		m_vecwxVarSelector[vc] = NULL;
 	}
-	for (int vc = 0; vc < 10; vc++) {
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
 		if (m_mapVarNames[vc].size() == 0) {
 			continue;
 		}
@@ -139,57 +176,27 @@ void wxNcVisFrame::InitializeWindow() {
 		for (auto itVar = m_mapVarNames[vc].begin(); itVar != m_mapVarNames[vc].end(); itVar++) {
 			m_vecwxVarSelector[vc]->Append(wxString(itVar->first));
 		}
-		varsizer->Add(m_vecwxVarSelector[vc], 0, wxEXPAND | wxALL, 2);
+		varsizer->Add(m_vecwxVarSelector[vc], 0, wxEXPAND | wxBOTTOM, 8);
 	}
 
 	// Dimensions
-	m_dimsizer = new wxBoxSizer(wxHORIZONTAL);
-	m_dimsizer->Add(new wxStaticText(this, -1, ""), 0, wxALL, 4);
-
-	// Displayed coordinate bounds
-	wxBoxSizer *boundssizer = new wxBoxSizer(wxHORIZONTAL);
-
-	for (int i = 0; i < 4; i++) {
-		m_vecwxImageBounds[i] = new wxTextCtrl(this, ID_BOUNDS, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-	}
-	boundssizer->Add(new wxStaticText(this, -1, "X:"), 0, wxEXPAND | wxALL, 4);
-	boundssizer->Add(m_vecwxImageBounds[0], 0, wxEXPAND | wxALL, 2);
-	boundssizer->Add(m_vecwxImageBounds[1], 0, wxEXPAND | wxALL, 2);
-	boundssizer->Add(new wxStaticText(this, -1, "Y:"), 0, wxEXPAND | wxALL, 4);
-	boundssizer->Add(m_vecwxImageBounds[2], 0, wxEXPAND | wxALL, 2);
-	boundssizer->Add(m_vecwxImageBounds[3], 0, wxEXPAND | wxALL, 2);
-	boundssizer->Add(new wxButton(this, ID_ZOOMOUT, _T("Zoom Out")), 0, wxEXPAND | wxALL, 2);
-
-	// Displayed color range
-	wxBoxSizer *rangesizer = new wxBoxSizer(wxHORIZONTAL);
-
-	m_vecwxRange[0] = new wxTextCtrl(this, ID_RANGEMIN, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-	m_vecwxRange[1] = new wxTextCtrl(this, ID_RANGEMAX, "", wxDefaultPosition, wxSize(100, 22), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-	rangesizer->Add(new wxStaticText(this, -1, "Min:"), 0, wxEXPAND | wxALL, 4);
-	rangesizer->Add(m_vecwxRange[0], 0, wxEXPAND | wxALL, 2);
-	rangesizer->Add(new wxStaticText(this, -1, "Max:"), 0, wxEXPAND | wxALL, 4);
-	rangesizer->Add(m_vecwxRange[1], 0, wxEXPAND | wxALL, 2);
-	rangesizer->Add(new wxButton(this, ID_RANGERESETMINMAX, _T("Reset Min/Max")), 0, wxEXPAND | wxALL, 2);
-	m_vecwxRange[0]->Enable(false);
-	m_vecwxRange[1]->Enable(false);
+	m_vardimsizer = new wxFlexGridSizer(NcVarMaximumDimensions+1, 4, 0, 0);
 
 	// Image panel
 	m_imagepanel = new wxImagePanel(this);
 
-	//topsizer->Add(infobox, 0, wxALIGN_CENTER, 0);
-	topsizer->Add(ctrlsizer, 0, wxALIGN_CENTER, 0);
-	topsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
-	topsizer->Add(m_dimsizer, 0, wxALIGN_CENTER, 0);
-	topsizer->Add(boundssizer, 0, wxALIGN_CENTER, 0);
-	topsizer->Add(rangesizer, 0, wxALIGN_CENTER, 0);
-	topsizer->Add(m_imagepanel, 1, wxALIGN_CENTER | wxSHAPED);
+	m_rightsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
+	m_rightsizer->Add(m_vardimsizer, 0, wxALIGN_CENTER, 0);
+
+	m_panelsizer->Add(m_imagepanel, 1, wxALIGN_TOP | wxALIGN_CENTER | wxSHAPED);
+	m_panelsizer->Add(m_ctrlsizer, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER);
 
 	CreateStatusBar();
 
 	// Status bar
 	SetStatusMessage(_T(""), true);
 
-	SetSizerAndFit(topsizer);
+	SetSizerAndFit(m_panelsizer);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -213,8 +220,8 @@ void wxNcVisFrame::OpenFiles(
 		for (long v = 0; v < pfile->num_vars(); v++) {
 			NcVar * var = pfile->get_var(v);
 			size_t sVarDims = static_cast<size_t>(var->num_dims());
-			if (var->num_dims() >= 10) {
-				std::cout << "Error: Only variables of dimension <= 10 supported" << std::endl;
+			if (var->num_dims() >= NcVarMaximumDimensions) {
+				std::cout << "Error: Only variables of dimension <= " << NcVarMaximumDimensions << " supported" << std::endl;
 				_EXCEPTION();
 			}
 
@@ -421,12 +428,45 @@ void wxNcVisFrame::LoadData() {
 		) {
 			m_varActive->get(&(m_data[0]), &(vecSize[0]));
 
+		} else if (
+			(m_lDisplayedDims[1] == m_varActive->num_dims()-2) &&
+		    (m_lDisplayedDims[0] == m_varActive->num_dims()-1)
+		) {
+			m_varActive->get(&(m_data[0]), &(vecSize[0]));
+
 		} else {
 			std::vector<long> vecStride(m_varActive->num_dims(), 1);
-			for (long d = m_lDisplayedDims[0]+1; d < m_varActive->num_dims(); d++) {
-				vecStride[d] = m_varActive->get_dim(d)->size();
+
+			long lDisplayedDimsMin = m_lDisplayedDims[0];
+			long lDisplayedDimsMax = m_lDisplayedDims[1];
+			if (lDisplayedDimsMin > lDisplayedDimsMax) {
+				lDisplayedDimsMin = m_lDisplayedDims[1];
+				lDisplayedDimsMax = m_lDisplayedDims[0];
 			}
 
+			for (long d = lDisplayedDimsMin+1; d < m_varActive->num_dims(); d++) {
+				if (d != lDisplayedDimsMax) {
+					vecStride[d] = m_varActive->get_dim(d)->size();
+				}
+			}
+/*
+			std::cout << m_lDisplayedDims[0] << " : " << m_lDisplayedDims[1] << std::endl;
+
+			for (long d = 0; d < vecSize.size(); d++) {
+				std::cout << m_lVarActiveDims[d] << ",";
+			}
+			std::cout << std::endl;
+
+			for (long d = 0; d < vecSize.size(); d++) {
+				std::cout << vecSize[d] << ",";
+			}
+			std::cout << std::endl;
+
+			for (long d = 0; d < vecStride.size(); d++) {
+				std::cout << vecStride[d] << ",";
+			}
+			std::cout << std::endl;
+*/
 			m_varActive->gets(&(m_data[0]), &(vecSize[0]), &(vecStride[0]));
 		}
 	}
@@ -462,7 +502,6 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 		pvecDimValues = &vecDimValues_temp;
 	}
 
-	std::cout << dSample.GetRows() << " " << pvecDimValues->size()-1 << std::endl;
 	// Determine which data coordinates correspond to the sample coordinates
 	for (size_t s = 0; s < dSample.GetRows(); s++) {
 		for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
@@ -482,6 +521,36 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 			}
 		}
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::ConstrainSampleCoordinates(
+	DataArray1D<double> & dSampleX,
+	DataArray1D<double> & dSampleY
+) {
+	if (m_fIsVarActiveUnstructured) {
+		for (int i = 0; i < dSampleX.GetRows(); i++) {
+			dSampleX[i] = LonDegToStandardRange(dSampleX[i]);
+		}
+	}
+
+	if ((m_varActive != NULL) && (m_lDisplayedDims[1] != (-1))) {
+		if (std::string("lon") == m_varActive->get_dim(m_lDisplayedDims[1])->name()) {
+			for (int i = 0; i < dSampleX.GetRows(); i++) {
+				dSampleX[i] = LonDegToStandardRange(dSampleX[i]);
+			}
+		}
+	}
+
+	if ((m_varActive != NULL) && (m_lDisplayedDims[0] != (-1))) {
+		if (std::string("lon") == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
+			for (int i = 0; i < dSampleY.GetRows(); i++) {
+				dSampleY[i] = LonDegToStandardRange(dSampleY[i]);
+			}
+		}
+	}
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -534,15 +603,25 @@ void wxNcVisFrame::SampleData(
 		MapSampleCoords1DFromActiveVar(dSampleY, m_lDisplayedDims[0], veccoordmapY);
 		MapSampleCoords1DFromActiveVar(dSampleX, m_lDisplayedDims[1], veccoordmapX);
 
+		size_t sDimYSize = m_varActive->get_dim(m_lDisplayedDims[0])->size();
 		size_t sDimXSize = m_varActive->get_dim(m_lDisplayedDims[1])->size();
 
 		// Assemble the image map
 		size_t s = 0;
-		for (size_t j = 0; j < dSampleY.GetRows(); j++) {
-		for (size_t i = 0; i < dSampleX.GetRows(); i++) {
-			imagemap[s] = veccoordmapY[j] * sDimXSize + veccoordmapX[i];
-			s++;
-		}
+		if (m_lDisplayedDims[0] < m_lDisplayedDims[1]) {
+			for (size_t j = 0; j < dSampleY.GetRows(); j++) {
+			for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+				imagemap[s] = veccoordmapY[j] * sDimXSize + veccoordmapX[i];
+				s++;
+			}
+			}
+		} else {
+			for (size_t j = 0; j < dSampleY.GetRows(); j++) {
+			for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+				imagemap[s] = veccoordmapX[i] * sDimYSize + veccoordmapY[j];
+				s++;
+			}
+			}
 		}
 	}
 }
@@ -555,10 +634,18 @@ void wxNcVisFrame::SetDisplayedBounds(
 	double dY0,
 	double dY1
 ) {
-	m_vecwxImageBounds[0]->ChangeValue(wxString::Format(wxT("%.7g"), dX0));
-	m_vecwxImageBounds[1]->ChangeValue(wxString::Format(wxT("%.7g"), dX1));
-	m_vecwxImageBounds[2]->ChangeValue(wxString::Format(wxT("%.7g"), dY0));
-	m_vecwxImageBounds[3]->ChangeValue(wxString::Format(wxT("%.7g"), dY1));
+	if (m_vecwxImageBounds[0] != NULL) {
+		m_vecwxImageBounds[0]->ChangeValue(wxString::Format(wxT("%.7g"), dX0));
+	}
+	if (m_vecwxImageBounds[1] != NULL) {
+		m_vecwxImageBounds[1]->ChangeValue(wxString::Format(wxT("%.7g"), dX1));
+	}
+	if (m_vecwxImageBounds[2] != NULL) {
+		m_vecwxImageBounds[2]->ChangeValue(wxString::Format(wxT("%.7g"), dY0));
+	}
+	if (m_vecwxImageBounds[3] != NULL) {
+		m_vecwxImageBounds[3]->ChangeValue(wxString::Format(wxT("%.7g"), dY1));
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -573,7 +660,9 @@ void wxNcVisFrame::SetDisplayedDataRange(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::SetDataRangeByMinMax() {
+void wxNcVisFrame::SetDataRangeByMinMax(
+	bool fRedraw
+) {
 	if (m_data.GetRows() == 0) {
 		return;
 	}
@@ -589,7 +678,7 @@ void wxNcVisFrame::SetDataRangeByMinMax() {
 		}
 	}
 
-	m_imagepanel->SetDataRange(dDataMin, dDataMax, true);
+	m_imagepanel->SetDataRange(dDataMin, dDataMax, fRedraw);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -599,7 +688,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.01");
+		wxString strMessageBak = _T("NcVis 2022.07.07");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -634,6 +723,17 @@ void wxNcVisFrame::OnAbout(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::OnClose(
+	wxCloseEvent & event
+) {
+	if (m_wxNcVisOptsDialog != NULL) {
+		m_wxNcVisOptsDialog->Destroy();
+	}
+	Destroy();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::OnColorMapClicked(
 	wxCommandEvent & event
 ) {
@@ -664,6 +764,176 @@ void wxNcVisFrame::OnDataTransClicked(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::OnOptionsClicked(
+	wxCommandEvent & event
+) {
+
+	if (m_wxNcVisOptsDialog == NULL) {
+		return;
+	}
+
+	m_wxNcVisOptsDialog->Show(true);
+	m_wxNcVisOptsDialog->SetFocus();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::GenerateDimensionControls() {
+
+	// Get the height of the control
+	wxSize wxsizeButton = m_wxColormapButton->GetSize();
+	int nCtrlHeight = wxsizeButton.GetHeight();
+	wxSize wxSquareSize(nCtrlHeight, nCtrlHeight);
+
+	// Add dimension controls
+	m_vecwxImageBounds[0] = NULL;
+	m_vecwxImageBounds[1] = NULL;
+	m_vecwxImageBounds[2] = NULL;
+	m_vecwxImageBounds[3] = NULL;
+	m_vecwxRange[0] = NULL;
+	m_vecwxRange[1] = NULL;
+
+	m_vardimsizer->Clear(true);
+
+	for (long d = 0; d < m_varActive->num_dims(); d++) {
+		wxString strDim = wxString(m_varActive->get_dim(d)->name()) + ":";
+
+		wxBoxSizer * vardimboxsizerxy = new wxBoxSizer(wxHORIZONTAL);
+		m_vecwxActiveAxes[d][0] = new wxButton(this, ID_AXESX + d, _T("X"), wxDefaultPosition, wxSquareSize);
+		m_vecwxActiveAxes[d][1] = new wxButton(this, ID_AXESY + d, _T("Y"), wxDefaultPosition, wxSquareSize);
+		m_vecwxActiveAxes[d][2] = new wxButton(this, ID_AXESXY + d, _T("XY"), wxDefaultPosition, wxSize(2*nCtrlHeight,nCtrlHeight));
+
+		m_vecwxActiveAxes[d][0]->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnAxesButtonClicked, this);
+		m_vecwxActiveAxes[d][1]->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnAxesButtonClicked, this);
+		m_vecwxActiveAxes[d][2]->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnAxesButtonClicked, this);
+
+		vardimboxsizerxy->Add(m_vecwxActiveAxes[d][0], 0, wxEXPAND | wxALL, 2);
+		vardimboxsizerxy->Add(m_vecwxActiveAxes[d][1], 0, wxEXPAND | wxALL, 2);
+		vardimboxsizerxy->Add(m_vecwxActiveAxes[d][2], 0, wxEXPAND | wxALL, 2);
+		m_vardimsizer->Add(vardimboxsizerxy, 0, wxEXPAND | wxALL, 2);
+
+		m_vardimsizer->Add(new wxStaticText(this, -1, wxString(m_varActive->get_dim(d)->name()), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxALL, 4);
+
+		if (m_strUnstructDimName != m_varActive->get_dim(d)->name()) {
+			m_vecwxActiveAxes[d][2]->Enable(false);
+		}
+
+		if (d == m_lDisplayedDims[0]) {
+
+			// Dimension is the XY coordinate on the plot (unstructured)
+			if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
+				m_vecwxActiveAxes[d][2]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">XY</span>"));
+
+				wxBoxSizer * vardimboxsizerminmax = new wxBoxSizer(wxHORIZONTAL);
+				m_vecwxImageBounds[0] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[1] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[2] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[3] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				vardimboxsizerminmax->Add(m_vecwxImageBounds[0], 1, wxEXPAND | wxALL, 0);
+				vardimboxsizerminmax->Add(m_vecwxImageBounds[1], 1, wxEXPAND | wxALL, 0);
+				vardimboxsizerminmax->Add(m_vecwxImageBounds[2], 1, wxEXPAND | wxALL, 0);
+				vardimboxsizerminmax->Add(m_vecwxImageBounds[3], 1, wxEXPAND | wxALL, 0);
+
+				m_vardimsizer->Add(vardimboxsizerminmax, 0, wxEXPAND | wxALL, 2);
+
+				m_vardimsizer->Add(new wxButton(this, ID_ZOOMOUT, _T("Reset"), wxDefaultPosition, wxDefaultSize), 0, wxEXPAND | wxALL, 0);
+
+			// Dimension is the Y coordinate on the plot
+			} else {
+				m_vecwxActiveAxes[d][1]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">Y</span>"));
+
+				wxBoxSizer * vardimboxsizerminmax = new wxBoxSizer(wxHORIZONTAL);
+				m_vecwxImageBounds[2] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[3] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				vardimboxsizerminmax->Add(m_vecwxImageBounds[2], 1, wxEXPAND | wxALL, 0);
+				vardimboxsizerminmax->Add(m_vecwxImageBounds[3], 1, wxEXPAND | wxALL, 0);
+
+				m_vardimsizer->Add(vardimboxsizerminmax, 0, wxEXPAND | wxALL, 2);
+
+				wxButton * wxDimReset = new wxButton(this, ID_DIMRESET + d, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight));
+				wxDimReset->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+				m_vardimsizer->Add(wxDimReset, 0, wxEXPAND | wxALL, 0);
+			}
+
+		// Dimension is the X coordinate on the plot
+		} else if (d == m_lDisplayedDims[1]) {
+			m_vecwxActiveAxes[d][0]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">X</span>"));
+
+			wxBoxSizer * vardimboxsizerminmax = new wxBoxSizer(wxHORIZONTAL);
+			m_vecwxImageBounds[0] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			m_vecwxImageBounds[1] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			vardimboxsizerminmax->Add(m_vecwxImageBounds[0], 1, wxEXPAND | wxALL, 0);
+			vardimboxsizerminmax->Add(m_vecwxImageBounds[1], 1, wxEXPAND | wxALL, 0);
+
+			m_vardimsizer->Add(vardimboxsizerminmax, 0, wxEXPAND | wxALL, 2);
+
+			wxButton * wxDimReset = new wxButton(this, ID_DIMRESET + d, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight));
+			wxDimReset->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+			m_vardimsizer->Add(wxDimReset, 0, wxEXPAND | wxALL, 0);
+
+		// Dimension is freely specified
+		} else {
+			wxBoxSizer * vardimboxsizer = new wxBoxSizer(wxHORIZONTAL);
+			wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSquareSize);
+			m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, wxString::Format("%li", m_lVarActiveDims[d]), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSquareSize);
+
+			vardimboxsizer->Add(wxDimDown, 0, wxEXPAND | wxRIGHT, 1);
+			vardimboxsizer->Add(m_vecwxDimIndex[d], 1, wxEXPAND | wxRIGHT, 1);
+			vardimboxsizer->Add(wxDimUp, 0, wxEXPAND | wxRIGHT, 1);
+			vardimboxsizer->Add(new wxButton(this, -1, _T(">"), wxDefaultPosition, wxSquareSize), 0, wxEXPAND | wxALL, 0);
+
+			wxDimDown->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+			m_vecwxDimIndex[d]->Bind(wxEVT_TEXT, &wxNcVisFrame::OnDimButtonClicked, this);
+			wxDimUp->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+
+			m_vardimsizer->Add(vardimboxsizer, 0, wxEXPAND | wxALL, 2);
+
+			wxButton * wxDimReset = new wxButton(this, ID_DIMRESET + d, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight));
+			wxDimReset->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+			m_vardimsizer->Add(wxDimReset, 0, wxEXPAND | wxALL, 0);
+		}
+	}
+
+	// Data range controls
+	m_vecwxRange[0] = new wxTextCtrl(this, ID_RANGEMIN, _T(""), wxDefaultPosition, wxSize(200,nCtrlHeight+4), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+	m_vecwxRange[1] = new wxTextCtrl(this, ID_RANGEMAX, _T(""), wxDefaultPosition, wxSize(200,nCtrlHeight+4), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+
+	wxBoxSizer * varboundsminmax = new wxBoxSizer(wxHORIZONTAL);
+	varboundsminmax->Add(m_vecwxRange[0], 1, wxEXPAND | wxALL, 0);
+	varboundsminmax->Add(m_vecwxRange[1], 1, wxEXPAND | wxALL, 0);
+
+	m_vardimsizer->Add(new wxStaticText(this, -1, _T("")), 0, wxEXPAND | wxALL, 0);
+	m_vardimsizer->Add(new wxStaticText(this, -1, _T("range"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxALL, 4);
+	m_vardimsizer->Add(varboundsminmax, 0, wxEXPAND | wxALL, 2);
+	m_vardimsizer->Add(new wxButton(this, ID_RANGERESETMINMAX, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight)), 0, wxEXPAND | wxALL, 0);
+	//m_vardimsizer->Add(m_vecwxRange[1], 0, wxEXPAND | wxALL, 2);
+
+	m_vecwxRange[0]->Enable(true);
+	m_vecwxRange[1]->Enable(true);
+
+	SetDataRangeByMinMax(false);
+
+	//SetSizerAndFit(m_panelsizer);
+
+	//std::cout << m_panelsizer->GetMinSize().GetHeight() << std::endl;
+
+	if (m_panelsizer->GetMinSize().GetHeight() > m_panelsizer->GetSize().GetHeight()) {
+		SetSizerAndFit(m_panelsizer);
+	}
+
+	// Layout widgets
+	m_vardimsizer->Layout();
+	m_rightsizer->Layout();
+	m_ctrlsizer->Layout();
+	m_panelsizer->Layout();
+	//Layout();
+
+	//std::cout << m_panelsizer->GetSize().GetHeight() << std::endl;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::OnVariableSelected(
 	wxCommandEvent & event
 ) {
@@ -688,7 +958,7 @@ void wxNcVisFrame::OnVariableSelected(
 	std::string strValue = event.GetString().ToStdString();
 
 	int vc = static_cast<int>(event.GetId() - ID_VARSELECTOR);
-	_ASSERT((vc >= 0) && (vc <= 9));
+	_ASSERT((vc >= 0) && (vc < NcVarMaximumDimensions));
 	auto itVar = m_mapVarNames[vc].find(strValue);
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
 	_ASSERT(m_varActive != NULL);
@@ -725,69 +995,15 @@ void wxNcVisFrame::OnVariableSelected(
 	LoadData();
 
 	// Revert all other combo boxes
-	for (int vc = 0; vc < 10; vc++) {
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
 		if ((m_vecwxVarSelector[vc] != NULL) && (vc != m_varActive->num_dims())) {
 			m_vecwxVarSelector[vc]->ChangeValue(
 				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc));
 		}
 	}
 
-	// Get the height of the control
-	wxSize wxsizeButton = m_wxColormapButton->GetSize();
-	int nCtrlHeight = wxsizeButton.GetHeight();
-
-	// Add dimension controls
-	m_dimsizer->Clear(true);
-	for (long d = 0; d < m_varActive->num_dims(); d++) {
-		wxString strDim = wxString(m_varActive->get_dim(d)->name()) + ":";
-		m_dimsizer->Add(new wxStaticText(this, -1, strDim), 0, wxEXPAND | wxALL, 4);
-
-		char szDimValue[8];
-		snprintf(szDimValue, 8, "%li", m_lVarActiveDims[d]);
-
-		wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSize(26,nCtrlHeight));
-		m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, wxString(szDimValue), wxDefaultPosition, wxSize(40, nCtrlHeight), wxTE_CENTRE);
-		wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSize(26,nCtrlHeight));
-
-		m_dimsizer->Add(wxDimDown, 0, wxEXPAND | wxLEFT | wxTOP | wxBOTTOM, 2);
-		m_dimsizer->Add(m_vecwxDimIndex[d], 0, wxEXPAND | wxTOP | wxBOTTOM, 2);
-		m_dimsizer->Add(wxDimUp, 0, wxEXPAND | wxRIGHT | wxTOP | wxBOTTOM, 2);
-
-		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
-			wxDimDown->Enable(false);
-			if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
-				m_vecwxDimIndex[d]->SetValue(_T("XY"));
-			} else if (d == m_lDisplayedDims[0]) {
-				m_vecwxDimIndex[d]->SetValue(_T("Y"));
-			} else {
-				m_vecwxDimIndex[d]->SetValue(_T("X"));
-			}
-			m_vecwxDimIndex[d]->Enable(false);
-			wxDimUp->Enable(false);
-
-		} else if (m_varActive->get_dim(d)->size() == 1) {
-			wxDimDown->Enable(false);
-			m_vecwxDimIndex[d]->Enable(false);
-			wxDimUp->Enable(false);
-
-		} else {
-			wxDimDown->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
-			m_vecwxDimIndex[d]->Bind(wxEVT_TEXT, &wxNcVisFrame::OnDimButtonClicked, this);
-			wxDimUp->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
-		}
-	}
-
-	// TODO: This code leads to two PAINT messages being sent
-	m_dimsizer->Layout();
-	Layout();
-	
-	// Set the data range
-	m_vecwxRange[0]->Enable(true);
-	m_vecwxRange[1]->Enable(true);
-
-	SetDataRangeByMinMax();
-
-	//m_imagepanel->GenerateImageFromImageMap(true);
+	// Generate dimension controls
+	GenerateDimensionControls();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -796,6 +1012,11 @@ void wxNcVisFrame::OnBoundsChanged(
 	wxCommandEvent & event
 ) {
 	std::cout << "BOUNDS CHANGED" << std::endl;
+
+	_ASSERT(m_vecwxImageBounds[0] != NULL);
+	_ASSERT(m_vecwxImageBounds[1] != NULL);
+	_ASSERT(m_vecwxImageBounds[2] != NULL);
+	_ASSERT(m_vecwxImageBounds[3] != NULL);
 
 	std::string strX0 = m_vecwxImageBounds[0]->GetValue().ToStdString();
 	std::string strX1 = m_vecwxImageBounds[1]->GetValue().ToStdString();
@@ -855,7 +1076,7 @@ void wxNcVisFrame::OnRangeChanged(
 void wxNcVisFrame::OnRangeResetMinMax(
 	wxCommandEvent & event
 ) {
-	SetDataRangeByMinMax();
+	SetDataRangeByMinMax(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -871,47 +1092,135 @@ void wxNcVisFrame::OnZoomOutClicked(
 void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 	std::cout << "DIM BUTTON CLICKED" << std::endl;
 
-	bool fIncrement = false;
+	_ASSERT(m_varActive != NULL);
+
+	enum {
+		DIMCOMMAND_DECREMENT,
+		DIMCOMMAND_INCREMENT,
+		DIMCOMMAND_RESET
+	} eDimCommand;
+
+	bool fResetBounds = false;
 	long d = static_cast<long>(event.GetId());
 	if ((d >= ID_DIMDOWN) && (d < ID_DIMDOWN + 100)) {
+		eDimCommand = DIMCOMMAND_DECREMENT;
 		d -= ID_DIMDOWN;
 	} else if ((d >= ID_DIMUP) && (d < ID_DIMUP + 100)) {
+		eDimCommand = DIMCOMMAND_INCREMENT;
 		d -= ID_DIMUP;
-		fIncrement = true;
+	} else if ((d >= ID_DIMRESET) && (d < ID_DIMRESET + 100)) {
+		eDimCommand = DIMCOMMAND_RESET;
+		d -= ID_DIMRESET;
+
+		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
+			fResetBounds = true;
+		}
+	} else if ((d >= ID_DIMEDIT) && (d < ID_DIMEDIT + 100)) {
+		d -= ID_DIMEDIT;
+
+		std::string strDimValue = m_vecwxDimIndex[d]->GetValue().ToStdString();
+		if (STLStringHelper::IsInteger(strDimValue)) {
+			m_lVarActiveDims[d] = std::stoi(strDimValue);
+			if (m_lVarActiveDims[d] < 0) {
+				m_lVarActiveDims[d] = 0;
+			} else if (m_lVarActiveDims[d] >= m_varActive->get_dim(d)->size()) {
+				m_lVarActiveDims[d] = m_varActive->get_dim(d)->size()-1;
+			}
+		}
+
 	} else {
 		_EXCEPTION();
 	}
 
-	if (m_varActive == NULL) {
-		_EXCEPTION();
-	}
 	if ((d < 0) || (d >= m_lVarActiveDims.size())) {
 		_EXCEPTION();
 	}
 
 	long lDimSize = m_varActive->get_dim(d)->size();
 
-	if (fIncrement) {
-		if (m_lVarActiveDims[d] == lDimSize-1) {
-			m_lVarActiveDims[d] = 0;
-		} else {
-			m_lVarActiveDims[d]++;
-		}
-	} else {
+	if (eDimCommand == DIMCOMMAND_DECREMENT) {
 		if (m_lVarActiveDims[d] == 0) {
 			m_lVarActiveDims[d] = lDimSize-1;
 		} else {
 			m_lVarActiveDims[d]--;
 		}
+
+	} else if (eDimCommand == DIMCOMMAND_INCREMENT) {
+		if (m_lVarActiveDims[d] == lDimSize-1) {
+			m_lVarActiveDims[d] = 0;
+		} else {
+			m_lVarActiveDims[d]++;
+		}
+
+	} else if (eDimCommand == DIMCOMMAND_RESET) {
+		if ((d != m_lDisplayedDims[0]) && (d != m_lDisplayedDims[1])) {
+			m_lVarActiveDims[d] = 0;
+		}
 	}
 
-	char szText[16];
-	snprintf(szText, 16, "%li", m_lVarActiveDims[d]);
-	m_vecwxDimIndex[d]->ChangeValue(wxString(szText));
+	if (fResetBounds) {
+		m_imagepanel->SetCoordinateRange(0.0, 360.0, -90.0, 90.0, true);
+		
+	} else {
+		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+	}
 
 	LoadData();
 
 	m_imagepanel->GenerateImageFromImageMap(true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
+	std::cout << "AXES BUTTON CLICKED" << std::endl;
+
+	enum {
+		AXESCOMMAND_X,
+		AXESCOMMAND_Y,
+		AXESCOMMAND_XY
+	} eAxesCommand;
+
+	long d = static_cast<long>(event.GetId());
+	if ((d >= ID_AXESX) && (d < ID_AXESX + 100)) {
+		eAxesCommand = AXESCOMMAND_X;
+		d -= ID_AXESX;
+		if (m_lDisplayedDims[1] == d) {
+			return;
+		}
+		if (m_lDisplayedDims[0] == d) {
+			m_lDisplayedDims[0] = m_lDisplayedDims[1];
+		}
+		m_lDisplayedDims[1] = d;
+		m_lVarActiveDims[d] = 0;
+
+	} else if ((d >= ID_AXESY) && (d < ID_AXESY + 100)) {
+		eAxesCommand = AXESCOMMAND_Y;
+		d -= ID_AXESY;
+		if (m_lDisplayedDims[0] == d) {
+			return;
+		}
+		if (m_lDisplayedDims[1] == d) {
+			m_lDisplayedDims[1] = m_lDisplayedDims[0];
+		}
+		m_lDisplayedDims[0] = d;
+		m_lVarActiveDims[d] = 0;
+
+	} else if ((d >= ID_AXESXY) && (d < ID_AXESXY + 100)) {
+		eAxesCommand = AXESCOMMAND_XY;
+		d -= ID_AXESXY;
+		if (m_lDisplayedDims[0] == d) {
+			return;
+		}
+		m_lDisplayedDims[0] = d;
+		m_lDisplayedDims[1] = (-1);
+	} else {
+		_EXCEPTION();
+	}
+
+	LoadData();
+
+	GenerateDimensionControls();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

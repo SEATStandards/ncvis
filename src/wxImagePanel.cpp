@@ -123,8 +123,8 @@ void wxImagePanel::OnIdle(wxIdleEvent & evt) {
 		SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
 		// Sample the datafile
-		m_imagemap.Allocate(m_dSampleLon.GetRows() * m_dSampleLat.GetRows());
-		m_pncvisparent->SampleData(m_dSampleLon, m_dSampleLat, m_imagemap);
+		m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
+		m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
 
 		// Generate the image
 		GenerateImageFromImageMap(true);
@@ -139,19 +139,19 @@ void wxImagePanel::OnMouseMotion(wxMouseEvent & evt) {
 	pos.x -= DISPLAY_BORDER;
 	pos.y -= DISPLAY_BORDER;
 
-	if ((pos.x < 0) || (pos.x >= m_dSampleLon.GetRows())) {
+	if ((pos.x < 0) || (pos.x >= m_dSampleX.GetRows())) {
 		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
-	if ((pos.y < 0) || (pos.y >= m_dSampleLat.GetRows())) {
+	if ((pos.y < 0) || (pos.y >= m_dSampleY.GetRows())) {
 		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
 
-	double dX = m_dSampleLon[pos.x];
-	double dY = m_dSampleLat[m_dSampleLat.GetRows() - pos.y - 1];
+	double dX = m_dSampleX[pos.x];
+	double dY = m_dSampleY[m_dSampleY.GetRows() - pos.y - 1];
 
-	size_t sI = static_cast<size_t>((m_dSampleLat.GetRows() - pos.y - 1) * m_dSampleLon.GetRows() + pos.x);
+	size_t sI = static_cast<size_t>((m_dSampleY.GetRows() - pos.y - 1) * m_dSampleX.GetRows() + pos.x);
 
 	if (m_imagemap.GetRows() <= sI) {
 		return;
@@ -184,15 +184,15 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 	pos.x -= DISPLAY_BORDER;
 	pos.y -= DISPLAY_BORDER;
 
-	if ((pos.x < 0) || (pos.x >= m_dSampleLon.GetRows())) {
+	if ((pos.x < 0) || (pos.x >= m_dSampleX.GetRows())) {
 		return;
 	}
-	if ((pos.y < 0) || (pos.y >= m_dSampleLat.GetRows())) {
+	if ((pos.y < 0) || (pos.y >= m_dSampleY.GetRows())) {
 		return;
 	}
 
-	double dX = m_dSampleLon[pos.x];
-	double dY = m_dSampleLat[m_dSampleLat.GetRows() - pos.y - 1];
+	double dX = m_dSampleX[pos.x];
+	double dY = m_dSampleY[m_dSampleY.GetRows() - pos.y - 1];
 
 	double dXdelta = m_dXrange[1] - m_dXrange[0];
 	double dYdelta = m_dYrange[1] - m_dYrange[0];
@@ -438,22 +438,23 @@ void wxImagePanel::SetCoordinateRange(
 	m_dYrange[0] = dY0;
 	m_dYrange[1] = dY1;
 
-	m_dSampleLon.Allocate(sImageWidth);
+	m_dSampleX.Allocate(sImageWidth);
 	for (size_t i = 0; i < sImageWidth; i++) {
-		m_dSampleLon[i] = m_dXrange[0] + (m_dXrange[1] - m_dXrange[0]) * (static_cast<double>(i) + 0.5) / static_cast<double>(sImageWidth);
-		m_dSampleLon[i] = LonDegToStandardRange(m_dSampleLon[i]);
+		m_dSampleX[i] = m_dXrange[0] + (m_dXrange[1] - m_dXrange[0]) * (static_cast<double>(i) + 0.5) / static_cast<double>(sImageWidth);
 	}
 
-	m_dSampleLat.Allocate(sImageHeight);
+	m_dSampleY.Allocate(sImageHeight);
 	for (size_t j = 0; j < sImageHeight; j++) {
-		m_dSampleLat[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sImageHeight);
+		m_dSampleY[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sImageHeight);
 	}
+
+	m_pncvisparent->ConstrainSampleCoordinates(m_dSampleX, m_dSampleY);
 
 	m_pncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
 	if (fRedraw) {
-		m_imagemap.Allocate(m_dSampleLon.GetRows() * m_dSampleLat.GetRows());
-		m_pncvisparent->SampleData(m_dSampleLon, m_dSampleLat, m_imagemap);
+		m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
+		m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
 
 		GenerateImageFromImageMap(true);
 	}

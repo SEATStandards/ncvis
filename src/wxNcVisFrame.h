@@ -22,10 +22,21 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+class wxNcVisOptsDialog;
+class wxGridBagSizer;
+
+////////////////////////////////////////////////////////////////////////////////
+
 ///	<summary>
 ///		A class that manages the NcVis app frame.
 ///	</summary>
 class wxNcVisFrame : public wxFrame {
+
+public:
+	///	<summary>
+	///		Maximum number of dimensions per variable.
+	///	</summary>
+	static const int NcVarMaximumDimensions = 5;
 
 public:
 	///	<summary>
@@ -36,7 +47,8 @@ public:
 		const wxPoint & pos,
 		const wxSize & size,
 		const std::string & strNcVisResourceDir,
-		const std::vector<std::string> & vecFilenames);
+		const std::vector<std::string> & vecFilenames
+	);
 
 	///	<summary>
 	///		Initialize the wxNcVisFrame.
@@ -78,6 +90,14 @@ public:
 	);
 
 	///	<summary>
+	///		Constrain sample coordinates (e.g., if periodicity is present).
+	///	</summary>
+	void ConstrainSampleCoordinates(
+		DataArray1D<double> & dSampleX,
+		DataArray1D<double> & dSampleY
+	);
+
+	///	<summary>
 	///		Sample the data.
 	///	</summary>
 	void SampleData(
@@ -107,7 +127,9 @@ public:
 	///	<summary>
 	///		Set the data range using the min/max of visible data.
 	///	</summary>
-	void SetDataRangeByMinMax();
+	void SetDataRangeByMinMax(
+		bool fRedraw = false
+	);
 
 	///	<summary>
 	///		Set the status message.
@@ -123,6 +145,11 @@ private:
 	void OnAbout(wxCommandEvent & event);
 
 	///	<summary>
+	///		Callback triggered when the window is closed.
+	///	</summary>
+	void OnClose(wxCloseEvent & event);
+
+	///	<summary>
 	///		Callback triggered when the color map button is pressed.
 	///	</summary>
 	void OnColorMapClicked(wxCommandEvent & event);
@@ -131,6 +158,16 @@ private:
 	///		Callback triggered when the data transform button is pressed.
 	///	</summary>
 	void OnDataTransClicked(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when the options button is pressed.
+	///	</summary>
+	void OnOptionsClicked(wxCommandEvent & event);
+
+	///	<summary>
+	///		Generate dimension controls for a given variable.
+	///	</summary>
+	void GenerateDimensionControls();
 
 	///	<summary>
 	///		Callback triggered when a new variable has been selected for rendering.
@@ -162,6 +199,11 @@ private:
 	///	</summary>
 	void OnDimButtonClicked(wxCommandEvent & event);
 
+	///	<summary>
+	///		Callback triggered when an axes button is pressed.
+	///	</summary>
+	void OnAxesButtonClicked(wxCommandEvent & event);
+
 private:
 	///	<summary>
 	///		Button for changing color map.
@@ -176,7 +218,7 @@ private:
 	///	<summary>
 	///		Combo boxes for choosing the variable.
 	///	</summary>
-	wxComboBox * m_vecwxVarSelector[10];
+	wxComboBox * m_vecwxVarSelector[NcVarMaximumDimensions];
 
 	///	<summary>
 	///		Text controls for indicating displayed bounds.
@@ -184,9 +226,29 @@ private:
 	wxTextCtrl * m_vecwxImageBounds[4];
 
 	///	<summary>
+	///		Buttons for indicating active axes.
+	///	</summary>
+	wxButton * m_vecwxActiveAxes[NcVarMaximumDimensions][3];
+
+	///	<summary>
+	///		Sizer for the panel.
+	///	</summary>
+	wxBoxSizer * m_panelsizer;
+
+	///	<summary>
+	///		Sizer containing all controls.
+	///	</summary>
+	wxBoxSizer * m_ctrlsizer;
+
+	///	<summary>
+	///		Sizer to the right of the controls menu.
+	///	</summary>
+	wxBoxSizer * m_rightsizer;
+
+	///	<summary>
 	///		Sizer containing variable dimensions.
 	///	</summary>
-	wxBoxSizer * m_dimsizer;
+	wxFlexGridSizer * m_vardimsizer;
 
 	///	<summary>
 	///		Text controls for indicating displayed bounds.
@@ -196,12 +258,17 @@ private:
 	///	<summary>
 	///		Text controls for indicating dimension indices.
 	///	</summary>
-	wxTextCtrl * m_vecwxDimIndex[10];
+	wxTextCtrl * m_vecwxDimIndex[NcVarMaximumDimensions];
 
 	///	<summary>
 	///		Image panel used to display data.
 	///	</summary>
 	wxImagePanel * m_imagepanel;
+
+	///	<summary>
+	///		Options frame.
+	///	</summary>
+	wxNcVisOptsDialog * m_wxNcVisOptsDialog;
 
 private:
 	///	<summary>

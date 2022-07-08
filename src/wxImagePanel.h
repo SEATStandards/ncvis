@@ -218,14 +218,14 @@ private:
 	float m_dDataRange[2];
 
 	///	<summary>
-	///		Array of sample longitudes.
+	///		Array of sample points in X direction.
 	///	</summary>
-	DataArray1D<double> m_dSampleLon;
+	DataArray1D<double> m_dSampleX;
 
 	///	<summary>
-	///		Array of sample latitudes.
+	///		Array of sample points in Y direction.
 	///	</summary>
-	DataArray1D<double> m_dSampleLat;
+	DataArray1D<double> m_dSampleY;
 
 	///	<summary>
 	///		Image map.
