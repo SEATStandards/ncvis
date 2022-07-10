@@ -117,6 +117,11 @@ public:
 	);
 
 	///	<summary>
+	///		Reset the bounds using dimension data.
+	///	</summary>
+	void ResetBounds();
+
+	///	<summary>
 	///		Update the data range displayed in the controls.
 	///	</summary>
 	void SetDisplayedDataRange(
@@ -190,11 +195,6 @@ private:
 	void OnRangeResetMinMax(wxCommandEvent & event);
 
 	///	<summary>
-	///		Callback triggered when the zoom out button is pressed.
-	///	</summary>
-	void OnZoomOutClicked(wxCommandEvent & event);
-
-	///	<summary>
 	///		Callback triggered when a dimension button is pressed.
 	///	</summary>
 	void OnDimButtonClicked(wxCommandEvent & event);
@@ -203,6 +203,16 @@ private:
 	///		Callback triggered when an axes button is pressed.
 	///	</summary>
 	void OnAxesButtonClicked(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when the gridlines combo is changed.
+	///	</summary>
+	void OnGridLinesCombo(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when the overlays combo is changed.
+	///	</summary>
+	void OnOverlaysCombo(wxCommandEvent & event);
 
 private:
 	///	<summary>
@@ -275,6 +285,11 @@ private:
 	///		Directory containing ncvis resources.
 	///	</summary>
 	std::string m_strNcVisResourceDir;
+
+	///	<summary>
+	///		Shapefiles present in ncvis resource dir.
+	///	</summary>
+	std::vector<wxString> m_vecNcVisResourceShpFiles;
 
 	///	<summary>
 	///		Filename being displayed.

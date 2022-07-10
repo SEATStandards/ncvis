@@ -15,6 +15,7 @@
 #include "CoordTransforms.h"
 #include "GridDataSampler.h"
 #include "ColorMap.h"
+#include "ShpFile.h"
 #include "schrift.h"
 
 class wxNcVisFrame;
@@ -74,6 +75,18 @@ public:
 	);
 
 	///	<summary>
+	///		Convert a real coordiante to an image coordinate.
+	///	</summary>
+	void RealCoordToImageCoord(
+		double dX,
+		double dY,
+		size_t sImageWidth,
+		size_t sImageHeight,
+		int & iXcoord,
+		int & iYcoord
+	);
+
+	///	<summary>
 	///		Generate the image from the image map.
 	///	</summary>
 	void GenerateImageFromImageMap(
@@ -105,6 +118,14 @@ public:
 	void SetDataRange(
 		float dDataMin,
 		float dDataMax,
+		bool fRedraw = false
+	);
+
+	///	<summary>
+	///		Set the status of grid lines.
+	///	</summary>
+	void SetGridLinesOn(
+		bool fGridLinesOn,
 		bool fRedraw = false
 	);
 
@@ -149,6 +170,13 @@ public:
 	///	</summary>
 	float GetDataRangeMax() const {
 		return m_dDataRange[1];
+	}
+
+	///	<summary>
+	///		Get the overlay data.
+	///	</summary>
+	SHPFileData & GetOverlayDataRef() {
+		return m_overlaydata;
 	}
 
 public:
@@ -231,6 +259,16 @@ private:
 	///		Image map.
 	///	</summary>
 	DataArray1D<int> m_imagemap;
+
+	///	<summary>
+	///		Overlay information.
+	///	</summary>
+	SHPFileData m_overlaydata;
+
+	///	<summary>
+	///		A flag indicating gridlines should be drawn.
+	///	</summary>
+	bool m_fGridLinesOn;
 
 	///	<summary>
 	///		Image bitmap data.

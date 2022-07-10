@@ -19,4 +19,4 @@ RPATH=`wx-config --prefix`/lib
 mkdir -p ${PREFIX}/bin
 
 # build the executable
-cd src && $CXX -std=c++11 -fpermissive ${WXFLAGS} ${NCFLAGS} -Wl,-rpath,${RPATH} -o ${PREFIX}/bin/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxNcVisOptsDialog.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp schrift.cpp
+cd src && $CXX -std=c++11 -fpermissive ${WXFLAGS} ${NCFLAGS} -Wl,-rpath,${RPATH} -o ${PREFIX}/bin/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxNcVisOptsDialog.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp ShpFile.cpp schrift.cpp

@@ -6,10 +6,11 @@
 ///
 
 #include "wxNcVisFrame.h"
-#include <wx/gbsizer.h>
+#include <wx/dir.h>
 
 #include "wxNcVisOptsDialog.h"
 #include "STLStringHelper.h"
+#include "ShpFile.h"
 #include <set>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -19,11 +20,12 @@ enum {
 	ID_COLORMAP = 2,
 	ID_DATATRANS = 3,
 	ID_BOUNDS = 4,
-	ID_ZOOMOUT = 5,
 	ID_RANGEMIN = 6,
 	ID_RANGEMAX = 7,
 	ID_RANGERESETMINMAX = 8,
 	ID_OPTIONS = 9,
+	ID_GRIDLINES = 10,
+	ID_OVERLAYS = 11,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
@@ -48,7 +50,8 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
 	EVT_BUTTON(ID_RANGERESETMINMAX, wxNcVisFrame::OnRangeResetMinMax)
-	EVT_BUTTON(ID_ZOOMOUT, wxNcVisFrame::OnZoomOutClicked)
+	EVT_COMBOBOX(ID_GRIDLINES, wxNcVisFrame::OnGridLinesCombo)
+	EVT_COMBOBOX(ID_OVERLAYS, wxNcVisFrame::OnOverlaysCombo)
 wxEND_EVENT_TABLE()
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -104,6 +107,21 @@ void wxNcVisFrame::InitializeWindow() {
 
 	m_wxNcVisOptsDialog->Hide();
 
+	// Get the list of shapefiles in the resource dir
+	{
+		wxDir dirResources(m_strNcVisResourceDir);
+		if (!dirResources.IsOpened()) {
+			std::cout << "ERROR: Cannot open resource directory \"" << m_strNcVisResourceDir << "\". Resources will not be populated." << std::endl;
+		} else {
+			wxString wxstrFilename;
+			bool cont = dirResources.GetFirst(&wxstrFilename, _T("*.shp"), wxDIR_FILES);
+			while (cont) {
+				m_vecNcVisResourceShpFiles.push_back(wxstrFilename);
+				cont = dirResources.GetNext(&wxstrFilename);
+			}
+		}
+	}
+
 	// Create menu
 	wxMenu *menuFile = new wxMenu;
 	//menuFile->Append(ID_Hello, "&Hello...\tCtrl-H",
@@ -134,7 +152,7 @@ void wxNcVisFrame::InitializeWindow() {
 
 	// Variable controls
 	m_rightsizer = new wxStaticBoxSizer(wxVERTICAL, this);
-	m_rightsizer->SetMinSize(600,220);
+	m_rightsizer->SetMinSize(640,220);
 
 	m_ctrlsizer->Add(menusizer, 0);
 	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
@@ -150,10 +168,26 @@ void wxNcVisFrame::InitializeWindow() {
 	m_wxColormapButton = new wxButton(this, ID_COLORMAP, colormaplib.GetColorMapName(0));
 	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
 
+	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""));
+	wxGridLinesCombo->Append(_T("Grid Off"));
+	wxGridLinesCombo->Append(_T("Grid On"));
+	wxGridLinesCombo->SetSelection(0);
+	wxGridLinesCombo->SetEditable(false);
+
+	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""));
+	wxOverlaysCombo->Append(_T("Overlays Off"));
+	for (size_t f = 0; f < m_vecNcVisResourceShpFiles.size(); f++) {
+		wxOverlaysCombo->Append(m_vecNcVisResourceShpFiles[f]);
+	}
+	wxOverlaysCombo->SetSelection(0);
+	wxOverlaysCombo->SetEditable(false);
+
 	menusizer->Add(m_wxColormapButton, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(new wxButton(this, -1, _T("Auto (qt)")), 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
+	//menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
 
 	// Variable selector
@@ -171,7 +205,7 @@ void wxNcVisFrame::InitializeWindow() {
 			new wxComboBox(this, ID_VARSELECTOR + vc,
 				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc));
 
-		Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
+		m_vecwxVarSelector[vc]->Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
 		m_vecwxVarSelector[vc]->SetEditable(false);
 		for (auto itVar = m_mapVarNames[vc].begin(); itVar != m_mapVarNames[vc].end(); itVar++) {
 			m_vecwxVarSelector[vc]->Append(wxString(itVar->first));
@@ -650,6 +684,42 @@ void wxNcVisFrame::SetDisplayedBounds(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::ResetBounds() {
+	double dX0 = 0.0;
+	double dX1 = 360.0;
+	double dY0 = -90.0;
+	double dY1 = 90.0;
+
+
+	if ((m_varActive != NULL) && (!m_fIsVarActiveUnstructured)) {
+		auto itDim0 = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[0])->name());
+		if (itDim0 != m_mapDimData.end()) {
+			auto itDim0coord = itDim0->second.begin();
+			const std::vector<double> & coord = itDim0coord->second;
+			dY0 = coord[0];
+			dY1 = coord[coord.size()-1];
+		} else {
+			dY0 = 0;
+			dY1 = m_varActive->get_dim(m_lDisplayedDims[0])->size()-1;
+		}
+
+		auto itDim1 = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[1])->name());
+		if (itDim1 != m_mapDimData.end()) {
+			auto itDim1coord = itDim1->second.begin();
+			const std::vector<double> & coord = itDim1coord->second;
+			dX0 = coord[0];
+			dX1 = coord[coord.size()-1];
+		} else {
+			dX0 = 0;
+			dX1 = m_varActive->get_dim(m_lDisplayedDims[1])->size()-1;
+		}
+
+	}
+	m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::SetDisplayedDataRange(
 	float dDataMin,
 	float dDataMax
@@ -688,7 +758,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.07");
+		wxString strMessageBak = _T("NcVis 2022.07.10");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -816,8 +886,15 @@ void wxNcVisFrame::GenerateDimensionControls() {
 
 		if (m_strUnstructDimName != m_varActive->get_dim(d)->name()) {
 			m_vecwxActiveAxes[d][2]->Enable(false);
+		} else {
+			m_vecwxActiveAxes[d][0]->Enable(false);
+			m_vecwxActiveAxes[d][1]->Enable(false);
 		}
-
+		if ((m_varActive->num_dims() < 3) && (m_fIsVarActiveUnstructured)) {
+			m_vecwxActiveAxes[d][0]->Enable(false);
+			m_vecwxActiveAxes[d][1]->Enable(false);
+		}
+		
 		if (d == m_lDisplayedDims[0]) {
 
 			// Dimension is the XY coordinate on the plot (unstructured)
@@ -836,7 +913,9 @@ void wxNcVisFrame::GenerateDimensionControls() {
 
 				m_vardimsizer->Add(vardimboxsizerminmax, 0, wxEXPAND | wxALL, 2);
 
-				m_vardimsizer->Add(new wxButton(this, ID_ZOOMOUT, _T("Reset"), wxDefaultPosition, wxDefaultSize), 0, wxEXPAND | wxALL, 0);
+				wxButton * wxDimReset = new wxButton(this, ID_DIMRESET + d, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight));
+				wxDimReset->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+				m_vardimsizer->Add(wxDimReset, 0, wxEXPAND | wxALL, 0);
 
 			// Dimension is the Y coordinate on the plot
 			} else {
@@ -881,7 +960,7 @@ void wxNcVisFrame::GenerateDimensionControls() {
 			vardimboxsizer->Add(wxDimDown, 0, wxEXPAND | wxRIGHT, 1);
 			vardimboxsizer->Add(m_vecwxDimIndex[d], 1, wxEXPAND | wxRIGHT, 1);
 			vardimboxsizer->Add(wxDimUp, 0, wxEXPAND | wxRIGHT, 1);
-			vardimboxsizer->Add(new wxButton(this, -1, _T(">"), wxDefaultPosition, wxSquareSize), 0, wxEXPAND | wxALL, 0);
+			vardimboxsizer->Add(new wxButton(this, -1, wxString::Format("%lc",(0x25B6)), wxDefaultPosition, wxSquareSize), 0, wxEXPAND | wxALL, 0);
 
 			wxDimDown->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
 			m_vecwxDimIndex[d]->Bind(wxEVT_TEXT, &wxNcVisFrame::OnDimButtonClicked, this);
@@ -907,17 +986,13 @@ void wxNcVisFrame::GenerateDimensionControls() {
 	m_vardimsizer->Add(new wxStaticText(this, -1, _T("range"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxALL, 4);
 	m_vardimsizer->Add(varboundsminmax, 0, wxEXPAND | wxALL, 2);
 	m_vardimsizer->Add(new wxButton(this, ID_RANGERESETMINMAX, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight)), 0, wxEXPAND | wxALL, 0);
-	//m_vardimsizer->Add(m_vecwxRange[1], 0, wxEXPAND | wxALL, 2);
 
 	m_vecwxRange[0]->Enable(true);
 	m_vecwxRange[1]->Enable(true);
 
 	SetDataRangeByMinMax(false);
 
-	//SetSizerAndFit(m_panelsizer);
-
-	//std::cout << m_panelsizer->GetMinSize().GetHeight() << std::endl;
-
+	// Resize window if needed
 	if (m_panelsizer->GetMinSize().GetHeight() > m_panelsizer->GetSize().GetHeight()) {
 		SetSizerAndFit(m_panelsizer);
 	}
@@ -927,9 +1002,6 @@ void wxNcVisFrame::GenerateDimensionControls() {
 	m_rightsizer->Layout();
 	m_ctrlsizer->Layout();
 	m_panelsizer->Layout();
-	//Layout();
-
-	//std::cout << m_panelsizer->GetSize().GetHeight() << std::endl;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1081,14 +1153,6 @@ void wxNcVisFrame::OnRangeResetMinMax(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::OnZoomOutClicked(
-	wxCommandEvent & event
-) {
-	m_imagepanel->SetCoordinateRange(0.0, 360.0, -90.0, 90.0, true);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 	std::cout << "DIM BUTTON CLICKED" << std::endl;
 
@@ -1159,7 +1223,7 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 	}
 
 	if (fResetBounds) {
-		m_imagepanel->SetCoordinateRange(0.0, 360.0, -90.0, 90.0, true);
+		ResetBounds();
 		
 	} else {
 		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
@@ -1212,6 +1276,12 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		if (m_lDisplayedDims[0] == d) {
 			return;
 		}
+		if (m_lDisplayedDims[0] != (-1)) {
+			m_lVarActiveDims[m_lDisplayedDims[0]] = 0;
+		}
+		if (m_lDisplayedDims[1] != (-1)) {
+			m_lVarActiveDims[m_lDisplayedDims[1]] = 0;
+		}
 		m_lDisplayedDims[0] = d;
 		m_lDisplayedDims[1] = (-1);
 	} else {
@@ -1221,6 +1291,48 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 	LoadData();
 
 	GenerateDimensionControls();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnGridLinesCombo(wxCommandEvent & event) {
+	std::cout << "GRID COMBO" << std::endl;
+
+	if (m_imagepanel == NULL) {
+		return;
+	}
+
+	std::string strValue = event.GetString().ToStdString();
+
+	if (strValue == "Grid Off") {
+		m_imagepanel->SetGridLinesOn(false, true);
+	} else {
+		m_imagepanel->SetGridLinesOn(true, true);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnOverlaysCombo(wxCommandEvent & event) {
+	std::cout << "OVERLAYS COMBO" << std::endl;
+
+	if (m_imagepanel == NULL) {
+		return;
+	}
+
+	SHPFileData & overlaydata = m_imagepanel->GetOverlayDataRef();
+
+	std::string strValue = event.GetString().ToStdString();
+
+	if (strValue == "Overlays Off") {
+		overlaydata.clear();
+	} else {
+		std::string strFilename = m_strNcVisResourceDir + "/" + strValue;
+
+		ReadShpFile(strFilename, overlaydata, false);
+	}
+
+	m_imagepanel->GenerateImageFromImageMap(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

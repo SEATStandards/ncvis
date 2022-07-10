@@ -14,38 +14,39 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 #include <cstdarg>
+#include <iostream>
 
 ///////////////////////////////////////////////////////////////////////////////
 
 #define _EXCEPTION() \
-throw Exception(__FILE__, __LINE__)
+{std::cerr << Exception(__FILE__, __LINE__).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTIONT(text) \
-throw Exception(__FILE__, __LINE__, text)
+{std::cerr << Exception(__FILE__, __LINE__, text).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION1(text, var1) \
-throw Exception(__FILE__, __LINE__, text, var1)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION2(text, var1, var2) \
-throw Exception(__FILE__, __LINE__, text, var1, var2)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION3(text, var1, var2, var3) \
-throw Exception(__FILE__, __LINE__, text, var1, var2, var3)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2, var3).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION4(text, var1, var2, var3, var4) \
-throw Exception(__FILE__, __LINE__, text, var1, var2, var3, var4)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2, var3, var4).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION5(text, var1, var2, var3, var4, var5) \
-throw Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION6(text, var1, var2, var3, var4, var5, var6) \
-throw Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5, var6)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5, var6).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION7(text, var1, var2, var3, var4, var5, var6, var7) \
-throw Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5, var6, var7)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5, var6, var7).ToString() << std::endl;exit(-1);}
 
 #define _EXCEPTION8(text, var1, var2, var3, var4, var5, var6, var7, var8) \
-throw Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5, var6, var7, var8)
+{std::cerr << Exception(__FILE__, __LINE__, text, var1, var2, var3, var4, var5, var6, var7, var8).ToString() << std::endl;exit(-1);}
 
 #define _ASSERT(x) \
 if (!(x)) {_EXCEPTIONT("Assertion failure");}

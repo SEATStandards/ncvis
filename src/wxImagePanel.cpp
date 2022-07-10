@@ -58,6 +58,7 @@ wxImagePanel::wxImagePanel(
 	wxNcVisFrame * parent
 ) :
 	wxPanel(parent),
+	m_fGridLinesOn(false),
 	m_fResize(false)
 {
 	m_pncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
@@ -264,6 +265,23 @@ void wxImagePanel::FormatLabelBarLabel(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxImagePanel::RealCoordToImageCoord(
+	double dX,
+	double dY,
+	size_t sImageWidth,
+	size_t sImageHeight,
+	int & iXcoord,
+	int & iYcoord
+) {
+	dX = (LonDegToStandardRange(dX) - m_dXrange[0]) / (m_dXrange[1] - m_dXrange[0]);
+	dY = (dY - m_dYrange[0]) / (m_dYrange[1] - m_dYrange[0]);
+
+	iXcoord = static_cast<int>(static_cast<double>(sImageWidth) * dX);
+	iYcoord = static_cast<int>(static_cast<double>(sImageHeight) * dY);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxImagePanel::GenerateImageFromImageMap(
 	bool fRedraw
 ) {
@@ -317,6 +335,125 @@ void wxImagePanel::GenerateImageFromImageMap(
 				imagedata[3 * sWidth * jx + 3 * ix + 2]);
 
 			s++;
+		}
+	}
+
+	// Draw grid lines
+	if (m_fGridLinesOn) {
+		static const int nGridThickness = 2;
+
+		double dMajorDeltaX = m_dXrange[1] - m_dXrange[0];
+		if (dMajorDeltaX >= 90.0) {
+			dMajorDeltaX = 30.0;
+		} else {
+			_ASSERT(dMajorDeltaX > 0.0);
+			int iDeltaXMag10 = static_cast<int>(std::log10(dMajorDeltaX));
+			dMajorDeltaX = pow(10.0, static_cast<double>(iDeltaXMag10));
+		}
+
+		for (int i = nGridThickness; i < sImageWidth-nGridThickness; i++) {
+			if (std::floor(m_dSampleX[i] / dMajorDeltaX) !=
+			    std::floor(m_dSampleX[i+nGridThickness] / dMajorDeltaX)
+			) {
+				size_t ix = i + DISPLAY_BORDER;
+				for (int j = 0; j < sImageHeight; j+=2) {
+					size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+
+					imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+					imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+					imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+				}
+			}
+		}
+		for (int j = nGridThickness; j < sImageHeight-nGridThickness; j++) {
+			if (std::floor(m_dSampleY[j] / dMajorDeltaX) !=
+			    std::floor(m_dSampleY[j+nGridThickness] / dMajorDeltaX)
+			) {
+				size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+				for (int i = 0; i < sImageWidth; i+=2) {
+					size_t ix = i + DISPLAY_BORDER;
+
+					imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+					imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+					imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+				}
+			}
+		}
+	}
+
+	// Draw overlay
+	if (m_overlaydata.faces.size() != 0) {
+		for (size_t f = 0; f < m_overlaydata.faces.size(); f++) {
+			const std::vector<int> & face = m_overlaydata.faces[f];
+			if (m_overlaydata.faces[f].size() == 0) {
+				continue;
+			}
+
+			int iXprev = 0;
+			int iYprev = 0;
+
+			int iXnext = 0;
+			int iYnext = 0;
+
+			RealCoordToImageCoord(
+				m_overlaydata.coords[face[0]].first,
+				m_overlaydata.coords[face[0]].second,
+				sImageWidth,
+				sImageHeight,
+				iXnext,
+				iYnext);
+
+			for (size_t v = 1; v < m_overlaydata.faces[f].size(); v++) {
+				iXprev = iXnext;
+				iYprev = iYnext;
+
+				RealCoordToImageCoord(
+					m_overlaydata.coords[face[v]].first,
+					m_overlaydata.coords[face[v]].second,
+					sImageWidth,
+					sImageHeight,
+					iXnext,
+					iYnext);
+
+				int nDistX = abs(iXnext - iXprev);
+				int nDistY = abs(iYnext - iYprev);
+
+				int nDistMax = nDistX;
+				if (nDistY > nDistX) {
+					nDistMax = nDistY;
+				}
+				if (nDistMax > 0.8 * sImageWidth) {
+					continue;
+				}
+
+				// TODO: Handle polyline and polygon geometries separately
+				double dXstep = static_cast<double>(iXnext - iXprev) / static_cast<double>(nDistMax);
+				double dYstep = static_cast<double>(iYnext - iYprev) / static_cast<double>(nDistMax);
+
+				for (int i = 0; i < nDistMax; i+=1) {
+					int iXcoord = iXprev + static_cast<int>(dXstep * i);
+					int iYcoord = iYprev + static_cast<int>(dYstep * i);
+
+					if ((iXcoord >= 0) && (iXcoord < sImageWidth) && (iYcoord >= 0) && (iYcoord < sImageHeight)) {
+						size_t ix = iXcoord + DISPLAY_BORDER;
+						size_t jx = sHeight - (iYcoord + DISPLAY_BORDER) - 1;
+
+						imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+
+						jx++;
+						imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+
+						//ix++;
+						//imagedata[3 * sWidth * jx + 3 * ix + 0] = imagedata[3 * sWidth * jx + 3 * ix + 0] / 2;
+						//imagedata[3 * sWidth * jx + 3 * ix + 1] = imagedata[3 * sWidth * jx + 3 * ix + 1] / 2;
+						//imagedata[3 * sWidth * jx + 3 * ix + 2] = imagedata[3 * sWidth * jx + 3 * ix + 2] / 2;
+					}
+				}
+			}
 		}
 	}
 
@@ -473,6 +610,23 @@ void wxImagePanel::SetDataRange(
 	m_dDataRange[1] = dDataMax;
 
 	m_pncvisparent->SetDisplayedDataRange(dDataMin, dDataMax);
+
+	if (fRedraw) {
+		GenerateImageFromImageMap(true);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxImagePanel::SetGridLinesOn(
+	bool fGridLinesOn,
+	bool fRedraw
+) {
+	if (m_fGridLinesOn == fGridLinesOn) {
+		return;
+	}
+
+	m_fGridLinesOn = fGridLinesOn;
 
 	if (fRedraw) {
 		GenerateImageFromImageMap(true);

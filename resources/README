@@ -1,0 +1,17 @@
+Ubuntu-Regular.ttf
+------------------
+Ubunut regular font, distributed under the Ubuntu Font License.
+https://design.ubuntu.com/font/
+
+ne_110m_coastline.shp
+---------------------
+NaturalEarthData coastline at 110m resolution version 4.1.0
+All versions of Natural Earth raster + vector map data are in the public domain.
+https://www.naturalearthdata.com/downloads/110m-physical-vectors/110m-coastline/
+
+ne_110m_admin_0_countries.shp
+-----------------------------
+NaturalEarthData countries at 110m resolution version 5.1.1
+All versions of Natural Earth raster + vector map data are in the public domain.
+https://www.naturalearthdata.com/downloads/110m-cultural-vectors/110m-admin-0-countries/
+
