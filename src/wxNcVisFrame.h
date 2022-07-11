@@ -195,6 +195,21 @@ private:
 	void OnRangeResetMinMax(wxCommandEvent & event);
 
 	///	<summary>
+	///		Callback triggered when the dimension timer is triggered.
+	///	</summary>
+	void OnDimTimer(wxTimerEvent & event);
+
+	///	<summary>
+	///		Start animation of the specified dimension.
+	///	</summary>
+	void StartAnimation(long d);
+
+	///	<summary>
+	///		Stop animation.
+	///	</summary>
+	void StopAnimation();
+
+	///	<summary>
 	///		Callback triggered when a dimension button is pressed.
 	///	</summary>
 	void OnDimButtonClicked(wxCommandEvent & event);
@@ -271,6 +286,11 @@ private:
 	wxTextCtrl * m_vecwxDimIndex[NcVarMaximumDimensions];
 
 	///	<summary>
+	///		Pointer to currently active play button.
+	///	</summary>
+	wxButton * m_vecwxPlayButton[NcVarMaximumDimensions];
+
+	///	<summary>
 	///		Image panel used to display data.
 	///	</summary>
 	wxImagePanel * m_imagepanel;
@@ -279,6 +299,11 @@ private:
 	///		Options frame.
 	///	</summary>
 	wxNcVisOptsDialog * m_wxNcVisOptsDialog;
+
+	///	<summary>
+	///		Dimension timer.
+	///	</summary>
+	wxTimer m_wxDimTimer;
 
 private:
 	///	<summary>
@@ -337,6 +362,11 @@ private:
 	///		Currently displayed variable dimension indices.
 	///	</summary>
 	long m_lDisplayedDims[2];
+
+	///	<summary>
+	///		Variable dimension currently being animated.
+	///	</summary>
+	long m_lAnimatedDim;
 
 	///	<summary>
 	///		Map between variables found among files and file index where they can be

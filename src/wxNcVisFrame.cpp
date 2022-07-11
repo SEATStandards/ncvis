@@ -31,9 +31,11 @@ enum {
 	ID_DIMDOWN = 300,
 	ID_DIMUP = 400,
 	ID_DIMRESET = 500,
-	ID_AXESX = 600,
-	ID_AXESY = 700,
-	ID_AXESXY = 800,
+	ID_DIMPLAY = 600,
+	ID_AXESX = 700,
+	ID_AXESY = 800,
+	ID_AXESXY = 900,
+	ID_DIMTIMER = 10000
 };
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -52,6 +54,7 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_BUTTON(ID_RANGERESETMINMAX, wxNcVisFrame::OnRangeResetMinMax)
 	EVT_COMBOBOX(ID_GRIDLINES, wxNcVisFrame::OnGridLinesCombo)
 	EVT_COMBOBOX(ID_OVERLAYS, wxNcVisFrame::OnOverlaysCombo)
+	EVT_TIMER(ID_DIMTIMER, wxNcVisFrame::OnDimTimer)
 wxEND_EVENT_TABLE()
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -73,8 +76,10 @@ wxNcVisFrame::wxNcVisFrame(
 	m_vardimsizer(NULL),
 	m_imagepanel(NULL),
 	m_wxNcVisOptsDialog(NULL),
+	m_wxDimTimer(this,ID_DIMTIMER),
 	m_varActive(NULL),
 	m_fIsVarActiveUnstructured(false),
+	m_lAnimatedDim(-1),
 	m_sColorMap(0)
 {
 	m_lDisplayedDims[0] = (-1);
@@ -84,6 +89,11 @@ wxNcVisFrame::wxNcVisFrame(
 	m_vecwxImageBounds[1] = NULL;
 	m_vecwxImageBounds[2] = NULL;
 	m_vecwxImageBounds[3] = NULL;
+
+	for (size_t d = 0; d < NcVarMaximumDimensions; d++) {
+		m_vecwxDimIndex[d] = NULL;
+		m_vecwxPlayButton[d] = NULL;
+	}
 
 	m_data.Allocate(1);
 	m_data[0] = 0.0;
@@ -956,15 +966,17 @@ void wxNcVisFrame::GenerateDimensionControls() {
 			wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSquareSize);
 			m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, wxString::Format("%li", m_lVarActiveDims[d]), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
 			wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSquareSize);
+			m_vecwxPlayButton[d] = new wxButton(this, ID_DIMPLAY + d, wxString::Format("%lc",(0x25B6)), wxDefaultPosition, wxSquareSize);
 
 			vardimboxsizer->Add(wxDimDown, 0, wxEXPAND | wxRIGHT, 1);
 			vardimboxsizer->Add(m_vecwxDimIndex[d], 1, wxEXPAND | wxRIGHT, 1);
 			vardimboxsizer->Add(wxDimUp, 0, wxEXPAND | wxRIGHT, 1);
-			vardimboxsizer->Add(new wxButton(this, -1, wxString::Format("%lc",(0x25B6)), wxDefaultPosition, wxSquareSize), 0, wxEXPAND | wxALL, 0);
+			vardimboxsizer->Add(m_vecwxPlayButton[d], 0, wxEXPAND | wxALL, 0);
 
 			wxDimDown->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
 			m_vecwxDimIndex[d]->Bind(wxEVT_TEXT, &wxNcVisFrame::OnDimButtonClicked, this);
 			wxDimUp->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
+			m_vecwxPlayButton[d]->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
 
 			m_vardimsizer->Add(vardimboxsizer, 0, wxEXPAND | wxALL, 2);
 
@@ -1010,6 +1022,9 @@ void wxNcVisFrame::OnVariableSelected(
 	wxCommandEvent & event
 ) {
 	std::cout << "VARIABLE SELECTED" << std::endl;
+
+	// Turn off animation if active
+	StopAnimation();
 
 	// Store a map between current dimnames and dimvalues
 	if ((m_varActive != NULL) && (m_lVarActiveDims.size() == m_varActive->num_dims())) {
@@ -1153,6 +1168,49 @@ void wxNcVisFrame::OnRangeResetMinMax(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::OnDimTimer(wxTimerEvent & event) {
+	std::cout << "TIMER" << std::endl;
+
+	long lDimSize = m_varActive->get_dim(m_lAnimatedDim)->size();
+	if (m_lVarActiveDims[m_lAnimatedDim] == lDimSize-1) {
+		m_lVarActiveDims[m_lAnimatedDim] = 0;
+	} else {
+		m_lVarActiveDims[m_lAnimatedDim]++;
+	}
+
+	m_vecwxDimIndex[m_lAnimatedDim]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[m_lAnimatedDim]));
+
+	LoadData();
+
+	m_imagepanel->GenerateImageFromImageMap(true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::StartAnimation(long d) {
+	StopAnimation();
+
+	_ASSERT((d >= 0) && (d < NcVarMaximumDimensions));
+	_ASSERT(m_vecwxPlayButton[d] != NULL);
+	m_lAnimatedDim = d;
+	m_wxDimTimer.Start(100);
+	m_vecwxPlayButton[m_lAnimatedDim]->SetLabelMarkup(wxString::Format("<b>%lc</b>",(wchar_t)(8545)));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::StopAnimation() {
+	if (m_lAnimatedDim != (-1)) {
+		if (m_vecwxPlayButton[m_lAnimatedDim] != NULL) {
+			m_vecwxPlayButton[m_lAnimatedDim]->SetLabel(wxString::Format("%lc",(wchar_t)(0x25B6)));
+			m_wxDimTimer.Stop();
+			m_lAnimatedDim = (-1);
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 	std::cout << "DIM BUTTON CLICKED" << std::endl;
 
@@ -1161,17 +1219,42 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 	enum {
 		DIMCOMMAND_DECREMENT,
 		DIMCOMMAND_INCREMENT,
-		DIMCOMMAND_RESET
+		DIMCOMMAND_RESET,
+		DIMCOMMAND_PLAY
 	} eDimCommand;
 
 	bool fResetBounds = false;
 	long d = static_cast<long>(event.GetId());
+
+	// Decrement dimension
 	if ((d >= ID_DIMDOWN) && (d < ID_DIMDOWN + 100)) {
 		eDimCommand = DIMCOMMAND_DECREMENT;
 		d -= ID_DIMDOWN;
+
+		long lDimSize = m_varActive->get_dim(d)->size();
+		if (m_lVarActiveDims[d] == 0) {
+			m_lVarActiveDims[d] = lDimSize-1;
+		} else {
+			m_lVarActiveDims[d]--;
+		}
+
+		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+
+	// Increment dimension
 	} else if ((d >= ID_DIMUP) && (d < ID_DIMUP + 100)) {
 		eDimCommand = DIMCOMMAND_INCREMENT;
 		d -= ID_DIMUP;
+
+		long lDimSize = m_varActive->get_dim(d)->size();
+		if (m_lVarActiveDims[d] == lDimSize-1) {
+			m_lVarActiveDims[d] = 0;
+		} else {
+			m_lVarActiveDims[d]++;
+		}
+
+		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+
+	// Reset dimension
 	} else if ((d >= ID_DIMRESET) && (d < ID_DIMRESET + 100)) {
 		eDimCommand = DIMCOMMAND_RESET;
 		d -= ID_DIMRESET;
@@ -1179,11 +1262,20 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
 			fResetBounds = true;
 		}
+		if ((d != m_lDisplayedDims[0]) && (d != m_lDisplayedDims[1])) {
+			m_lVarActiveDims[d] = 0;
+		}
+
+		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+
+		ResetBounds();
+
+	// Edit dimension
 	} else if ((d >= ID_DIMEDIT) && (d < ID_DIMEDIT + 100)) {
 		d -= ID_DIMEDIT;
 
 		std::string strDimValue = m_vecwxDimIndex[d]->GetValue().ToStdString();
-		if (STLStringHelper::IsInteger(strDimValue)) {
+		if ((strDimValue == "") || (STLStringHelper::IsInteger(strDimValue))) {
 			m_lVarActiveDims[d] = std::stoi(strDimValue);
 			if (m_lVarActiveDims[d] < 0) {
 				m_lVarActiveDims[d] = 0;
@@ -1192,41 +1284,24 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 			}
 		}
 
+		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+
+	// Play dimension
+	} else if ((d >= ID_DIMPLAY) && (d < ID_DIMPLAY + 100)) {
+		d -= ID_DIMPLAY;
+
+		if (d != m_lAnimatedDim) {
+			StartAnimation(d);
+		} else {
+			StopAnimation();
+		}
+
 	} else {
 		_EXCEPTION();
 	}
 
 	if ((d < 0) || (d >= m_lVarActiveDims.size())) {
 		_EXCEPTION();
-	}
-
-	long lDimSize = m_varActive->get_dim(d)->size();
-
-	if (eDimCommand == DIMCOMMAND_DECREMENT) {
-		if (m_lVarActiveDims[d] == 0) {
-			m_lVarActiveDims[d] = lDimSize-1;
-		} else {
-			m_lVarActiveDims[d]--;
-		}
-
-	} else if (eDimCommand == DIMCOMMAND_INCREMENT) {
-		if (m_lVarActiveDims[d] == lDimSize-1) {
-			m_lVarActiveDims[d] = 0;
-		} else {
-			m_lVarActiveDims[d]++;
-		}
-
-	} else if (eDimCommand == DIMCOMMAND_RESET) {
-		if ((d != m_lDisplayedDims[0]) && (d != m_lDisplayedDims[1])) {
-			m_lVarActiveDims[d] = 0;
-		}
-	}
-
-	if (fResetBounds) {
-		ResetBounds();
-		
-	} else {
-		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
 	}
 
 	LoadData();
@@ -1245,6 +1320,10 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		AXESCOMMAND_XY
 	} eAxesCommand;
 
+	// Turn off animation if active
+	StopAnimation();
+
+	// Adjust axes
 	long d = static_cast<long>(event.GetId());
 	if ((d >= ID_AXESX) && (d < ID_AXESX + 100)) {
 		eAxesCommand = AXESCOMMAND_X;
@@ -1288,6 +1367,7 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		_EXCEPTION();
 	}
 
+	// Redraw data
 	LoadData();
 
 	GenerateDimensionControls();
