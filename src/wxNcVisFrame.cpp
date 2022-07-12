@@ -68,6 +68,7 @@ wxNcVisFrame::wxNcVisFrame(
 ) :
 	wxFrame(NULL, wxID_ANY, title, pos, size),
 	m_strNcVisResourceDir(strNcVisResourceDir),
+	m_colormaplib(strNcVisResourceDir),
 	m_wxColormapButton(NULL),
 	m_wxDataTransButton(NULL),
 	m_panelsizer(NULL),
@@ -97,6 +98,10 @@ wxNcVisFrame::wxNcVisFrame(
 
 	m_data.Allocate(1);
 	m_data[0] = 0.0;
+
+	if (m_colormaplib.GetColorMapCount() == 0) {
+		_EXCEPTIONT("FATAL ERROR: At least one colormap must be specified");
+	}
 
 	OpenFiles(vecFilenames);
 
@@ -174,17 +179,16 @@ void wxNcVisFrame::InitializeWindow() {
       Maximize();
 */
 	// First line of controls
-	ColorMapLibrary colormaplib;
-	m_wxColormapButton = new wxButton(this, ID_COLORMAP, colormaplib.GetColorMapName(0));
+	m_wxColormapButton = new wxButton(this, ID_COLORMAP, m_colormaplib.GetColorMapName(0));
 	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
 
-	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""));
+	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxColormapButton->GetSize().GetHeight()));
 	wxGridLinesCombo->Append(_T("Grid Off"));
 	wxGridLinesCombo->Append(_T("Grid On"));
 	wxGridLinesCombo->SetSelection(0);
 	wxGridLinesCombo->SetEditable(false);
 
-	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""));
+	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""), wxDefaultPosition, wxSize(140,m_wxColormapButton->GetSize().GetHeight()));
 	wxOverlaysCombo->Append(_T("Overlays Off"));
 	for (size_t f = 0; f < m_vecNcVisResourceShpFiles.size(); f++) {
 		wxOverlaysCombo->Append(m_vecNcVisResourceShpFiles[f]);
@@ -213,7 +217,8 @@ void wxNcVisFrame::InitializeWindow() {
 
 		m_vecwxVarSelector[vc] =
 			new wxComboBox(this, ID_VARSELECTOR + vc,
-				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc));
+				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc),
+				wxDefaultPosition, wxSize(120, m_wxColormapButton->GetSize().GetHeight()));
 
 		m_vecwxVarSelector[vc]->Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
 		m_vecwxVarSelector[vc]->SetEditable(false);
@@ -228,6 +233,8 @@ void wxNcVisFrame::InitializeWindow() {
 
 	// Image panel
 	m_imagepanel = new wxImagePanel(this);
+
+	m_imagepanel->SetColorMap(m_colormaplib.GetColorMapName(0));
 
 	m_rightsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
 	m_rightsizer->Add(m_vardimsizer, 0, wxALIGN_CENTER, 0);
@@ -819,16 +826,14 @@ void wxNcVisFrame::OnColorMapClicked(
 ) {
 	std::cout << "COLOR MAP CLICKED" << std::endl;
 
-	ColorMapLibrary colormaplib;
-
-	size_t sColorMapCount = colormaplib.GetColorMapCount();
+	size_t sColorMapCount = m_colormaplib.GetColorMapCount();
 
 	m_sColorMap++;
 	if (m_sColorMap >= sColorMapCount) {
 		m_sColorMap = 0;
 	}
 
-	std::string strColorMapName = colormaplib.GetColorMapName(m_sColorMap);
+	std::string strColorMapName = m_colormaplib.GetColorMapName(m_sColorMap);
 
 	m_wxColormapButton->SetLabel(wxString(strColorMapName));
 

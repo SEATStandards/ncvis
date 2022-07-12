@@ -68,6 +68,13 @@ public:
 	}
 
 	///	<summary>
+	///		Get the color map library.
+	///	</summary>
+	const ColorMapLibrary & GetColorMapLibrary() const {
+		return m_colormaplib;
+	}
+
+	///	<summary>
 	///		Load data from the active variable.
 	///	</summary>
 	void LoadData();
@@ -310,6 +317,11 @@ private:
 	///		Directory containing ncvis resources.
 	///	</summary>
 	std::string m_strNcVisResourceDir;
+
+	///	<summary>
+	///		Color map library.
+	///	</summary>
+	ColorMapLibrary m_colormaplib;
 
 	///	<summary>
 	///		Shapefiles present in ncvis resource dir.
