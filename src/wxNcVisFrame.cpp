@@ -715,8 +715,7 @@ void wxNcVisFrame::ResetBounds() {
 	double dX1 = 360.0;
 	double dY0 = -90.0;
 	double dY1 = 90.0;
-
-
+/*
 	if ((m_varActive != NULL) && (!m_fIsVarActiveUnstructured)) {
 		auto itDim0 = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[0])->name());
 		if (itDim0 != m_mapDimData.end()) {
@@ -741,6 +740,7 @@ void wxNcVisFrame::ResetBounds() {
 		}
 
 	}
+*/
 	m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
 }
 
@@ -1253,15 +1253,11 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 		d -= ID_DIMRESET;
 
 		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
-			fResetBounds = true;
-		}
-		if ((d != m_lDisplayedDims[0]) && (d != m_lDisplayedDims[1])) {
+			ResetBounds();
+		} else {
 			m_lVarActiveDims[d] = 0;
+			m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
 		}
-
-		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
-
-		ResetBounds();
 
 	// Edit dimension
 	} else if ((d >= ID_DIMEDIT) && (d < ID_DIMEDIT + 100)) {
