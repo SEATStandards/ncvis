@@ -162,11 +162,6 @@ private:
 	void OnClose(wxCloseEvent & event);
 
 	///	<summary>
-	///		Callback triggered when the color map button is pressed.
-	///	</summary>
-	void OnColorMapClicked(wxCommandEvent & event);
-
-	///	<summary>
 	///		Callback triggered when the data transform button is pressed.
 	///	</summary>
 	void OnDataTransClicked(wxCommandEvent & event);
@@ -227,6 +222,11 @@ private:
 	void OnAxesButtonClicked(wxCommandEvent & event);
 
 	///	<summary>
+	///		Callback triggered when the colormap combo is changed.
+	///	</summary>
+	void OnColorMapCombo(wxCommandEvent & event);
+
+	///	<summary>
 	///		Callback triggered when the gridlines combo is changed.
 	///	</summary>
 	void OnGridLinesCombo(wxCommandEvent & event);
@@ -237,11 +237,6 @@ private:
 	void OnOverlaysCombo(wxCommandEvent & event);
 
 private:
-	///	<summary>
-	///		Button for changing color map.
-	///	</summary>
-	wxButton * m_wxColormapButton;
-
 	///	<summary>
 	///		Button for changing data range.
 	///	</summary>

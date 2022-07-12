@@ -6,6 +6,7 @@
 ///
 
 #include "wxNcVisFrame.h"
+#include <wx/filename.h>
 #include <wx/dir.h>
 
 #include "wxNcVisOptsDialog.h"
@@ -45,13 +46,13 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_MENU(ID_Hello, wxNcVisFrame::OnHello)
 	EVT_MENU(wxID_EXIT, wxNcVisFrame::OnExit)
 	EVT_MENU(wxID_ABOUT, wxNcVisFrame::OnAbout)
-	EVT_BUTTON(ID_COLORMAP, wxNcVisFrame::OnColorMapClicked)
 	EVT_BUTTON(ID_DATATRANS, wxNcVisFrame::OnDataTransClicked)
 	EVT_BUTTON(ID_OPTIONS, wxNcVisFrame::OnOptionsClicked)
 	EVT_TEXT_ENTER(ID_BOUNDS, wxNcVisFrame::OnBoundsChanged)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
 	EVT_BUTTON(ID_RANGERESETMINMAX, wxNcVisFrame::OnRangeResetMinMax)
+	EVT_COMBOBOX(ID_COLORMAP, wxNcVisFrame::OnColorMapCombo)
 	EVT_COMBOBOX(ID_GRIDLINES, wxNcVisFrame::OnGridLinesCombo)
 	EVT_COMBOBOX(ID_OVERLAYS, wxNcVisFrame::OnOverlaysCombo)
 	EVT_TIMER(ID_DIMTIMER, wxNcVisFrame::OnDimTimer)
@@ -69,7 +70,6 @@ wxNcVisFrame::wxNcVisFrame(
 	wxFrame(NULL, wxID_ANY, title, pos, size),
 	m_strNcVisResourceDir(strNcVisResourceDir),
 	m_colormaplib(strNcVisResourceDir),
-	m_wxColormapButton(NULL),
 	m_wxDataTransButton(NULL),
 	m_panelsizer(NULL),
 	m_ctrlsizer(NULL),
@@ -178,17 +178,26 @@ void wxNcVisFrame::InitializeWindow() {
       wxTE_MULTILINE | wxTE_RICH , wxDefaultValidator, wxTextCtrlNameStr);
       Maximize();
 */
-	// First line of controls
-	m_wxColormapButton = new wxButton(this, ID_COLORMAP, m_colormaplib.GetColorMapName(0));
+	// Data transform button (also reference widget height)
 	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
 
-	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxColormapButton->GetSize().GetHeight()));
+	// Color map combobox
+	wxComboBox * wxColorMapCombo = new wxComboBox(this, ID_COLORMAP, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
+	for (size_t c = 0; c < m_colormaplib.GetColorMapCount(); c++) {
+		wxColorMapCombo->Append(wxString(m_colormaplib.GetColorMapName(c)));
+	}
+	wxColorMapCombo->SetSelection(0);
+	wxColorMapCombo->SetEditable(false);
+
+	// Grid lines combobox
+	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
 	wxGridLinesCombo->Append(_T("Grid Off"));
 	wxGridLinesCombo->Append(_T("Grid On"));
 	wxGridLinesCombo->SetSelection(0);
 	wxGridLinesCombo->SetEditable(false);
 
-	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""), wxDefaultPosition, wxSize(140,m_wxColormapButton->GetSize().GetHeight()));
+	// Overlap combobox
+	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
 	wxOverlaysCombo->Append(_T("Overlays Off"));
 	for (size_t f = 0; f < m_vecNcVisResourceShpFiles.size(); f++) {
 		wxOverlaysCombo->Append(m_vecNcVisResourceShpFiles[f]);
@@ -196,7 +205,7 @@ void wxNcVisFrame::InitializeWindow() {
 	wxOverlaysCombo->SetSelection(0);
 	wxOverlaysCombo->SetEditable(false);
 
-	menusizer->Add(m_wxColormapButton, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxColorMapCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
@@ -218,7 +227,7 @@ void wxNcVisFrame::InitializeWindow() {
 		m_vecwxVarSelector[vc] =
 			new wxComboBox(this, ID_VARSELECTOR + vc,
 				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc),
-				wxDefaultPosition, wxSize(120, m_wxColormapButton->GetSize().GetHeight()));
+				wxDefaultPosition, wxSize(120, m_wxDataTransButton->GetSize().GetHeight()));
 
 		m_vecwxVarSelector[vc]->Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
 		m_vecwxVarSelector[vc]->SetEditable(false);
@@ -821,27 +830,6 @@ void wxNcVisFrame::OnClose(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::OnColorMapClicked(
-	wxCommandEvent & event
-) {
-	std::cout << "COLOR MAP CLICKED" << std::endl;
-
-	size_t sColorMapCount = m_colormaplib.GetColorMapCount();
-
-	m_sColorMap++;
-	if (m_sColorMap >= sColorMapCount) {
-		m_sColorMap = 0;
-	}
-
-	std::string strColorMapName = m_colormaplib.GetColorMapName(m_sColorMap);
-
-	m_wxColormapButton->SetLabel(wxString(strColorMapName));
-
-	m_imagepanel->SetColorMap(strColorMapName, true);
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 void wxNcVisFrame::OnDataTransClicked(
 	wxCommandEvent & event
 ) {
@@ -866,7 +854,7 @@ void wxNcVisFrame::OnOptionsClicked(
 void wxNcVisFrame::GenerateDimensionControls() {
 
 	// Get the height of the control
-	wxSize wxsizeButton = m_wxColormapButton->GetSize();
+	wxSize wxsizeButton = m_wxDataTransButton->GetSize();
 	int nCtrlHeight = wxsizeButton.GetHeight();
 	wxSize wxSquareSize(nCtrlHeight+2, nCtrlHeight);
 
@@ -1380,6 +1368,20 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::OnColorMapCombo(wxCommandEvent & event) {
+	std::cout << "COLORMAP COMBO" << std::endl;
+
+	if (m_imagepanel == NULL) {
+		return;
+	}
+
+	std::string strValue = event.GetString().ToStdString();
+
+	m_imagepanel->SetColorMap(strValue, true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::OnGridLinesCombo(wxCommandEvent & event) {
 	std::cout << "GRID COMBO" << std::endl;
 
@@ -1412,9 +1414,9 @@ void wxNcVisFrame::OnOverlaysCombo(wxCommandEvent & event) {
 	if (strValue == "Overlays Off") {
 		overlaydata.clear();
 	} else {
-		std::string strFilename = m_strNcVisResourceDir + "/" + strValue;
+		wxFileName wxfileOverlayPath(m_strNcVisResourceDir, strValue);
 
-		ReadShpFile(strFilename, overlaydata, false);
+		ReadShpFile(wxfileOverlayPath.GetFullPath().ToStdString(), overlaydata, false);
 	}
 
 	m_imagepanel->GenerateImageFromImageMap(true);
