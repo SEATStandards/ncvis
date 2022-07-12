@@ -563,21 +563,49 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 	}
 
 	// Determine which data coordinates correspond to the sample coordinates
-	for (size_t s = 0; s < dSample.GetRows(); s++) {
-		for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
-			double dLeft = 0.5 * ((*pvecDimValues)[t-1] + (*pvecDimValues)[t]);
-			double dRight = 0.5 * ((*pvecDimValues)[t] + (*pvecDimValues)[t+1]);
-			if ((t == 1) && (dSample[s] < dLeft)) {
-				veccoordmap[s] = 0;
-				break;
+	if (pvecDimValues->size() < 2) {
+		return;
+	}
+
+	// Monotone increasing coordinate
+	if ((*pvecDimValues)[1] > (*pvecDimValues)[0]) {
+		for (size_t s = 0; s < dSample.GetRows(); s++) {
+			for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
+				double dLeft = 0.5 * ((*pvecDimValues)[t-1] + (*pvecDimValues)[t]);
+				double dRight = 0.5 * ((*pvecDimValues)[t] + (*pvecDimValues)[t+1]);
+				if ((t == 1) && (dSample[s] < dLeft)) {
+					veccoordmap[s] = 0;
+					break;
+				}
+				if ((t == pvecDimValues->size()-2) && (dSample[s] > dRight)) {
+					veccoordmap[s] = pvecDimValues->size()-1;
+					break;
+				}
+				if ((dSample[s] >= dLeft) && (dSample[s] <= dRight)) {
+					veccoordmap[s] = t;
+					break;
+				}
 			}
-			if ((t == pvecDimValues->size()-2) && (dSample[s] > dRight)) {
-				veccoordmap[s] = pvecDimValues->size()-1;
-				break;
-			}
-			if ((dSample[s] >= dLeft) && (dSample[s] <= dRight)) {
-				veccoordmap[s] = t;
-				break;
+		}
+
+	// Monotone decreasing coordinate
+	} else {
+		for (size_t s = 0; s < dSample.GetRows(); s++) {
+			for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
+				double dLeft = 0.5 * ((*pvecDimValues)[t-1] + (*pvecDimValues)[t]);
+				double dRight = 0.5 * ((*pvecDimValues)[t] + (*pvecDimValues)[t+1]);
+				if ((t == 1) && (dSample[s] > dLeft)) {
+					veccoordmap[s] = 0;
+					break;
+				}
+				if ((t == pvecDimValues->size()-2) && (dSample[s] < dRight)) {
+					veccoordmap[s] = pvecDimValues->size()-1;
+					break;
+				}
+				if ((dSample[s] <= dLeft) && (dSample[s] >= dRight)) {
+					veccoordmap[s] = t;
+					break;
+				}
 			}
 		}
 	}
