@@ -54,7 +54,9 @@ public:
 	///	<summary>
 	///		Constructor.
 	///	</summary>
-	ColorMapLibrary();
+	ColorMapLibrary(
+		const std::string & strResourceDir
+	);
 
 	///	<summary>
 	///		Get the number of colormaps in the library.
@@ -71,12 +73,17 @@ public:
 	///	<summary>
 	///		Generate the specified colormap.
 	///	</summary>
-	static void GenerateColorMap(
+	void GenerateColorMap(
 		const std::string & strColorMap,
 		ColorMap & colormap
-	);
+	) const;
 
 private:
+	///	<summary>
+	///		Directory containing colormaps.
+	///	</summary>
+	std::string m_strResourceDir;
+
 	///	<summary>
 	///		List of colormap names.
 	///	</summary>

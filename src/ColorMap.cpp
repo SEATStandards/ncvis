@@ -11,57 +11,50 @@
 #include <sstream>
 #include <fstream>
 
-// does a system-portable glob search using wxWidgets
-std::vector<std::string> glob(const std::string& pattern) {
-
-	std::vector<std::string> filenames;
-
-		// get the resource directory
-		char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
-		if (szNcVisResourceDir == NULL) {
-			std::cout << "WARNING: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
-		}
-
-		// get 
-		wxDir dirResources(szNcVisResourceDir);
-		if (!dirResources.IsOpened()) {
-			std::cout << "ERROR: Cannot open resource directory \"" << szNcVisResourceDir << "\". Resources will not be populated." << std::endl;
-		} else {
-			wxString wxstrFilename;
-			bool cont = dirResources.GetFirst(&wxstrFilename, pattern.c_str(), wxDIR_FILES);
-			while (cont) {
-				filenames.push_back(std::string(wxstrFilename.c_str()));
-				cont = dirResources.GetNext(&wxstrFilename);
-			}
-		}
-
-    return filenames;
-}
-
 ////////////////////////////////////////////////////////////////////////////////
 
-ColorMapLibrary::ColorMapLibrary() {
+ColorMapLibrary::ColorMapLibrary(
+	const std::string & strResourceDir
+) :
+	m_strResourceDir(strResourceDir)
+{
+	// Get all *.rgb files in the resource directory
+	wxDir dirResources(strResourceDir);
+	if (!dirResources.IsOpened()) {
+		std::cerr << "ERROR: Cannot open directory \"" << m_strResourceDir << "\". Resources will not be populated." << std::endl;
+		return;
+	}
 
-	// get all *.rgb files in the resource directory
-	std::vector<std::string> file_list = glob("*.rgb");
-	for (const auto& path: file_list) {
-		// extract the colormap from the path name in a portable way
+	std::vector<wxString> vecFilenames;
+	{
+		wxString wxstrFilename;
+		bool cont = dirResources.GetFirst(&wxstrFilename, _T("*.rgb"), wxDIR_FILES);
+		while (cont) {
+			vecFilenames.push_back(wxstrFilename);
+			cont = dirResources.GetNext(&wxstrFilename);
+		}
+	}
+
+	for (const auto& path: vecFilenames) {
+
+		// Extract the colormap from the path name in a portable way
 		size_t npos = path.find_last_of("/\\");
-		std::string filename = path.substr(npos+1);
-		npos = filename.find_last_of(".");
-		std::string cmap_name = filename.substr(0, npos);
+		wxString wxstrFilename = path.substr(npos+1);
+		npos = wxstrFilename.find_last_of(".");
+		wxString wxstrColorMapName = wxstrFilename.substr(0, npos);
 
-		if ( cmap_name == DEFAULT_COLORMAP ){
-			// add the default colormap to the beginning of the list
-			m_vecColorMapNames.insert(m_vecColorMapNames.begin(), cmap_name);
+		// Add the default colormap to the beginning of the list
+		if (wxstrColorMapName == DEFAULT_COLORMAP) {
+			m_vecColorMapNames.insert(m_vecColorMapNames.begin(), wxstrColorMapName.ToStdString());
+
+		// Add the colormap to the list
 		} else {
-			// add the colormap to the list
-			m_vecColorMapNames.push_back(cmap_name);
+			m_vecColorMapNames.push_back(wxstrColorMapName.ToStdString());
 		}
 
 	}
 
-	// register the hand-coded colormaps
+	// Register the hand-coded colormaps
 	m_vecColorMapNames.push_back("jet");
 	m_vecColorMapNames.push_back("bluered");
 	m_vecColorMapNames.push_back("gray");
@@ -92,7 +85,7 @@ const std::string & ColorMapLibrary::GetColorMapName(
 void ColorMapLibrary::GenerateColorMap(
 	const std::string & strColorMap,
 	ColorMap & colormap
-) {
+) const {
 	colormap.resize(256, std::vector<unsigned char>(3, 0) );
 
 	// "gray" color map
@@ -143,38 +136,28 @@ void ColorMapLibrary::GenerateColorMap(
 			colormap[i][1] = (255-i)*2;
 			colormap[i][2] = (255-i)*2;
 		}
-/*
-		for (int i = 0; i < 256; i++) {
-			printf("%i %i %i %i\n", i, colormap[i][0], colormap[i][1], colormap[i][2]);
-		}
-*/
-	} else {
-		// get the resource directory
-		char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
-		if (szNcVisResourceDir == NULL) {
-			std::cerr << "WARNING: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
-		}
 
+	// Load colormap from resource directory
+	} else {
 
 		// Attempt to find a colormap file with the corresponding name
-		std::stringstream colormap_path;
-		colormap_path << szNcVisResourceDir << "/" << strColorMap << ".rgb";
-		std::ifstream infile(colormap_path.str());
+		wxString wxstrColormapPath = m_strResourceDir + _T("/") + strColorMap + _T(".rgb");
+		std::ifstream infile(wxstrColormapPath.ToStdString());
 
-
+		// Read the current rgb values
 		if (infile.good()){
 			int r,g,b;
 			for (int i = 0; i < 256; i++){
-				// read the current rgb values
 				if (!(infile >> r >> g >> b)){
-					_EXCEPTION1("Error parsing colormap file \"%s\"", colormap_path.str().c_str());
+					_EXCEPTION1("Error parsing colormap file \"%s\"", wxstrColormapPath.ToStdString().c_str());
 				}
 				colormap[i][0] = r;
 				colormap[i][1] = g;
 				colormap[i][2] = b;
 			}
+
+		// Colormap doesn't exist
 		} else {
-			// the colormap doesn't exist
 			_EXCEPTION1("Invalid colormap \"%s\"", strColorMap.c_str());
 		}
 		

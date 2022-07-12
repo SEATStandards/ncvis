@@ -69,9 +69,6 @@ wxImagePanel::wxImagePanel(
 
 	m_image.Create(nPanelWidth, nPanelHeight);
 
-	ColorMapLibrary colormaplib;
-	SetColorMap(colormaplib.GetColorMapName(0));
-
 	m_sft.xScale = LABELBAR_FONTHEIGHT;
 	m_sft.yScale = LABELBAR_FONTHEIGHT;
 	m_sft.xOffset = 0;
@@ -543,7 +540,7 @@ void wxImagePanel::SetColorMap(
 	const std::string & strColorMap,
 	bool fRedraw
 ) {
-	ColorMapLibrary::GenerateColorMap(strColorMap, m_colormap);
+	m_pncvisparent->GetColorMapLibrary().GenerateColorMap(strColorMap, m_colormap);
 
 	if (fRedraw) {
 		GenerateImageFromImageMap(true);
