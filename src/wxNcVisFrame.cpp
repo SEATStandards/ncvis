@@ -812,7 +812,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.10");
+		wxString strMessageBak = _T("NcVis 2022.07.12");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
