@@ -715,7 +715,7 @@ void wxNcVisFrame::ResetBounds() {
 	double dX1 = 360.0;
 	double dY0 = -90.0;
 	double dY1 = 90.0;
-/*
+
 	if ((m_varActive != NULL) && (!m_fIsVarActiveUnstructured)) {
 		auto itDim0 = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[0])->name());
 		if (itDim0 != m_mapDimData.end()) {
@@ -740,7 +740,7 @@ void wxNcVisFrame::ResetBounds() {
 		}
 
 	}
-*/
+
 	m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
 }
 
