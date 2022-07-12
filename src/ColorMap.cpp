@@ -1,47 +1,40 @@
 ///////////////////////////////////////////////////////////////////////////////
 ///
 ///	\file    ColorMap.cpp
-///	\author  Paul Ullrich
-///	\version June 27, 2022
+///	\author  Paul Ullrich and Travis O'Brien
+///	\version July 12, 2022
 ///
 
+#include <wx/dir.h>
 #include "ColorMap.h"
-#include <string.h> // memset()
 #include <iostream>
 #include <sstream>
 #include <fstream>
-#include <stdexcept>
-#include <glob.h>
-#include <algorithm>
 
-// taken from https://stackoverflow.com/a/8615450
-// Written by Trevor Boyd Smith May 10, 2018
+// does a system-portable glob search using wxWidgets
 std::vector<std::string> glob(const std::string& pattern) {
-    using namespace std;
 
-    // glob struct resides on the stack
-    glob_t glob_result;
-    memset(&glob_result, 0, sizeof(glob_result));
+	std::vector<std::string> filenames;
 
-    // do the glob operation
-    int return_value = glob(pattern.c_str(), GLOB_TILDE, NULL, &glob_result);
-    if(return_value != 0) {
-        globfree(&glob_result);
-        stringstream ss;
-        ss << "glob() failed with return_value " << return_value << endl;
-        throw std::runtime_error(ss.str());
-    }
+		// get the resource directory
+		char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
+		if (szNcVisResourceDir == NULL) {
+			std::cout << "WARNING: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
+		}
 
-    // collect all the filenames into a std::list<std::string>
-    vector<string> filenames;
-    for(size_t i = 0; i < glob_result.gl_pathc; ++i) {
-        filenames.push_back(string(glob_result.gl_pathv[i]));
-    }
+		// get 
+		wxDir dirResources(szNcVisResourceDir);
+		if (!dirResources.IsOpened()) {
+			std::cout << "ERROR: Cannot open resource directory \"" << szNcVisResourceDir << "\". Resources will not be populated." << std::endl;
+		} else {
+			wxString wxstrFilename;
+			bool cont = dirResources.GetFirst(&wxstrFilename, pattern.c_str(), wxDIR_FILES);
+			while (cont) {
+				filenames.push_back(std::string(wxstrFilename.c_str()));
+				cont = dirResources.GetNext(&wxstrFilename);
+			}
+		}
 
-    // cleanup
-    globfree(&glob_result);
-
-    // done
     return filenames;
 }
 
@@ -49,19 +42,11 @@ std::vector<std::string> glob(const std::string& pattern) {
 
 ColorMapLibrary::ColorMapLibrary() {
 
-	// get the resource directory
-	char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
-	if (szNcVisResourceDir == NULL) {
-		std::cerr << "WARNING: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
-	}
-
 	// get all *.rgb files in the resource directory
-	std::stringstream glob_pattern;
-	glob_pattern << szNcVisResourceDir << "/*.rgb";
-	std::vector<std::string> file_list = glob(glob_pattern.str().c_str());
+	std::vector<std::string> file_list = glob("*.rgb");
 	for (const auto& path: file_list) {
-		// extract the colormap from the path name
-		size_t npos = path.find_last_of("/");
+		// extract the colormap from the path name in a portable way
+		size_t npos = path.find_last_of("/\\");
 		std::string filename = path.substr(npos+1);
 		npos = filename.find_last_of(".");
 		std::string cmap_name = filename.substr(0, npos);
