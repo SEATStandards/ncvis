@@ -6,13 +6,81 @@
 ///
 
 #include "ColorMap.h"
+#include <string.h> // memset()
+#include <iostream>
+#include <sstream>
+#include <fstream>
+#include <stdexcept>
+#include <glob.h>
+#include <algorithm>
+
+// taken from https://stackoverflow.com/a/8615450
+// Written by Trevor Boyd Smith May 10, 2018
+std::vector<std::string> glob(const std::string& pattern) {
+    using namespace std;
+
+    // glob struct resides on the stack
+    glob_t glob_result;
+    memset(&glob_result, 0, sizeof(glob_result));
+
+    // do the glob operation
+    int return_value = glob(pattern.c_str(), GLOB_TILDE, NULL, &glob_result);
+    if(return_value != 0) {
+        globfree(&glob_result);
+        stringstream ss;
+        ss << "glob() failed with return_value " << return_value << endl;
+        throw std::runtime_error(ss.str());
+    }
+
+    // collect all the filenames into a std::list<std::string>
+    vector<string> filenames;
+    for(size_t i = 0; i < glob_result.gl_pathc; ++i) {
+        filenames.push_back(string(glob_result.gl_pathv[i]));
+    }
+
+    // cleanup
+    globfree(&glob_result);
+
+    // done
+    return filenames;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
 ColorMapLibrary::ColorMapLibrary() {
+
+	// get the resource directory
+	char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
+	if (szNcVisResourceDir == NULL) {
+		std::cerr << "WARNING: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
+	}
+
+	// get all *.rgb files in the resource directory
+	std::stringstream glob_pattern;
+	glob_pattern << szNcVisResourceDir << "/*.rgb";
+	std::vector<std::string> file_list = glob(glob_pattern.str().c_str());
+	for (const auto& path: file_list) {
+		// extract the colormap from the path name
+		size_t npos = path.find_last_of("/");
+		std::string filename = path.substr(npos+1);
+		npos = filename.find_last_of(".");
+		std::string cmap_name = filename.substr(0, npos);
+
+		if ( cmap_name == DEFAULT_COLORMAP ){
+			// add the default colormap to the beginning of the list
+			m_vecColorMapNames.insert(m_vecColorMapNames.begin(), cmap_name);
+		} else {
+			// add the colormap to the list
+			m_vecColorMapNames.push_back(cmap_name);
+		}
+
+	}
+
+	// register the hand-coded colormaps
 	m_vecColorMapNames.push_back("jet");
 	m_vecColorMapNames.push_back("bluered");
 	m_vecColorMapNames.push_back("gray");
+
 	m_vecColorMapNames.push_back("INVALID");
 }
 
@@ -96,7 +164,35 @@ void ColorMapLibrary::GenerateColorMap(
 		}
 */
 	} else {
-		_EXCEPTION1("Invalid colormap \"%s\"", strColorMap.c_str());
+		// get the resource directory
+		char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
+		if (szNcVisResourceDir == NULL) {
+			std::cerr << "WARNING: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
+		}
+
+
+		// Attempt to find a colormap file with the corresponding name
+		std::stringstream colormap_path;
+		colormap_path << szNcVisResourceDir << "/" << strColorMap << ".rgb";
+		std::ifstream infile(colormap_path.str());
+
+
+		if (infile.good()){
+			int r,g,b;
+			for (int i = 0; i < 256; i++){
+				// read the current rgb values
+				if (!(infile >> r >> g >> b)){
+					_EXCEPTION1("Error parsing colormap file \"%s\"", colormap_path.str().c_str());
+				}
+				colormap[i][0] = r;
+				colormap[i][1] = g;
+				colormap[i][2] = b;
+			}
+		} else {
+			// the colormap doesn't exist
+			_EXCEPTION1("Invalid colormap \"%s\"", strColorMap.c_str());
+		}
+		
 	}
 }
 
