@@ -6,6 +6,7 @@
 ///
 
 #include <wx/dir.h>
+#include <wx/filename.h>
 #include "ColorMap.h"
 #include <iostream>
 #include <sstream>
@@ -38,11 +39,9 @@ ColorMapLibrary::ColorMapLibrary(
 	for (const auto& path: vecFilenames) {
 
 		// Extract the colormap from the path name in a portable way
-		size_t npos = path.find_last_of("/\\");
-		wxString wxstrFilename = path.substr(npos+1);
-		npos = wxstrFilename.find_last_of(".");
-		wxString wxstrColorMapName = wxstrFilename.substr(0, npos);
-
+		wxFileName wxfilePath(path);
+		wxString wxstrColorMapName = wxfilePath.GetName();
+		
 		// Add the default colormap to the beginning of the list
 		if (wxstrColorMapName == DEFAULT_COLORMAP) {
 			m_vecColorMapNames.insert(m_vecColorMapNames.begin(), wxstrColorMapName.ToStdString());
@@ -140,8 +139,10 @@ void ColorMapLibrary::GenerateColorMap(
 	// Load colormap from resource directory
 	} else {
 
+		wxFileName wxfileColormapPath(m_strResourceDir, strColorMap, _T("rgb"));
+
 		// Attempt to find a colormap file with the corresponding name
-		wxString wxstrColormapPath = m_strResourceDir + _T("/") + strColorMap + _T(".rgb");
+		wxString wxstrColormapPath = wxfileColormapPath.GetFullPath();
 		std::ifstream infile(wxstrColormapPath.ToStdString());
 
 		// Read the current rgb values
