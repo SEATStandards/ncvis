@@ -97,14 +97,6 @@ public:
 	);
 
 	///	<summary>
-	///		Constrain sample coordinates (e.g., if periodicity is present).
-	///	</summary>
-	void ConstrainSampleCoordinates(
-		DataArray1D<double> & dSampleX,
-		DataArray1D<double> & dSampleY
-	);
-
-	///	<summary>
 	///		Sample the data.
 	///	</summary>
 	void SampleData(
@@ -126,7 +118,9 @@ public:
 	///	<summary>
 	///		Reset the bounds using dimension data.
 	///	</summary>
-	void ResetBounds();
+	void ResetBounds(
+		int iDim = (-1)
+	);
 
 	///	<summary>
 	///		Update the data range displayed in the controls.
@@ -152,8 +146,14 @@ public:
 	);
 
 private:
-	void OnHello(wxCommandEvent & event);
+	///	<summary>
+	///		Callback triggered when Exit is selected in the menu.
+	///	</summary>
 	void OnExit(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when About is selected in the menu.
+	///	</summary>
 	void OnAbout(wxCommandEvent & event);
 
 	///	<summary>

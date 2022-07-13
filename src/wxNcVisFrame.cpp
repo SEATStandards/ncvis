@@ -17,7 +17,6 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 enum {
-	ID_Hello = 1,
 	ID_COLORMAP = 2,
 	ID_DATATRANS = 3,
 	ID_BOUNDS = 4,
@@ -43,7 +42,6 @@ enum {
 
 wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_CLOSE(wxNcVisFrame::OnClose)
-	EVT_MENU(ID_Hello, wxNcVisFrame::OnHello)
 	EVT_MENU(wxID_EXIT, wxNcVisFrame::OnExit)
 	EVT_MENU(wxID_ABOUT, wxNcVisFrame::OnAbout)
 	EVT_BUTTON(ID_DATATRANS, wxNcVisFrame::OnDataTransClicked)
@@ -139,9 +137,6 @@ void wxNcVisFrame::InitializeWindow() {
 
 	// Create menu
 	wxMenu *menuFile = new wxMenu;
-	//menuFile->Append(ID_Hello, "&Hello...\tCtrl-H",
-	//				 "Help string shown in status bar for this menu item");
-	menuFile->AppendSeparator();
 	menuFile->Append(wxID_EXIT);
 
 	wxMenu *menuHelp = new wxMenu;
@@ -613,36 +608,6 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::ConstrainSampleCoordinates(
-	DataArray1D<double> & dSampleX,
-	DataArray1D<double> & dSampleY
-) {
-	if (m_fIsVarActiveUnstructured) {
-		for (int i = 0; i < dSampleX.GetRows(); i++) {
-			dSampleX[i] = LonDegToStandardRange(dSampleX[i]);
-		}
-	}
-
-	if ((m_varActive != NULL) && (m_lDisplayedDims[1] != (-1))) {
-		if (std::string("lon") == m_varActive->get_dim(m_lDisplayedDims[1])->name()) {
-			for (int i = 0; i < dSampleX.GetRows(); i++) {
-				dSampleX[i] = LonDegToStandardRange(dSampleX[i]);
-			}
-		}
-	}
-
-	if ((m_varActive != NULL) && (m_lDisplayedDims[0] != (-1))) {
-		if (std::string("lon") == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
-			for (int i = 0; i < dSampleY.GetRows(); i++) {
-				dSampleY[i] = LonDegToStandardRange(dSampleY[i]);
-			}
-		}
-	}
-
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
 // TODO: Sometimes you need to resample when variable is changed
 // TODO: Change from DataArray1D to a vector
 void wxNcVisFrame::SampleData(
@@ -738,38 +703,77 @@ void wxNcVisFrame::SetDisplayedBounds(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::ResetBounds() {
-	double dX0 = 0.0;
-	double dX1 = 360.0;
-	double dY0 = -90.0;
-	double dY1 = 90.0;
+void wxNcVisFrame::ResetBounds(
+	int iDim
+) {
+	double dXmin[2] = {0.0, -90.0};
+	double dXmax[2] = {360.0, 90.0};
 
-	if ((m_varActive != NULL) && (!m_fIsVarActiveUnstructured)) {
-		auto itDim0 = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[0])->name());
-		if (itDim0 != m_mapDimData.end()) {
-			auto itDim0coord = itDim0->second.begin();
-			const std::vector<double> & coord = itDim0coord->second;
-			dY0 = coord[0];
-			dY1 = coord[coord.size()-1];
-		} else {
-			dY0 = 0;
-			dY1 = m_varActive->get_dim(m_lDisplayedDims[0])->size()-1;
-		}
-
-		auto itDim1 = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[1])->name());
-		if (itDim1 != m_mapDimData.end()) {
-			auto itDim1coord = itDim1->second.begin();
-			const std::vector<double> & coord = itDim1coord->second;
-			dX0 = coord[0];
-			dX1 = coord[coord.size()-1];
-		} else {
-			dX0 = 0;
-			dX1 = m_varActive->get_dim(m_lDisplayedDims[1])->size()-1;
-		}
-
+	if (m_varActive == NULL) {
+		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], true);
+		return;
 	}
 
-	m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
+	_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
+
+	if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
+		_ASSERT(m_lDisplayedDims[1] == (-1));
+		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], true);
+		return;
+	}
+
+	size_t dmin, dmax;
+	if (iDim == (-1)) {
+		dmin = 0;
+		dmax = 2;
+
+	} else if (iDim == 0) {
+		dmin = static_cast<size_t>(0);
+		dmax = static_cast<size_t>(1);
+
+		dXmin[1] = m_imagepanel->GetXRangeMin();
+		dXmax[1] = m_imagepanel->GetXRangeMax();
+
+	} else if (iDim == 1) {
+		dmin = static_cast<size_t>(1);
+		dmax = static_cast<size_t>(2);
+
+		dXmin[0] = m_imagepanel->GetYRangeMin();
+		dXmax[0] = m_imagepanel->GetYRangeMax();
+
+	} else {
+		_EXCEPTION();
+	}
+
+	for (size_t d = dmin; d < dmax; d++) {
+		if (m_lDisplayedDims[d] == (-1)) {
+			continue;
+		}
+
+		auto itDim = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[d])->name());
+		if (itDim != m_mapDimData.end()) {
+			auto itDimCoord = itDim->second.begin();
+			const std::vector<double> & coord = itDimCoord->second;
+			if (coord.size() == 1) {
+				dXmin[d] = coord[0];
+				dXmax[d] = coord[0];
+			} else if (coord[1] > coord[0]) {
+				int nc = coord.size();
+				dXmin[d] = coord[0] - 0.5 * (coord[1] - coord[0]);
+				dXmax[d] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
+			} else {
+				int nc = coord.size();
+				dXmin[d] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
+				dXmax[d] = coord[0] - 0.5 * (coord[1] - coord[0]);
+			}
+
+		} else {
+			dXmin[d] = -0.5;
+			dXmax[d] = static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
+		}
+	}
+
+	m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -818,14 +822,6 @@ void wxNcVisFrame::SetStatusMessage(
 	} else {
 		SetStatusText( strMessage );
 	}
-}
-
-////////////////////////////////////////////////////////////////////////////////
-
-void wxNcVisFrame::OnHello(
-	wxCommandEvent & event
-) {
-	wxLogMessage("Hello world!");
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1062,6 +1058,17 @@ void wxNcVisFrame::OnVariableSelected(
 		}
 	}
 
+	// Store current active variable dimensions
+	std::string strPreviousDimName[2];
+	if (m_varActive != NULL) {
+		if (m_lDisplayedDims[0] != (-1)) {
+			strPreviousDimName[0] = m_varActive->get_dim(m_lDisplayedDims[0])->name();
+		}
+		if (m_lDisplayedDims[1] != (-1)) {
+			strPreviousDimName[1] = m_varActive->get_dim(m_lDisplayedDims[1])->name();
+		}
+	}
+
 	// Change the active variable
 	std::string strValue = event.GetString().ToStdString();
 
@@ -1076,27 +1083,60 @@ void wxNcVisFrame::OnVariableSelected(
 	// Initialize displayed dimension(s) and active dimensions
 	m_lDisplayedDims[0] = (-1);
 	m_lDisplayedDims[1] = (-1);
-	for (long d = 0; d < m_varActive->num_dims(); d++) {
-		auto itDimCurrent = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
-		if (itDimCurrent != m_mapDimBookmarks.end()) {
-			m_lVarActiveDims[d] = itDimCurrent->second;
-		} else {
-			m_lVarActiveDims[d] = 0;
+
+	bool fResetDimValues = true;
+
+	// First check if previously selected dimensions already exist in data
+	if ((strPreviousDimName[0] != "") && (strPreviousDimName[1] != "")) {
+		for (long d = 0; d < m_varActive->num_dims(); d++) {
+			if (strPreviousDimName[0] == m_varActive->get_dim(d)->name()) {
+				m_lDisplayedDims[0] = d;
+			}
+			if (strPreviousDimName[1] == m_varActive->get_dim(d)->name()) {
+				m_lDisplayedDims[1] = d;
+			}
 		}
-		if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
-			m_lDisplayedDims[0] = d;
+		if ((m_lDisplayedDims[0] != (-1)) && (m_lDisplayedDims[1] != (-1))) {
+			fResetDimValues = false;
+		}
+
+	} else if (strPreviousDimName[0] != "") {
+		for (long d = 0; d < m_varActive->num_dims(); d++) {
+			if (strPreviousDimName[0] == m_varActive->get_dim(d)->name()) {
+				m_lDisplayedDims[0] = d;
+			}
+		}
+		if (m_lDisplayedDims[0] != (-1)) {
+			fResetDimValues = false;
 		}
 	}
 
-	if (m_lDisplayedDims[0] == (-1)) {
-		if (m_varActive->num_dims() == 0) {
-			m_lDisplayedDims[1] = (-1);
-		} else if (m_varActive->num_dims() == 1) {
-			m_lDisplayedDims[0] = 0;
-		} else {
-			m_lDisplayedDims[0] = m_varActive->num_dims()-2;
-			m_lDisplayedDims[1] = m_varActive->num_dims()-1;
+	// Otherwise select new dimensions by variable type
+	if (fResetDimValues) {
+		for (long d = 0; d < m_varActive->num_dims(); d++) {
+			auto itDimCurrent = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
+			if (itDimCurrent != m_mapDimBookmarks.end()) {
+				m_lVarActiveDims[d] = itDimCurrent->second;
+			} else {
+				m_lVarActiveDims[d] = 0;
+			}
+			if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
+				m_lDisplayedDims[0] = d;
+			}
 		}
+
+		if (m_lDisplayedDims[0] == (-1)) {
+			if (m_varActive->num_dims() == 0) {
+				m_lDisplayedDims[1] = (-1);
+			} else if (m_varActive->num_dims() == 1) {
+				m_lDisplayedDims[0] = 0;
+			} else {
+				m_lDisplayedDims[0] = m_varActive->num_dims()-2;
+				m_lDisplayedDims[1] = m_varActive->num_dims()-1;
+			}
+		}
+
+		ResetBounds();
 	}
 
 	// Load the data
@@ -1189,6 +1229,7 @@ void wxNcVisFrame::OnRangeResetMinMax(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+//TODO: Verify that timer is actually able to execute with the desired frequency
 void wxNcVisFrame::OnDimTimer(wxTimerEvent & event) {
 	std::cout << "TIMER" << std::endl;
 
@@ -1341,6 +1382,7 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 	StopAnimation();
 
 	// Adjust axes
+	int iResetDim = (-1);
 	long d = static_cast<long>(event.GetId());
 	if ((d >= ID_AXESX) && (d < ID_AXESX + 100)) {
 		eAxesCommand = AXESCOMMAND_X;
@@ -1350,6 +1392,8 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		}
 		if (m_lDisplayedDims[0] == d) {
 			m_lDisplayedDims[0] = m_lDisplayedDims[1];
+		} else {
+			iResetDim = 1;
 		}
 		m_lDisplayedDims[1] = d;
 		m_lVarActiveDims[d] = 0;
@@ -1362,6 +1406,8 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		}
 		if (m_lDisplayedDims[1] == d) {
 			m_lDisplayedDims[1] = m_lDisplayedDims[0];
+		} else {
+			iResetDim = 0;
 		}
 		m_lDisplayedDims[0] = d;
 		m_lVarActiveDims[d] = 0;
@@ -1380,9 +1426,13 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		}
 		m_lDisplayedDims[0] = d;
 		m_lDisplayedDims[1] = (-1);
+
 	} else {
 		_EXCEPTION();
 	}
+
+	// Reset bounds
+	ResetBounds(iResetDim);
 
 	// Redraw data
 	LoadData();

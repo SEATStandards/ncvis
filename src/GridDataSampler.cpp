@@ -49,7 +49,7 @@ void GridDataSamplerUsingQuadTree::Sample(
 	int s = 0;
 	for (int j = 0; j < dSampleLat.GetRows(); j++) {
 	for (int i = 0; i < dSampleLon.GetRows(); i++) {
-		size_t sI = m_quadtree.find_inexact(dSampleLon[i], dSampleLat[j]);
+		size_t sI = m_quadtree.find_inexact(LonDegToStandardRange(dSampleLon[i]), dSampleLat[j]);
 
 		if (sI == static_cast<size_t>(-1)) {
 			dImageMap[s] = 0;//_EXCEPTION();

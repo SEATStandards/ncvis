@@ -582,8 +582,6 @@ void wxImagePanel::SetCoordinateRange(
 		m_dSampleY[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sImageHeight);
 	}
 
-	m_pncvisparent->ConstrainSampleCoordinates(m_dSampleX, m_dSampleY);
-
 	m_pncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
 	if (fRedraw) {
