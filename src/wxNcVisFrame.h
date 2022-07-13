@@ -119,7 +119,8 @@ public:
 	///		Reset the bounds using dimension data.
 	///	</summary>
 	void ResetBounds(
-		int iDim = (-1)
+		int iDim = (-1),
+		bool fRedraw = false
 	);
 
 	///	<summary>

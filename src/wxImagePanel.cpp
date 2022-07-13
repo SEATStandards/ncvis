@@ -85,7 +85,7 @@ wxImagePanel::wxImagePanel(
 
 	SetSize(wxSize(nPanelWidth, nPanelHeight));
 	SetMinSize(wxSize(nPanelWidth, nPanelHeight));
-	SetCoordinateRange(0.0, 360.0, -90.0, 90.0);
+	SetCoordinateRange(0.0, 1.0, 0.0, 1.0);
 
 	m_dDataRange[0] = 0.0;
 	m_dDataRange[1] = 1.0;
@@ -95,7 +95,6 @@ wxImagePanel::wxImagePanel(
 
 void wxImagePanel::OnPaint(wxPaintEvent & evt) {
 	std::cout << "PAINT" << std::endl;
-	// depending on your system you may need to look at double-buffered dcs
 	wxPaintDC dc(this);
 	Render(dc);
 }
@@ -118,14 +117,7 @@ void wxImagePanel::OnIdle(wxIdleEvent & evt) {
 		m_fResize = false;
 
 		// Generate coordinates
-		SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
-
-		// Sample the datafile
-		m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
-		m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
-
-		// Generate the image
-		GenerateImageFromImageMap(true);
+		SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1], true);
 	}
 }
 
@@ -282,6 +274,8 @@ void wxImagePanel::RealCoordToImageCoord(
 void wxImagePanel::GenerateImageFromImageMap(
 	bool fRedraw
 ) {
+	std::cout << "GENERATE IMAGE" << std::endl;
+
 	wxSize wxs = this->GetSize();
 
 	size_t sWidth = wxs.GetWidth();
@@ -584,10 +578,10 @@ void wxImagePanel::SetCoordinateRange(
 
 	m_pncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
-	if (fRedraw) {
-		m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
-		m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
+	m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
+	m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
 
+	if (fRedraw) {
 		GenerateImageFromImageMap(true);
 	}
 }

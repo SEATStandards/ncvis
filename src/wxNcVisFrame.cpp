@@ -628,7 +628,7 @@ void wxNcVisFrame::SampleData(
 			imagemap[s] = 0;
 		}
 
-	// One displayed variable
+	// One displayed variable along X axis
 	} else if (m_lDisplayedDims[1] == (-1)) {
 		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
 
@@ -687,39 +687,57 @@ void wxNcVisFrame::SetDisplayedBounds(
 	double dY0,
 	double dY1
 ) {
-	if (m_vecwxImageBounds[0] != NULL) {
-		m_vecwxImageBounds[0]->ChangeValue(wxString::Format(wxT("%.7g"), dX0));
-	}
-	if (m_vecwxImageBounds[1] != NULL) {
-		m_vecwxImageBounds[1]->ChangeValue(wxString::Format(wxT("%.7g"), dX1));
-	}
-	if (m_vecwxImageBounds[2] != NULL) {
-		m_vecwxImageBounds[2]->ChangeValue(wxString::Format(wxT("%.7g"), dY0));
-	}
-	if (m_vecwxImageBounds[3] != NULL) {
-		m_vecwxImageBounds[3]->ChangeValue(wxString::Format(wxT("%.7g"), dY1));
+	if ((m_vecwxImageBounds[0] == NULL) && (m_vecwxImageBounds[1] == NULL)) {
+		if (m_vecwxImageBounds[2] != NULL) {
+			m_vecwxImageBounds[2]->ChangeValue(wxString::Format(wxT("%.7g"), dX0));
+		}
+		if (m_vecwxImageBounds[3] != NULL) {
+			m_vecwxImageBounds[3]->ChangeValue(wxString::Format(wxT("%.7g"), dX1));
+		}
+
+	} else {
+		if (m_vecwxImageBounds[0] != NULL) {
+			m_vecwxImageBounds[0]->ChangeValue(wxString::Format(wxT("%.7g"), dX0));
+		}
+		if (m_vecwxImageBounds[1] != NULL) {
+			m_vecwxImageBounds[1]->ChangeValue(wxString::Format(wxT("%.7g"), dX1));
+		}
+		if (m_vecwxImageBounds[2] != NULL) {
+			m_vecwxImageBounds[2]->ChangeValue(wxString::Format(wxT("%.7g"), dY0));
+		}
+		if (m_vecwxImageBounds[3] != NULL) {
+			m_vecwxImageBounds[3]->ChangeValue(wxString::Format(wxT("%.7g"), dY1));
+		}
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::ResetBounds(
-	int iDim
+	int iDim,
+	bool fRedraw
 ) {
+	std::cout << "RESET BOUNDS" << std::endl;
 	double dXmin[2] = {0.0, -90.0};
 	double dXmax[2] = {360.0, 90.0};
 
 	if (m_varActive == NULL) {
-		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], true);
+		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], fRedraw);
+		return;
+	}
+	if (m_varActive->num_dims() == 0) {
+		m_imagepanel->SetCoordinateRange(0.0, 1.0, 0.0, 1.0, fRedraw);
 		return;
 	}
 
-	_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
+	_ASSERT((m_lDisplayedDims[0] != (-1)) || (m_lDisplayedDims[1] != (-1)));
 
-	if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
-		_ASSERT(m_lDisplayedDims[1] == (-1));
-		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], true);
-		return;
+	if (m_lDisplayedDims[0] != (-1)) {
+		if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
+			_ASSERT(m_lDisplayedDims[1] == (-1));
+			m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], fRedraw);
+			return;
+		}
 	}
 
 	size_t dmin, dmax;
@@ -750,8 +768,16 @@ void wxNcVisFrame::ResetBounds(
 			continue;
 		}
 
-		auto itDim = m_mapDimData.find(m_varActive->get_dim(m_lDisplayedDims[d])->name());
+		std::string strDimName(m_varActive->get_dim(m_lDisplayedDims[d])->name());
+
+		auto itDim = m_mapDimData.find(strDimName);
 		if (itDim != m_mapDimData.end()) {
+			if (itDim->second.size() == 0) {
+				dXmin[d] = -0.5;
+				dXmax[d] = static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
+				continue;
+			}
+
 			auto itDimCoord = itDim->second.begin();
 			const std::vector<double> & coord = itDimCoord->second;
 			if (coord.size() == 1) {
@@ -767,13 +793,52 @@ void wxNcVisFrame::ResetBounds(
 				dXmax[d] = coord[0] - 0.5 * (coord[1] - coord[0]);
 			}
 
+			// Special cases (latitude)
+			if ((strDimName.find("lat") != std::string::npos) ||
+			    (strDimName.find("Lat") != std::string::npos) ||
+			    (strDimName.find("LAT") != std::string::npos)
+			) {
+				if (dXmin[d] < -90.0) {
+					dXmin[d] = -90.0;
+				}
+				if (dXmax[d] < -90.0) {
+					dXmax[d] = -90.0;
+				}
+				if (dXmin[d] > 90.0) {
+					dXmin[d] = 90.0;
+				}
+				if (dXmax[d] > 90.0) {
+					dXmax[d] = 90.0;
+				}
+			}
+
+			// Special cases (longitude)
+			if ((strDimName.find("lon") != std::string::npos) ||
+			    (strDimName.find("Lon") != std::string::npos) ||
+			    (strDimName.find("LON") != std::string::npos)
+			) {
+				if (fabs(dXmax[d] - dXmin[d] - 360.0) < 1.0e-5) {
+					if (coord[1] > coord[0]) {
+						dXmin[d] = coord[0];
+						dXmax[d] = coord[0] + 360.0;
+					} else {
+						dXmin[d] = coord[coord.size()-1];
+						dXmax[d] = coord[coord.size()-1] + 360.0;
+					}
+				}
+			}
+
 		} else {
 			dXmin[d] = -0.5;
 			dXmax[d] = static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
 		}
 	}
 
-	m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], true);
+	if (m_varActive->num_dims() == 1) {
+		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], 0.0, 1.0, fRedraw);
+	} else {
+		m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], fRedraw);
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -909,7 +974,7 @@ void wxNcVisFrame::GenerateDimensionControls() {
 		vardimboxsizerxy->Add(m_vecwxActiveAxes[d][2], 0, wxEXPAND | wxALL, 2);
 		m_vardimsizer->Add(vardimboxsizerxy, 0, wxEXPAND | wxALL, 2);
 
-		m_vardimsizer->Add(new wxStaticText(this, -1, wxString(m_varActive->get_dim(d)->name()), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxALL, 4);
+		m_vardimsizer->Add(new wxStaticText(this, -1, wxString(m_varActive->get_dim(d)->name()), wxDefaultPosition, wxSize(60,nCtrlHeight), wxST_ELLIPSIZE_END | wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxALL, 4);
 
 		if (m_strUnstructDimName != m_varActive->get_dim(d)->name()) {
 			m_vecwxActiveAxes[d][2]->Enable(false);
@@ -921,7 +986,11 @@ void wxNcVisFrame::GenerateDimensionControls() {
 			m_vecwxActiveAxes[d][0]->Enable(false);
 			m_vecwxActiveAxes[d][1]->Enable(false);
 		}
-		
+		if (m_varActive->num_dims() < 2) {
+			m_vecwxActiveAxes[d][0]->Enable(false);
+			m_vecwxActiveAxes[d][1]->Enable(false);
+		}
+
 		if (d == m_lDisplayedDims[0]) {
 
 			// Dimension is the XY coordinate on the plot (unstructured)
@@ -929,10 +998,10 @@ void wxNcVisFrame::GenerateDimensionControls() {
 				m_vecwxActiveAxes[d][2]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">XY</span>"));
 
 				wxBoxSizer * vardimboxsizerminmax = new wxBoxSizer(wxHORIZONTAL);
-				m_vecwxImageBounds[0] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-				m_vecwxImageBounds[1] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-				m_vecwxImageBounds[2] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-				m_vecwxImageBounds[3] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[0] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[1] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[2] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[3] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(100, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
 				vardimboxsizerminmax->Add(m_vecwxImageBounds[0], 1, wxEXPAND | wxALL, 0);
 				vardimboxsizerminmax->Add(m_vecwxImageBounds[1], 1, wxEXPAND | wxALL, 0);
 				vardimboxsizerminmax->Add(m_vecwxImageBounds[2], 1, wxEXPAND | wxALL, 0);
@@ -944,13 +1013,15 @@ void wxNcVisFrame::GenerateDimensionControls() {
 				wxDimReset->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
 				m_vardimsizer->Add(wxDimReset, 0, wxEXPAND | wxALL, 0);
 
-			// Dimension is the Y coordinate on the plot
+			// Dimension is the Y coordinate on the plot or variable is 1D
 			} else {
-				m_vecwxActiveAxes[d][1]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">Y</span>"));
+				if (m_varActive->num_dims() >= 2) {
+					m_vecwxActiveAxes[d][1]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">Y</span>"));
+				}
 
 				wxBoxSizer * vardimboxsizerminmax = new wxBoxSizer(wxHORIZONTAL);
-				m_vecwxImageBounds[2] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-				m_vecwxImageBounds[3] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[2] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+				m_vecwxImageBounds[3] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
 				vardimboxsizerminmax->Add(m_vecwxImageBounds[2], 1, wxEXPAND | wxALL, 0);
 				vardimboxsizerminmax->Add(m_vecwxImageBounds[3], 1, wxEXPAND | wxALL, 0);
 
@@ -966,8 +1037,8 @@ void wxNcVisFrame::GenerateDimensionControls() {
 			m_vecwxActiveAxes[d][0]->SetLabelMarkup(_T("<span color=\"red\" weight=\"bold\">X</span>"));
 
 			wxBoxSizer * vardimboxsizerminmax = new wxBoxSizer(wxHORIZONTAL);
-			m_vecwxImageBounds[0] = new wxTextCtrl(this, ID_BOUNDS, _T("Min"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
-			m_vecwxImageBounds[1] = new wxTextCtrl(this, ID_BOUNDS, _T("Max"), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			m_vecwxImageBounds[0] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			m_vecwxImageBounds[1] = new wxTextCtrl(this, ID_BOUNDS, _T(""), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
 			vardimboxsizerminmax->Add(m_vecwxImageBounds[0], 1, wxEXPAND | wxALL, 0);
 			vardimboxsizerminmax->Add(m_vecwxImageBounds[1], 1, wxEXPAND | wxALL, 0);
 
@@ -1084,8 +1155,6 @@ void wxNcVisFrame::OnVariableSelected(
 	m_lDisplayedDims[0] = (-1);
 	m_lDisplayedDims[1] = (-1);
 
-	bool fResetDimValues = true;
-
 	// First check if previously selected dimensions already exist in data
 	if ((strPreviousDimName[0] != "") && (strPreviousDimName[1] != "")) {
 		for (long d = 0; d < m_varActive->num_dims(); d++) {
@@ -1096,9 +1165,6 @@ void wxNcVisFrame::OnVariableSelected(
 				m_lDisplayedDims[1] = d;
 			}
 		}
-		if ((m_lDisplayedDims[0] != (-1)) && (m_lDisplayedDims[1] != (-1))) {
-			fResetDimValues = false;
-		}
 
 	} else if (strPreviousDimName[0] != "") {
 		for (long d = 0; d < m_varActive->num_dims(); d++) {
@@ -1106,20 +1172,11 @@ void wxNcVisFrame::OnVariableSelected(
 				m_lDisplayedDims[0] = d;
 			}
 		}
-		if (m_lDisplayedDims[0] != (-1)) {
-			fResetDimValues = false;
-		}
 	}
 
 	// Otherwise select new dimensions by variable type
-	if (fResetDimValues) {
+	if ((m_lDisplayedDims[0] == (-1)) && (m_lDisplayedDims[1] == (-1))) {
 		for (long d = 0; d < m_varActive->num_dims(); d++) {
-			auto itDimCurrent = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
-			if (itDimCurrent != m_mapDimBookmarks.end()) {
-				m_lVarActiveDims[d] = itDimCurrent->second;
-			} else {
-				m_lVarActiveDims[d] = 0;
-			}
 			if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
 				m_lDisplayedDims[0] = d;
 			}
@@ -1137,6 +1194,48 @@ void wxNcVisFrame::OnVariableSelected(
 		}
 
 		ResetBounds();
+
+	} else if (m_lDisplayedDims[0] == (-1)) {
+		_ASSERT(m_varActive->num_dims() >= 1);
+		if (m_varActive->num_dims() == 1) {
+			m_lDisplayedDims[0] = m_lDisplayedDims[1];
+			m_lDisplayedDims[1] = (-1);
+		} else {
+			for (long d = m_varActive->num_dims()-1; d >= 0; d--) {
+				if (d != m_lDisplayedDims[1]) {
+					m_lDisplayedDims[0] = d;
+					break;
+				}
+			}
+			ResetBounds(0);
+		}
+
+	} else if (m_lDisplayedDims[1] == (-1)) {
+		_ASSERT(m_varActive->num_dims() >= 1);
+		if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
+		} else if (m_varActive->num_dims() != 1) {
+			for (long d = m_varActive->num_dims()-1; d >= 0; d--) {
+				if (d != m_lDisplayedDims[0]) {
+					m_lDisplayedDims[1] = d;
+					break;
+				}
+			}
+			ResetBounds(1);
+		}
+	}
+
+	// Set lVarActiveDims using bookmarked indices
+	for (long d = 0; d < m_varActive->num_dims(); d++) {
+		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
+			m_lVarActiveDims[d] = 0;
+		} else {
+			auto itDimCurrent = m_mapDimBookmarks.find(m_varActive->get_dim(d)->name());
+			if (itDimCurrent != m_mapDimBookmarks.end()) {
+				m_lVarActiveDims[d] = itDimCurrent->second;
+			} else {
+				m_lVarActiveDims[d] = 0;
+			}
+		}
 	}
 
 	// Load the data
@@ -1161,35 +1260,62 @@ void wxNcVisFrame::OnBoundsChanged(
 ) {
 	std::cout << "BOUNDS CHANGED" << std::endl;
 
-	_ASSERT(m_vecwxImageBounds[0] != NULL);
-	_ASSERT(m_vecwxImageBounds[1] != NULL);
-	_ASSERT(m_vecwxImageBounds[2] != NULL);
-	_ASSERT(m_vecwxImageBounds[3] != NULL);
+	// 1D variable, only one set of bounds available
+	if ((m_vecwxImageBounds[0] == NULL) && (m_vecwxImageBounds[1] == NULL)) {
+		_ASSERT(m_vecwxImageBounds[2] != NULL);
+		_ASSERT(m_vecwxImageBounds[3] != NULL);
 
-	std::string strX0 = m_vecwxImageBounds[0]->GetValue().ToStdString();
-	std::string strX1 = m_vecwxImageBounds[1]->GetValue().ToStdString();
-	std::string strY0 = m_vecwxImageBounds[2]->GetValue().ToStdString();
-	std::string strY1 = m_vecwxImageBounds[3]->GetValue().ToStdString();
+		std::string strX0 = m_vecwxImageBounds[2]->GetValue().ToStdString();
+		std::string strX1 = m_vecwxImageBounds[3]->GetValue().ToStdString();
 
-	if (!STLStringHelper::IsFloat(strX0) ||
-	    !STLStringHelper::IsFloat(strX1) ||
-	    !STLStringHelper::IsFloat(strY0) ||
-	    !STLStringHelper::IsFloat(strY1)
-	) {
-		SetDisplayedBounds(
-			m_imagepanel->GetXRangeMin(),
-			m_imagepanel->GetXRangeMax(),
-			m_imagepanel->GetYRangeMin(),
-			m_imagepanel->GetYRangeMax());
-		return;
+		if (!STLStringHelper::IsFloat(strX0) ||
+		    !STLStringHelper::IsFloat(strX1)
+		) {
+			SetDisplayedBounds(
+				m_imagepanel->GetXRangeMin(),
+				m_imagepanel->GetXRangeMax(),
+				m_imagepanel->GetYRangeMin(),
+				m_imagepanel->GetYRangeMax());
+			return;
+		}
+
+		double dX0 = stof(strX0);
+		double dX1 = stof(strX1);
+
+		m_imagepanel->SetCoordinateRange(dX0, dX1, 0.0, 1.0, true);
+
+	// 2D variable, two sets of bounds available
+	} else {
+		_ASSERT(m_vecwxImageBounds[0] != NULL);
+		_ASSERT(m_vecwxImageBounds[1] != NULL);
+		_ASSERT(m_vecwxImageBounds[2] != NULL);
+		_ASSERT(m_vecwxImageBounds[3] != NULL);
+
+		std::string strX0 = m_vecwxImageBounds[0]->GetValue().ToStdString();
+		std::string strX1 = m_vecwxImageBounds[1]->GetValue().ToStdString();
+		std::string strY0 = m_vecwxImageBounds[2]->GetValue().ToStdString();
+		std::string strY1 = m_vecwxImageBounds[3]->GetValue().ToStdString();
+
+		if (!STLStringHelper::IsFloat(strX0) ||
+		    !STLStringHelper::IsFloat(strX1) ||
+		    !STLStringHelper::IsFloat(strY0) ||
+		    !STLStringHelper::IsFloat(strY1)
+		) {
+			SetDisplayedBounds(
+				m_imagepanel->GetXRangeMin(),
+				m_imagepanel->GetXRangeMax(),
+				m_imagepanel->GetYRangeMin(),
+				m_imagepanel->GetYRangeMax());
+			return;
+		}
+
+		double dX0 = stof(strX0);
+		double dX1 = stof(strX1);
+		double dY0 = stof(strY0);
+		double dY1 = stof(strY1);
+
+		m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
 	}
-
-	double dX0 = stof(strX0);
-	double dX1 = stof(strX1);
-	double dY0 = stof(strY0);
-	double dY1 = stof(strY1);
-
-	m_imagepanel->SetCoordinateRange(dX0, dX1, dY0, dY1, true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
