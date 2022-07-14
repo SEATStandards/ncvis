@@ -63,10 +63,12 @@ wxNcVisFrame::wxNcVisFrame(
 	const wxPoint & pos,
 	const wxSize & size,
 	const std::string & strNcVisResourceDir,
+	const std::map<std::string, std::string> & mapOptions,
 	const std::vector<std::string> & vecFilenames
 ) :
 	wxFrame(NULL, wxID_ANY, title, pos, size),
 	m_strNcVisResourceDir(strNcVisResourceDir),
+	m_mapOptions(mapOptions),
 	m_colormaplib(strNcVisResourceDir),
 	m_wxDataTransButton(NULL),
 	m_panelsizer(NULL),
@@ -408,9 +410,25 @@ void wxNcVisFrame::OpenFiles(
 	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
 	// Initialize the GridDataSampler
-	m_gdsqt.Initialize(dLon, dLat);
-	//m_gdskd.Initialize(dLon, dLat);
+	{
+		wxStopWatch sw;
+		auto itGridDataSampler = m_mapOptions.find("-g");
+		if (itGridDataSampler != m_mapOptions.end()) {
+			if (itGridDataSampler->second == "csqt") {
+				m_gdscsqt.Initialize(dLon, dLat);
+			} else if (itGridDataSampler->second == "qt") {
+				m_gdsqt.Initialize(dLon, dLat);
+			} else if (itGridDataSampler->second == "kd") {
+				m_gdskd.Initialize(dLon, dLat);
+			} else {
+				_EXCEPTIONT("Invalid value for option -g: Expected [csqt,qt,kd]");
+			}
 
+		} else {
+			m_gdsqt.Initialize(dLon, dLat);
+		}
+		Announce("Initializing the GridDataSampler took %ldms", sw.Time());
+	}
 	// Allocate data space
 	m_data.Allocate(varLon->get_dim(0)->size());
 }
@@ -608,7 +626,6 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// TODO: Sometimes you need to resample when variable is changed
 // TODO: Change from DataArray1D to a vector
 void wxNcVisFrame::SampleData(
 	const DataArray1D<double> & dSampleX,
@@ -620,7 +637,15 @@ void wxNcVisFrame::SampleData(
 
 	// Active variable is an unstructured variable; use sampling
 	if (m_fIsVarActiveUnstructured) {
-		m_gdsqt.Sample(dSampleX, dSampleY, imagemap);
+		if (m_gdscsqt.IsInitialized()) {
+			m_gdscsqt.Sample(dSampleX, dSampleY, imagemap);
+		} else if (m_gdsqt.IsInitialized()) {
+			m_gdsqt.Sample(dSampleX, dSampleY, imagemap);
+		} else if (m_gdskd.IsInitialized()) {
+			m_gdskd.Sample(dSampleX, dSampleY, imagemap);
+		} else {
+			_EXCEPTIONT("No GridDataSampler initialized");
+		}
 
 	// No displayed variables
 	} else if ((m_lDisplayedDims[0] == (-1)) && (m_lDisplayedDims[1] == (-1))) {
@@ -881,7 +906,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.12");
+		wxString strMessageBak = _T("NcVis 2022.07.13");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {

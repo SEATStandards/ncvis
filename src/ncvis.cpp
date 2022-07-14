@@ -45,13 +45,35 @@ bool wxNcVisApp::OnInit() {
 
 	// Process command line arguments
 	if (argc < 2) {
-		std::cout << "Usage: " << argv[0] << " <filename> [filename] ... " << std::endl;
+		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
 		return false;
 	}
 
+	int iarg = 1;
+
+	std::map<std::string, std::string> mapOptions;
+	for (; iarg < argc; iarg++) {
+		if (argv[iarg][0] == '-') {
+			if (iarg+1 < argc) {
+				mapOptions.insert(
+					std::pair<std::string, std::string>(
+						argv[iarg], argv[iarg+1]));
+				iarg++;
+			}
+		} else {
+			break;
+		}
+	}
+
 	std::vector<std::string> vecFilenames;
-	for (int v = 1; v < argc; v++) {
-		vecFilenames.push_back(std::string(argv[v]));
+	for (; iarg < argc; iarg++) {
+		vecFilenames.push_back(std::string(argv[iarg]));
+	}
+
+	if (vecFilenames.size() == 0) {
+		std::cout << "ERROR: No filenames specified" << std::endl;
+		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
+		return false;
 	}
 
 	char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
@@ -66,6 +88,7 @@ bool wxNcVisApp::OnInit() {
 			wxPoint(50, 50),
 			wxSize(842, 462),
 			szNcVisResourceDir,
+			mapOptions,
 			vecFilenames);
 
 	frame->Show( true );

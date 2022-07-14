@@ -47,6 +47,7 @@ public:
 		const wxPoint & pos,
 		const wxSize & size,
 		const std::string & strNcVisResourceDir,
+		const std::map<std::string, std::string> & mapOptions,
 		const std::vector<std::string> & vecFilenames
 	);
 
@@ -315,6 +316,11 @@ private:
 	std::string m_strNcVisResourceDir;
 
 	///	<summary>
+	///		Command-line options.
+	///	</summary>
+	std::map<std::string, std::string> m_mapOptions;
+
+	///	<summary>
 	///		Color map library.
 	///	</summary>
 	ColorMapLibrary m_colormaplib;
@@ -387,6 +393,11 @@ private:
 	///		ColorMap index.
 	///	</summary>
 	size_t m_sColorMap;
+
+	///	<summary>
+	///		Class for sampling data on the grid using a cubed-sphere rooted quad tree.
+	///	</summary>
+	GridDataSamplerUsingCubedSphereQuadTree m_gdscsqt;
 
 	///	<summary>
 	///		Class for sampling data on the grid using a quad tree.

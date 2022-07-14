@@ -10,6 +10,8 @@
 
 #include "Exception.h"
 
+#include <cmath>
+
 ///////////////////////////////////////////////////////////////////////////////
 
 class QuadTreeNode {
@@ -57,8 +59,22 @@ public:
 		size_t sXi = static_cast<size_t>((dX - m_dX0) / m_dXdelta);
 		size_t sYi = static_cast<size_t>((dY - m_dY0) / m_dYdelta);
 
-		_ASSERT(sXi < 2);
-		_ASSERT(sYi < 2);
+		if (sXi >= 2) {
+			if (fabs(dX - m_dX0 - 2.0 * m_dXdelta) < 1.0e-5) {
+				sXi = 1;
+			} else {
+				_EXCEPTION4("ERROR: QuadTree insertion out of range %lu %f %f %f\n",
+					sXi, dX, m_dX0, m_dXdelta);
+			}
+		}
+		if (sYi >= 2) {
+			if (fabs(dY - m_dY0 - 2.0 * m_dYdelta) < 1.0e-5) {
+				sYi = 1;
+			} else {
+				_EXCEPTION4("ERROR: QuadTree insertion out of range %lu %f %f %f\n",
+					sYi, dY, m_dY0, m_dYdelta);
+			}
+		}
 
 		const size_t sIx = 2 * sYi + sXi;
 

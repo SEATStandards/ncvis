@@ -2,7 +2,7 @@
 ///
 ///	\file    GridDataSampler.h
 ///	\author  Paul Ullrich
-///	\version June 27, 2022
+///	\version July 13, 2022
 ///
 
 #ifndef _GRIDDATASAMPLER_H_
@@ -14,17 +14,26 @@
 #include "DataArray1D.h"
 #include "netcdfcpp.h"
 
+#include <vector>
+
 ///////////////////////////////////////////////////////////////////////////////
 
 class GridDataSampler {
 public:
+	///	<summary>
+	///		Constructor.
+	///	</summary>
+	GridDataSampler() :
+		m_fIsInitialized(false)
+	{ }
+
 	///	<summary>
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
 		const DataArray1D<double> & dLon,
 		const DataArray1D<double> & dLat
-	) = 0;
+	);
 
 	///	<summary>
 	///		Sample.
@@ -34,6 +43,58 @@ public:
 		const DataArray1D<double> & dSampleLat,
 		DataArray1D<int> & dImageMap
 	) const = 0;
+
+	///	<summary>
+	///		Check if initialized.
+	///	</summary>
+	bool IsInitialized() const {
+		return m_fIsInitialized;
+	}
+
+private:
+	///	<summary>
+	///		Flag indicating this GridDataSampler is initialized.
+	///	</summary>
+	bool m_fIsInitialized;
+};
+
+///////////////////////////////////////////////////////////////////////////////
+
+class GridDataSamplerUsingCubedSphereQuadTree : public GridDataSampler {
+public:
+	///	<summary>
+	///		Convert a RLL coordinate to an equiangular cubed-sphere ABP coordinate.
+	///	</summary>
+	static void ABPFromRLL(
+		double dLon,
+		double dLat,
+		double & dA,
+		double & dB,
+		int & nP
+	);
+
+	///	<summary>
+	///		Initialize.
+	///	</summary>
+	virtual void Initialize(
+		const DataArray1D<double> & dLon,
+		const DataArray1D<double> & dLat
+	);
+
+	///	<summary>
+	///		Generate
+	///	</summary>
+	virtual void Sample(
+		const DataArray1D<double> & dSampleLon,
+		const DataArray1D<double> & dSampleLat,
+		DataArray1D<int> & dImageMap
+	) const;
+
+public:
+	///	<summary>
+	///		QuadTree root node.
+	///	</summary>
+	std::vector<QuadTreeNode> m_vecquadtree;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
