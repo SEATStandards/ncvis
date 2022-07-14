@@ -36,3 +36,7 @@ bin/*
 
 # vim swp files
 *.swp
+
+# netcdf files
+*.nc
+*.nc4

@@ -311,24 +311,51 @@ void wxImagePanel::GenerateImageFromImageMap(
 	}
 
 	// Draw map
-	int s = 0;
-	for (size_t j = 0; j < sImageHeight; j++) {
-		size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
-		for (size_t i = 0; i < sImageWidth; i++) {
-			size_t ix = i + DISPLAY_BORDER;
+	if (!m_pncvisparent->DataHasMissingValue()) {
+		int s = 0;
+		for (size_t j = 0; j < sImageHeight; j++) {
+			size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+			for (size_t i = 0; i < sImageWidth; i++) {
+				size_t ix = i + DISPLAY_BORDER;
 
-			m_colormap.Sample(
-				data[m_imagemap[s]],
-				m_dDataRange[0],
-				m_dDataRange[1],
-				imagedata[3 * sWidth * jx + 3 * ix + 0],
-				imagedata[3 * sWidth * jx + 3 * ix + 1],
-				imagedata[3 * sWidth * jx + 3 * ix + 2]);
+				m_colormap.Sample(
+					data[m_imagemap[s]],
+					m_dDataRange[0],
+					m_dDataRange[1],
+					imagedata[3 * sWidth * jx + 3 * ix + 0],
+					imagedata[3 * sWidth * jx + 3 * ix + 1],
+					imagedata[3 * sWidth * jx + 3 * ix + 2]);
 
-			s++;
+				s++;
+			}
+		}
+
+	} else {
+		float dMissingValue = m_pncvisparent->GetMissingValueFloat();
+		int s = 0;
+		for (size_t j = 0; j < sImageHeight; j++) {
+			size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+			for (size_t i = 0; i < sImageWidth; i++) {
+				size_t ix = i + DISPLAY_BORDER;
+
+				float dValue = data[m_imagemap[s]];
+				if (dValue != dMissingValue) {
+					m_colormap.Sample(
+						dValue,
+						m_dDataRange[0],
+						m_dDataRange[1],
+						imagedata[3 * sWidth * jx + 3 * ix + 0],
+						imagedata[3 * sWidth * jx + 3 * ix + 1],
+						imagedata[3 * sWidth * jx + 3 * ix + 2]);
+				} else {
+					imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+					imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+					imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+				}
+				s++;
+			}
 		}
 	}
-
 	// Draw grid lines
 	if (m_fGridLinesOn) {
 		static const int nGridThickness = 2;

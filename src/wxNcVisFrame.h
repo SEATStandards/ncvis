@@ -88,6 +88,20 @@ public:
 	}
 
 	///	<summary>
+	///		Check if the data has a missing value.
+	///	</summary>
+	bool DataHasMissingValue() const {
+		return m_fDataHasMissingValue;
+	}
+
+	///	<summary>
+	///		Get the missing value for the data.
+	///	</summary>
+	float GetMissingValueFloat() const {
+		return m_dMissingValueFloat;
+	}
+
+	///	<summary>
 	///		Map an array of sample coordinates in 1D to indices in
 	///		the dimension variable of the active variable.
 	///	</summary>
@@ -413,6 +427,16 @@ private:
 	///		Data being visualized.
 	///	</summary>
 	DataArray1D<float> m_data;
+
+	///	<summary>
+	///		A flag indicating the data has missing values.
+	///	</summary>
+	bool m_fDataHasMissingValue;
+
+	///	<summary>
+	///		Missing value.
+	///	</summary>
+	float m_dMissingValueFloat;
 
 	wxDECLARE_EVENT_TABLE();
 };

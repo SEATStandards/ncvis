@@ -81,7 +81,8 @@ wxNcVisFrame::wxNcVisFrame(
 	m_varActive(NULL),
 	m_fIsVarActiveUnstructured(false),
 	m_lAnimatedDim(-1),
-	m_sColorMap(0)
+	m_sColorMap(0),
+	m_fDataHasMissingValue(false)
 {
 	m_lDisplayedDims[0] = (-1);
 	m_lDisplayedDims[1] = (-1);
@@ -887,12 +888,34 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 
 	float dDataMin = m_data[0];
 	float dDataMax = m_data[0];
-	for (int i = 1; i < m_data.GetRows(); i++) {
-		if (m_data[i] < dDataMin) {
-			dDataMin = m_data[i];
+	if (!m_fDataHasMissingValue) {
+		for (int i = 1; i < m_data.GetRows(); i++) {
+			if (m_data[i] < dDataMin) {
+				dDataMin = m_data[i];
+			}
+			if (m_data[i] > dDataMax) {
+				dDataMax = m_data[i];
+			}
 		}
-		if (m_data[i] > dDataMax) {
-			dDataMax = m_data[i];
+	} else {
+		int i;
+		for (i = 0; i < m_data.GetRows(); i++) {
+			if (m_data[i] != m_dMissingValueFloat) {
+				dDataMin = m_data[i];
+				dDataMax = m_data[i];
+				break;
+			}
+		}
+		for (; i < m_data.GetRows(); i++) {
+			if (m_data[i] == m_dMissingValueFloat) {
+				continue;
+			}
+			if (m_data[i] < dDataMin) {
+				dDataMin = m_data[i];
+			}
+			if (m_data[i] > dDataMax) {
+				dDataMax = m_data[i];
+			}
 		}
 	}
 
@@ -1173,6 +1196,18 @@ void wxNcVisFrame::OnVariableSelected(
 	auto itVar = m_mapVarNames[vc].find(strValue);
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
 	_ASSERT(m_varActive != NULL);
+
+	// Check for missing value
+	{
+		NcError error(NcError::silent_nonfatal);
+		NcAtt * attMissingValue = m_varActive->get_att("_FillValue");
+		if (attMissingValue != NULL) {
+			m_fDataHasMissingValue = true;
+			m_dMissingValueFloat = attMissingValue->as_float(0);
+		} else {
+			m_fDataHasMissingValue = false;
+		}
+	}
 
 	m_lVarActiveDims.resize(m_varActive->num_dims());
 
