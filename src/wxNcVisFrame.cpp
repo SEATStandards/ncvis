@@ -1584,6 +1584,18 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		m_lDisplayedDims[1] = d;
 		m_lVarActiveDims[d] = 0;
 
+		if (m_lDisplayedDims[0] != (-1)) {
+			if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
+				for (long d = m_varActive->num_dims()-1; d >= 0; d--) {
+					if ((d != m_lDisplayedDims[1]) && (m_strUnstructDimName != m_varActive->get_dim(d)->name())) {
+						m_lDisplayedDims[0] = d;
+						break;
+					}
+				}
+				iResetDim = (-1);
+			}
+		}
+
 	} else if ((d >= ID_AXESY) && (d < ID_AXESY + 100)) {
 		eAxesCommand = AXESCOMMAND_Y;
 		d -= ID_AXESY;
@@ -1597,6 +1609,18 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 		}
 		m_lDisplayedDims[0] = d;
 		m_lVarActiveDims[d] = 0;
+
+		if (m_lDisplayedDims[1] != (-1)) {
+			if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[1])->name()) {
+				for (long d = m_varActive->num_dims()-1; d >= 0; d--) {
+					if ((d != m_lDisplayedDims[0]) && (m_strUnstructDimName != m_varActive->get_dim(d)->name())) {
+						m_lDisplayedDims[1] = d;
+						break;
+					}
+				}
+				iResetDim = (-1);
+			}
+		}
 
 	} else if ((d >= ID_AXESXY) && (d < ID_AXESXY + 100)) {
 		eAxesCommand = AXESCOMMAND_XY;
