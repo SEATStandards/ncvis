@@ -27,6 +27,7 @@ enum {
 	ID_OPTIONS = 9,
 	ID_GRIDLINES = 10,
 	ID_OVERLAYS = 11,
+	ID_SAMPLER = 12,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
@@ -55,6 +56,7 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_COMBOBOX(ID_COLORMAP, wxNcVisFrame::OnColorMapCombo)
 	EVT_COMBOBOX(ID_GRIDLINES, wxNcVisFrame::OnGridLinesCombo)
 	EVT_COMBOBOX(ID_OVERLAYS, wxNcVisFrame::OnOverlaysCombo)
+	EVT_COMBOBOX(ID_SAMPLER, wxNcVisFrame::OnSamplerCombo)
 	EVT_TIMER(ID_DIMTIMER, wxNcVisFrame::OnDimTimer)
 wxEND_EVENT_TABLE()
 
@@ -72,6 +74,7 @@ wxNcVisFrame::wxNcVisFrame(
 	m_strNcVisResourceDir(strNcVisResourceDir),
 	m_mapOptions(mapOptions),
 	m_colormaplib(strNcVisResourceDir),
+	m_egdsoption(GridDataSamplerOption_QuadTree),
 	m_wxDataTransButton(NULL),
 	m_panelsizer(NULL),
 	m_ctrlsizer(NULL),
@@ -113,150 +116,56 @@ wxNcVisFrame::wxNcVisFrame(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::InitializeWindow() {
+void wxNcVisFrame::InitializeGridDataSampler() {
 
-	// Initialize options dialog
-	m_wxNcVisOptsDialog =
-		new wxNcVisOptsDialog(
-			_T("NcVis Options"),
-			wxPoint(60, 60),
-			wxSize(400, 400),
-			m_strNcVisResourceDir);
+	// Identify longitude and latitude to determine if unstructured grid is needed
+	auto itLon = m_mapVarNames[1].find("lon");
+	if (itLon == m_mapVarNames[1].end()) {
+		return;
+	}
+	auto itLat = m_mapVarNames[1].find("lat");
+	if (itLat == m_mapVarNames[1].end()) {
+		return;
+	}
 
-	m_wxNcVisOptsDialog->Hide();
+	// Check if lat and lon are the same length
+	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var("lon");
+	_ASSERT(varLon != NULL);
+	NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var("lat");
+	_ASSERT(varLat != NULL);
 
-	// Get the list of shapefiles in the resource dir
+	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
+		return;
+	}
+
+	// At this point we can assume that the mesh is unstructured
+	m_strUnstructDimName = varLon->get_dim(0)->name();
+
+	DataArray1D<double> dLon(varLon->get_dim(0)->size());
+	DataArray1D<double> dLat(varLat->get_dim(0)->size());
+
+	varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
+	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
+
+	// Initialize the GridDataSampler
 	{
-		wxDir dirResources(m_strNcVisResourceDir);
-		if (!dirResources.IsOpened()) {
-			std::cout << "ERROR: Cannot open resource directory \"" << m_strNcVisResourceDir << "\". Resources will not be populated." << std::endl;
-		} else {
-			wxString wxstrFilename;
-			bool cont = dirResources.GetFirst(&wxstrFilename, _T("*.shp"), wxDIR_FILES);
-			while (cont) {
-				m_vecNcVisResourceShpFiles.push_back(wxstrFilename);
-				cont = dirResources.GetNext(&wxstrFilename);
-			}
+		wxStopWatch sw;
+		if (m_egdsoption == GridDataSamplerOption_QuadTree) {
+			m_gdsqt.Initialize(dLon, dLat);
 		}
-	}
-
-	// Create menu
-	wxMenu *menuFile = new wxMenu;
-	menuFile->Append(wxID_EXIT);
-
-	wxMenu *menuHelp = new wxMenu;
-	menuHelp->Append(wxID_ABOUT);
-
-	wxMenuBar *menuBar = new wxMenuBar;
-	menuBar->Append( menuFile, "&File" );
-	menuBar->Append( menuHelp, "&Help" );
-
-	SetMenuBar( menuBar );
-
-	// Create a top-level panel to hold all the contents of the frame
-    wxPanel * panel = new wxPanel(this, wxID_ANY);
-
-	// Master panel sizer (controls on top, image panel on bottom)
-	m_panelsizer = new wxBoxSizer(wxVERTICAL);
-
-	// Variable controls (menu to left, variables to right)
-	m_ctrlsizer = new wxBoxSizer(wxHORIZONTAL);
-
-	// Vertical menu bar
-	wxBoxSizer * menusizer = new wxBoxSizer(wxVERTICAL);
-
-	// Variable controls
-	m_rightsizer = new wxStaticBoxSizer(wxVERTICAL, this);
-	m_rightsizer->SetMinSize(640,220);
-
-	m_ctrlsizer->Add(menusizer, 0);
-	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
-/*
-	// Info box
-	wxTextCtrl *infobox = new wxTextCtrl(this, -1,
-      wxT("Hi!"), wxDefaultPosition, wxDefaultSize,
-      wxTE_MULTILINE | wxTE_RICH , wxDefaultValidator, wxTextCtrlNameStr);
-      Maximize();
-*/
-	// Data transform button (also reference widget height)
-	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
-
-	// Color map combobox
-	wxComboBox * wxColorMapCombo = new wxComboBox(this, ID_COLORMAP, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
-	for (size_t c = 0; c < m_colormaplib.GetColorMapCount(); c++) {
-		wxColorMapCombo->Append(wxString(m_colormaplib.GetColorMapName(c)));
-	}
-	wxColorMapCombo->SetSelection(0);
-	wxColorMapCombo->SetEditable(false);
-
-	// Grid lines combobox
-	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
-	wxGridLinesCombo->Append(_T("Grid Off"));
-	wxGridLinesCombo->Append(_T("Grid On"));
-	wxGridLinesCombo->SetSelection(0);
-	wxGridLinesCombo->SetEditable(false);
-
-	// Overlap combobox
-	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
-	wxOverlaysCombo->Append(_T("Overlays Off"));
-	for (size_t f = 0; f < m_vecNcVisResourceShpFiles.size(); f++) {
-		wxOverlaysCombo->Append(m_vecNcVisResourceShpFiles[f]);
-	}
-	wxOverlaysCombo->SetSelection(0);
-	wxOverlaysCombo->SetEditable(false);
-
-	menusizer->Add(wxColorMapCombo, 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(new wxButton(this, -1, _T("Auto (qt)")), 0, wxEXPAND | wxALL, 2);
-	//menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
-
-	// Variable selector
-	wxBoxSizer *varsizer = new wxBoxSizer(wxHORIZONTAL);
-
-	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
-		m_vecwxVarSelector[vc] = NULL;
-	}
-	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
-		if (m_mapVarNames[vc].size() == 0) {
-			continue;
+		if (m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) {
+			m_gdscsqt.Initialize(dLon, dLat);
 		}
-
-		m_vecwxVarSelector[vc] =
-			new wxComboBox(this, ID_VARSELECTOR + vc,
-				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc),
-				wxDefaultPosition, wxSize(120, m_wxDataTransButton->GetSize().GetHeight()));
-
-		m_vecwxVarSelector[vc]->Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
-		m_vecwxVarSelector[vc]->SetEditable(false);
-		for (auto itVar = m_mapVarNames[vc].begin(); itVar != m_mapVarNames[vc].end(); itVar++) {
-			m_vecwxVarSelector[vc]->Append(wxString(itVar->first));
+		if (m_egdsoption == GridDataSamplerOption_KDTree) {
+			m_gdskd.Initialize(dLon, dLat);
 		}
-		varsizer->Add(m_vecwxVarSelector[vc], 0, wxEXPAND | wxBOTTOM, 8);
+		Announce("Initializing the GridDataSampler took %ldms", sw.Time());
 	}
 
-	// Dimensions
-	m_vardimsizer = new wxFlexGridSizer(NcVarMaximumDimensions+1, 4, 0, 0);
-
-	// Image panel
-	m_imagepanel = new wxImagePanel(this);
-
-	m_imagepanel->SetColorMap(m_colormaplib.GetColorMapName(0));
-
-	m_rightsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
-	m_rightsizer->Add(m_vardimsizer, 0, wxALIGN_CENTER, 0);
-
-	m_panelsizer->Add(m_imagepanel, 1, wxALIGN_TOP | wxALIGN_CENTER | wxSHAPED);
-	m_panelsizer->Add(m_ctrlsizer, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER);
-
-	CreateStatusBar();
-
-	// Status bar
-	SetStatusMessage(_T(""), true);
-
-	SetSizerAndFit(m_panelsizer);
+	// Allocate data space
+	if (m_data.GetRows() != varLon->get_dim(0)->size()) {
+		m_data.Allocate(varLon->get_dim(0)->size());
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -395,57 +304,182 @@ void wxNcVisFrame::OpenFiles(
 		return;
 	}
 
-	// Identify longitude and latitude to determine if unstructured grid is needed
-	auto itLon = m_mapVarNames[1].find("lon");
-	if (itLon == m_mapVarNames[1].end()) {
-		return;
+	// Determine which GridDataSampler was specified on the command line
+	auto itGridDataSampler = m_mapOptions.find("-g");
+	if (itGridDataSampler != m_mapOptions.end()) {
+		if (itGridDataSampler->second == "qt") {
+			m_egdsoption = GridDataSamplerOption_QuadTree;
+		} else if (itGridDataSampler->second == "csqt") {
+			m_egdsoption = GridDataSamplerOption_CubedSphereQuadTree;
+		} else if (itGridDataSampler->second == "kd") {
+			m_egdsoption = GridDataSamplerOption_KDTree;
+		} else {
+			_EXCEPTIONT("Invalid value for option -g: Expected [csqt,qt,kd]");
+		}
+
+	} else {
+		m_egdsoption = GridDataSamplerOption_QuadTree;
 	}
-	auto itLat = m_mapVarNames[1].find("lat");
-	if (itLat == m_mapVarNames[1].end()) {
-		return;
-	}
-
-	// Check if lat and lon are the same length
-	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var("lon");
-	_ASSERT(varLon != NULL);
-	NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var("lat");
-	_ASSERT(varLat != NULL);
-
-	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
-		return;
-	}
-
-	// At this point we can assume that the mesh is unstructured
-	m_strUnstructDimName = varLon->get_dim(0)->name();
-
-	DataArray1D<double> dLon(varLon->get_dim(0)->size());
-	DataArray1D<double> dLat(varLat->get_dim(0)->size());
-
-	varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
-	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
 	// Initialize the GridDataSampler
-	{
-		wxStopWatch sw;
-		auto itGridDataSampler = m_mapOptions.find("-g");
-		if (itGridDataSampler != m_mapOptions.end()) {
-			if (itGridDataSampler->second == "csqt") {
-				m_gdscsqt.Initialize(dLon, dLat);
-			} else if (itGridDataSampler->second == "qt") {
-				m_gdsqt.Initialize(dLon, dLat);
-			} else if (itGridDataSampler->second == "kd") {
-				m_gdskd.Initialize(dLon, dLat);
-			} else {
-				_EXCEPTIONT("Invalid value for option -g: Expected [csqt,qt,kd]");
-			}
+	InitializeGridDataSampler();
+}
 
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::InitializeWindow() {
+/*
+	// Initialize options dialog
+	m_wxNcVisOptsDialog =
+		new wxNcVisOptsDialog(
+			_T("NcVis Options"),
+			wxPoint(60, 60),
+			wxSize(400, 400),
+			m_strNcVisResourceDir);
+
+	m_wxNcVisOptsDialog->Hide();
+*/
+	// Get the list of shapefiles in the resource dir
+	{
+		wxDir dirResources(m_strNcVisResourceDir);
+		if (!dirResources.IsOpened()) {
+			std::cout << "ERROR: Cannot open resource directory \"" << m_strNcVisResourceDir << "\". Resources will not be populated." << std::endl;
 		} else {
-			m_gdsqt.Initialize(dLon, dLat);
+			wxString wxstrFilename;
+			bool cont = dirResources.GetFirst(&wxstrFilename, _T("*.shp"), wxDIR_FILES);
+			while (cont) {
+				m_vecNcVisResourceShpFiles.push_back(wxstrFilename);
+				cont = dirResources.GetNext(&wxstrFilename);
+			}
 		}
-		Announce("Initializing the GridDataSampler took %ldms", sw.Time());
 	}
-	// Allocate data space
-	m_data.Allocate(varLon->get_dim(0)->size());
+
+	// Create menu
+	wxMenu *menuFile = new wxMenu;
+	menuFile->Append(wxID_EXIT);
+
+	wxMenu *menuHelp = new wxMenu;
+	menuHelp->Append(wxID_ABOUT);
+
+	wxMenuBar *menuBar = new wxMenuBar;
+	menuBar->Append( menuFile, "&File" );
+	menuBar->Append( menuHelp, "&Help" );
+
+	SetMenuBar( menuBar );
+
+	// Create a top-level panel to hold all the contents of the frame
+    wxPanel * panel = new wxPanel(this, wxID_ANY);
+
+	// Master panel sizer (controls on top, image panel on bottom)
+	m_panelsizer = new wxBoxSizer(wxVERTICAL);
+
+	// Variable controls (menu to left, variables to right)
+	m_ctrlsizer = new wxBoxSizer(wxHORIZONTAL);
+
+	// Vertical menu bar
+	wxBoxSizer * menusizer = new wxBoxSizer(wxVERTICAL);
+
+	// Variable controls
+	m_rightsizer = new wxStaticBoxSizer(wxVERTICAL, this);
+	m_rightsizer->SetMinSize(640,220);
+
+	m_ctrlsizer->Add(menusizer, 0);
+	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
+/*
+	// Info box
+	wxTextCtrl *infobox = new wxTextCtrl(this, -1,
+      wxT("Hi!"), wxDefaultPosition, wxDefaultSize,
+      wxTE_MULTILINE | wxTE_RICH , wxDefaultValidator, wxTextCtrlNameStr);
+      Maximize();
+*/
+	// Data transform button (also reference widget height)
+	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
+
+	// Color map combobox
+	wxComboBox * wxColorMapCombo = new wxComboBox(this, ID_COLORMAP, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
+	for (size_t c = 0; c < m_colormaplib.GetColorMapCount(); c++) {
+		wxColorMapCombo->Append(wxString(m_colormaplib.GetColorMapName(c)));
+	}
+	wxColorMapCombo->SetSelection(0);
+	wxColorMapCombo->SetEditable(false);
+
+	// Grid lines combobox
+	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
+	wxGridLinesCombo->Append(_T("Grid Off"));
+	wxGridLinesCombo->Append(_T("Grid On"));
+	wxGridLinesCombo->SetSelection(0);
+	wxGridLinesCombo->SetEditable(false);
+
+	// Overlap combobox
+	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
+	wxOverlaysCombo->Append(_T("Overlays Off"));
+	for (size_t f = 0; f < m_vecNcVisResourceShpFiles.size(); f++) {
+		wxOverlaysCombo->Append(m_vecNcVisResourceShpFiles[f]);
+	}
+	wxOverlaysCombo->SetSelection(0);
+	wxOverlaysCombo->SetEditable(false);
+
+	// Sampler combobox
+	wxComboBox * wxSamplerCombo = new wxComboBox(this, ID_SAMPLER, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
+	wxSamplerCombo->Append(_T("QuadTree (fast)"));
+	wxSamplerCombo->Append(_T("CS QuadTree"));
+	wxSamplerCombo->Append(_T("kd-Tree (best)"));
+	wxSamplerCombo->SetSelection((int)m_egdsoption);
+	wxSamplerCombo->SetEditable(false);
+
+	// Add controls to the manusizer
+	menusizer->Add(wxColorMapCombo, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxSamplerCombo, 0, wxEXPAND | wxALL, 2);
+	//menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
+
+	// Variable selector
+	wxBoxSizer *varsizer = new wxBoxSizer(wxHORIZONTAL);
+
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+		m_vecwxVarSelector[vc] = NULL;
+	}
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+		if (m_mapVarNames[vc].size() == 0) {
+			continue;
+		}
+
+		m_vecwxVarSelector[vc] =
+			new wxComboBox(this, ID_VARSELECTOR + vc,
+				wxString::Format("(%lu) %iD vars", m_mapVarNames[vc].size(), vc),
+				wxDefaultPosition, wxSize(120, m_wxDataTransButton->GetSize().GetHeight()));
+
+		m_vecwxVarSelector[vc]->Bind(wxEVT_COMBOBOX, &wxNcVisFrame::OnVariableSelected, this);
+		m_vecwxVarSelector[vc]->SetEditable(false);
+		for (auto itVar = m_mapVarNames[vc].begin(); itVar != m_mapVarNames[vc].end(); itVar++) {
+			m_vecwxVarSelector[vc]->Append(wxString(itVar->first));
+		}
+		varsizer->Add(m_vecwxVarSelector[vc], 0, wxEXPAND | wxBOTTOM, 8);
+	}
+
+	// Dimensions
+	m_vardimsizer = new wxFlexGridSizer(NcVarMaximumDimensions+1, 4, 0, 0);
+
+	// Image panel
+	m_imagepanel = new wxImagePanel(this);
+
+	m_imagepanel->SetColorMap(m_colormaplib.GetColorMapName(0));
+
+	m_rightsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
+	m_rightsizer->Add(m_vardimsizer, 0, wxALIGN_CENTER, 0);
+
+	m_panelsizer->Add(m_imagepanel, 1, wxALIGN_TOP | wxALIGN_CENTER | wxSHAPED);
+	m_panelsizer->Add(m_ctrlsizer, 0, wxALIGN_CENTER_VERTICAL | wxALIGN_CENTER);
+
+	CreateStatusBar();
+
+	// Status bar
+	SetStatusMessage(_T(""), true);
+
+	SetSizerAndFit(m_panelsizer);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -647,16 +681,18 @@ void wxNcVisFrame::SampleData(
 	const DataArray1D<double> & dSampleY,
 	DataArray1D<int> & imagemap
 ) {
+	std::cout << "SAMPLE DATA" << std::endl;
+
 	_ASSERT(imagemap.GetRows() >= dSampleX.GetRows() * dSampleY.GetRows());
 	_ASSERT(m_data.GetRows() > 0);
 
 	// Active variable is an unstructured variable; use sampling
 	if (m_fIsVarActiveUnstructured) {
-		if (m_gdscsqt.IsInitialized()) {
-			m_gdscsqt.Sample(dSampleX, dSampleY, imagemap);
-		} else if (m_gdsqt.IsInitialized()) {
+		if (m_egdsoption == GridDataSamplerOption_QuadTree) {
 			m_gdsqt.Sample(dSampleX, dSampleY, imagemap);
-		} else if (m_gdskd.IsInitialized()) {
+		} else if (m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) {
+			m_gdscsqt.Sample(dSampleX, dSampleY, imagemap);
+		} else if (m_egdsoption == GridDataSamplerOption_KDTree) {
 			m_gdskd.Sample(dSampleX, dSampleY, imagemap);
 		} else {
 			_EXCEPTIONT("No GridDataSampler initialized");
@@ -1787,6 +1823,34 @@ void wxNcVisFrame::OnOverlaysCombo(wxCommandEvent & event) {
 	}
 
 	m_imagepanel->GenerateImageFromImageMap(true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnSamplerCombo(wxCommandEvent & event) {
+	std::cout << "SAMPLER COMBO" << std::endl;
+
+	int iSamplerSelection = event.GetSelection();
+
+	_ASSERT((iSamplerSelection >= GridDataSamplerOption_First) && (iSamplerSelection <= GridDataSamplerOption_Last));
+
+	if ((GridDataSamplerOption)(iSamplerSelection) == m_egdsoption) {
+		return;
+	}
+
+	m_egdsoption = (GridDataSamplerOption)(iSamplerSelection);
+
+	if ((m_egdsoption == GridDataSamplerOption_QuadTree) && (!m_gdsqt.IsInitialized())) {
+		InitializeGridDataSampler();
+	}
+	if ((m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) && (!m_gdscsqt.IsInitialized())) {
+		InitializeGridDataSampler();
+	}
+	if ((m_egdsoption == GridDataSamplerOption_KDTree) && (!m_gdskd.IsInitialized())) {
+		InitializeGridDataSampler();
+	}
+
+	m_imagepanel->ResampleData(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////

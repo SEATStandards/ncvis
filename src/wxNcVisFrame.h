@@ -40,6 +40,18 @@ public:
 
 public:
 	///	<summary>
+	///		Sampler options available.
+	///	</summary>
+	enum GridDataSamplerOption {
+		GridDataSamplerOption_First = 0,
+		GridDataSamplerOption_QuadTree = 0,
+		GridDataSamplerOption_CubedSphereQuadTree = 1,
+		GridDataSamplerOption_KDTree = 2,
+		GridDataSamplerOption_Last = 2
+	};
+
+public:
+	///	<summary>
 	///		Constructor.
 	///	</summary>
 	wxNcVisFrame(
@@ -52,14 +64,21 @@ public:
 	);
 
 	///	<summary>
+	///		Initialize the GridDataSampler.
+	///	</summary>
+	void InitializeGridDataSampler();
+
+	///	<summary>
+	///		Open the specified files.
+	///	</summary>
+	void OpenFiles(
+		const std::vector<std::string> & strFilenames
+	);
+
+	///	<summary>
 	///		Initialize the wxNcVisFrame.
 	///	</summary>
 	void InitializeWindow();
-
-	///	<summary>
-	///		Open the specified file.
-	///	</summary>
-	void OpenFiles(const std::vector<std::string> & strFilenames);
 
 	///	<summary>
 	///		Get the NcVis resource directory.
@@ -260,6 +279,11 @@ private:
 	///	</summary>
 	void OnOverlaysCombo(wxCommandEvent & event);
 
+	///	<summary>
+	///		Callback triggered when the sampler combo is changed.
+	///	</summary>
+	void OnSamplerCombo(wxCommandEvent & event);
+
 private:
 	///	<summary>
 	///		Button for changing data range.
@@ -351,6 +375,11 @@ private:
 	///		Color map library.
 	///	</summary>
 	ColorMapLibrary m_colormaplib;
+
+	///	<summary>
+	///		Grid data sampler used.
+	///	</summary>
+	GridDataSamplerOption m_egdsoption;
 
 	///	<summary>
 	///		Shapefiles present in ncvis resource dir.
@@ -452,14 +481,14 @@ private:
 	size_t m_sColorMap;
 
 	///	<summary>
-	///		Class for sampling data on the grid using a cubed-sphere rooted quad tree.
-	///	</summary>
-	GridDataSamplerUsingCubedSphereQuadTree m_gdscsqt;
-
-	///	<summary>
 	///		Class for sampling data on the grid using a quad tree.
 	///	</summary>
 	GridDataSamplerUsingQuadTree m_gdsqt;
+
+	///	<summary>
+	///		Class for sampling data on the grid using a cubed-sphere rooted quad tree.
+	///	</summary>
+	GridDataSamplerUsingCubedSphereQuadTree m_gdscsqt;
 
 	///	<summary>
 	///		Class for sampling data on the grid using a kd tree.

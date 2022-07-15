@@ -110,6 +110,13 @@ public:
 	);
 
 	///	<summary>
+	///		Resample data and generate the imagemap.
+	///	</summary>
+	void ResampleData(
+		bool fRedraw = false
+	);
+
+	///	<summary>
 	///		Resample the coordinate range.
 	///	</summary>
 	void SetCoordinateRange(

@@ -634,6 +634,20 @@ void wxImagePanel::SetColorMapScalingFactor(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxImagePanel::ResampleData(
+	bool fRedraw
+) {
+	m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
+
+	m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
+
+	if (fRedraw) {
+		GenerateImageFromImageMap(true);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxImagePanel::SetCoordinateRange(
 	double dX0,
 	double dX1,
@@ -669,12 +683,7 @@ void wxImagePanel::SetCoordinateRange(
 
 	m_pncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
 
-	m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
-	m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
-
-	if (fRedraw) {
-		GenerateImageFromImageMap(true);
-	}
+	ResampleData(fRedraw);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
