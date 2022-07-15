@@ -12,6 +12,7 @@
 #include "wxNcVisOptsDialog.h"
 #include "STLStringHelper.h"
 #include "ShpFile.h"
+#include "TimeObj.h"
 #include <set>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -32,9 +33,10 @@ enum {
 	ID_DIMUP = 400,
 	ID_DIMRESET = 500,
 	ID_DIMPLAY = 600,
-	ID_AXESX = 700,
-	ID_AXESY = 800,
-	ID_AXESXY = 900,
+	ID_DIMVALUE = 700,
+	ID_AXESX = 1000,
+	ID_AXESY = 1100,
+	ID_AXESXY = 1200,
 	ID_DIMTIMER = 10000
 };
 
@@ -264,6 +266,8 @@ void wxNcVisFrame::OpenFiles(
 ) {
 	_ASSERT(m_vecpncfiles.size() == 0);
 
+	NcError error(NcError::silent_nonfatal);
+
 	m_vecFilenames = vecFilenames;
 
 	// Enumerate all variables, recording dimension variables
@@ -283,12 +287,25 @@ void wxNcVisFrame::OpenFiles(
 				_EXCEPTION();
 			}
 
+			std::string strUnits;
+			NcAtt * attUnits = var->get_att("units");
+			if (attUnits != NULL) {
+				strUnits = attUnits->as_string(0);
+			}
+
+			std::string strCalendar;
+			NcAtt * attCalendar = var->get_att("calendar");
+			if (attCalendar != NULL) {
+				strCalendar = attCalendar->as_string(0);
+			}
+
 			for (long d = 0; d < var->num_dims(); d++) {
 				auto prDimInsert =
 					m_mapDimData.insert(
 						DimDataMap::value_type(
 							var->get_dim(d)->name(),
-							DimDataFileIdAndCoordMap()));
+							DimDataFileIdAndCoordMap(
+								strUnits, strCalendar)));
 			}
 
 			auto itVar = m_mapVarNames[sVarDims].find(var->name());
@@ -924,6 +941,46 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::SetDisplayedDimensionValue(
+	long lDim,
+	long lValue
+) {
+	_ASSERT(m_varActive != NULL);
+	_ASSERT(m_vecwxDimIndex[lDim] != NULL);
+
+	m_vecwxDimIndex[lDim]->ChangeValue(wxString::Format("%li", lValue));
+
+	if (m_vecwxDimValue[lDim] != NULL) {
+		std::string strDimName(m_varActive->get_dim(lDim)->name());
+		auto it = m_mapDimData.find(strDimName);
+		if (it != m_mapDimData.end()) {
+			std::string strDimUnits(it->second.units());
+			if (it->second.size() != 0) {
+				const std::vector<double> & vecDimValues = it->second[0];
+				if (vecDimValues.size() > lValue) {
+					if (strDimUnits == "") {
+						m_vecwxDimValue[lDim]->ChangeValue(
+							wxString::Format("%g", vecDimValues[lValue]));
+					} else {
+						Time time(Time::CalendarTypeFromString(it->second.calendar()));
+						if (time.FromCFCompliantUnitsOffsetDouble(strDimUnits, vecDimValues[lValue])) {
+							m_vecwxDimValue[lDim]->ChangeValue(
+								time.ToString());
+						} else {
+							m_vecwxDimValue[lDim]->ChangeValue(
+								wxString::Format("%g %s",
+									vecDimValues[lValue],
+									strDimUnits));
+						}
+					}
+				}
+			}
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::SetStatusMessage(
 	const wxString & strMessage,
 	bool fIncludeVersion
@@ -1100,12 +1157,16 @@ void wxNcVisFrame::GenerateDimensionControls() {
 		} else {
 			wxBoxSizer * vardimboxsizer = new wxBoxSizer(wxHORIZONTAL);
 			wxButton * wxDimDown = new wxButton(this, ID_DIMDOWN + d, _T("-"), wxDefaultPosition, wxSquareSize);
-			m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, wxString::Format("%li", m_lVarActiveDims[d]), wxDefaultPosition, wxSize(200, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			m_vecwxDimIndex[d] = new wxTextCtrl(this, ID_DIMEDIT + d, _T(""), wxDefaultPosition, wxSize(50, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
+			m_vecwxDimValue[d] = new wxTextCtrl(this, ID_DIMVALUE + d, _T(""), wxDefaultPosition, wxSize(150, nCtrlHeight), wxTE_CENTRE | wxTE_PROCESS_ENTER);
 			wxButton * wxDimUp = new wxButton(this, ID_DIMUP + d, _T("+"), wxDefaultPosition, wxSquareSize);
 			m_vecwxPlayButton[d] = new wxButton(this, ID_DIMPLAY + d, wxString::Format("%lc",(0x25B6)), wxDefaultPosition, wxSquareSize);
 
+			SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
+
 			vardimboxsizer->Add(wxDimDown, 0, wxEXPAND | wxRIGHT, 1);
-			vardimboxsizer->Add(m_vecwxDimIndex[d], 1, wxEXPAND | wxRIGHT, 1);
+			vardimboxsizer->Add(m_vecwxDimIndex[d], 1, wxEXPAND | wxRIGHT, 0);
+			vardimboxsizer->Add(m_vecwxDimValue[d], 3, wxEXPAND | wxRIGHT, 1);
 			vardimboxsizer->Add(wxDimUp, 0, wxEXPAND | wxRIGHT, 1);
 			vardimboxsizer->Add(m_vecwxPlayButton[d], 0, wxEXPAND | wxALL, 0);
 
@@ -1119,6 +1180,8 @@ void wxNcVisFrame::GenerateDimensionControls() {
 			wxButton * wxDimReset = new wxButton(this, ID_DIMRESET + d, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight));
 			wxDimReset->Bind(wxEVT_BUTTON, &wxNcVisFrame::OnDimButtonClicked, this);
 			m_vardimsizer->Add(wxDimReset, 0, wxEXPAND | wxALL, 0);
+
+			m_vecwxDimValue[d]->Enable(false);
 		}
 	}
 
@@ -1419,6 +1482,8 @@ void wxNcVisFrame::OnRangeResetMinMax(
 void wxNcVisFrame::OnDimTimer(wxTimerEvent & event) {
 	std::cout << "TIMER" << std::endl;
 
+	_ASSERT(m_varActive != NULL);
+
 	long lDimSize = m_varActive->get_dim(m_lAnimatedDim)->size();
 	if (m_lVarActiveDims[m_lAnimatedDim] == lDimSize-1) {
 		m_lVarActiveDims[m_lAnimatedDim] = 0;
@@ -1426,7 +1491,7 @@ void wxNcVisFrame::OnDimTimer(wxTimerEvent & event) {
 		m_lVarActiveDims[m_lAnimatedDim]++;
 	}
 
-	m_vecwxDimIndex[m_lAnimatedDim]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[m_lAnimatedDim]));
+	SetDisplayedDimensionValue(m_lAnimatedDim, m_lVarActiveDims[m_lAnimatedDim]);
 
 	LoadData();
 
@@ -1486,7 +1551,7 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 			m_lVarActiveDims[d]--;
 		}
 
-		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
 
 	// Increment dimension
 	} else if ((d >= ID_DIMUP) && (d < ID_DIMUP + 100)) {
@@ -1500,7 +1565,7 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 			m_lVarActiveDims[d]++;
 		}
 
-		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
 
 	// Reset dimension
 	} else if ((d >= ID_DIMRESET) && (d < ID_DIMRESET + 100)) {
@@ -1511,7 +1576,7 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 			ResetBounds();
 		} else {
 			m_lVarActiveDims[d] = 0;
-			m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+			SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
 		}
 
 	// Edit dimension
@@ -1528,7 +1593,7 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 			}
 		}
 
-		m_vecwxDimIndex[d]->ChangeValue(wxString::Format("%li", m_lVarActiveDims[d]));
+		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
 
 	// Play dimension
 	} else if ((d >= ID_DIMPLAY) && (d < ID_DIMPLAY + 100)) {

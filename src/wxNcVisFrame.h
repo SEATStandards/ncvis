@@ -154,6 +154,14 @@ public:
 	);
 
 	///	<summary>
+	///		Set the dimension value displayed.
+	///	</summary>
+	void SetDisplayedDimensionValue(
+		long lDim,
+		long lValue
+	);
+
+	///	<summary>
 	///		Set the status message.
 	///	</summary>
 	void SetStatusMessage(
@@ -304,6 +312,11 @@ private:
 	wxTextCtrl * m_vecwxDimIndex[NcVarMaximumDimensions];
 
 	///	<summary>
+	///		Text controls for indicating dimension values.
+	///	</summary>
+	wxTextCtrl * m_vecwxDimValue[NcVarMaximumDimensions];
+
+	///	<summary>
 	///		Pointer to currently active play button.
 	///	</summary>
 	wxButton * m_vecwxPlayButton[NcVarMaximumDimensions];
@@ -355,9 +368,51 @@ private:
 	std::vector<NcFile *> m_vecpncfiles;
 
 	///	<summary>
+	///		A data structure containing dimension values and units.
+	///	</summary>
+	class DimDataFileIdAndCoordMap : public std::map<size_t, std::vector<double> > {
+		public:
+			///	<summary>
+			///		Constructor.
+			///	</summary>
+			DimDataFileIdAndCoordMap(
+				std::string strUnits,
+				std::string strCalendar
+			) :
+				m_strUnits(strUnits),
+				m_strCalendar(strCalendar)
+			{ }
+
+		public:
+			///	<summary>
+			///		Get the units for this dimension.
+			///	</summary>
+			const std::string & units() const {
+				return m_strUnits;
+			}
+
+			///	<summary>
+			///		Get the calendar for this dimension.
+			///	</summary>
+			const std::string & calendar() const {
+				return m_strCalendar;
+			}
+
+		public:
+			///	<summary>
+			///		Units for this dimension.
+			///	</summary>
+			std::string m_strUnits;
+
+			///	<summary>
+			///		Calendar for this dimension.
+			///	</summary>
+			std::string m_strCalendar;
+	};
+
+	///	<summary>
 	///		Dimension data, stored persistently to avoid having to reload.
 	///	</summary>
-	typedef std::map<size_t, std::vector<double> > DimDataFileIdAndCoordMap;
 	typedef std::map<std::string, DimDataFileIdAndCoordMap> DimDataMap;
 	DimDataMap m_mapDimData;
 
