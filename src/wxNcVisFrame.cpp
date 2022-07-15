@@ -287,25 +287,12 @@ void wxNcVisFrame::OpenFiles(
 				_EXCEPTION();
 			}
 
-			std::string strUnits;
-			NcAtt * attUnits = var->get_att("units");
-			if (attUnits != NULL) {
-				strUnits = attUnits->as_string(0);
-			}
-
-			std::string strCalendar;
-			NcAtt * attCalendar = var->get_att("calendar");
-			if (attCalendar != NULL) {
-				strCalendar = attCalendar->as_string(0);
-			}
-
 			for (long d = 0; d < var->num_dims(); d++) {
 				auto prDimInsert =
 					m_mapDimData.insert(
 						DimDataMap::value_type(
 							var->get_dim(d)->name(),
-							DimDataFileIdAndCoordMap(
-								strUnits, strCalendar)));
+							DimDataFileIdAndCoordMap()));
 			}
 
 			auto itVar = m_mapVarNames[sVarDims].find(var->name());
@@ -335,6 +322,16 @@ void wxNcVisFrame::OpenFiles(
 					itVarDim->second.insert(
 						DimDataFileIdAndCoordMap::value_type(
 							f, std::vector<double>()));
+
+				NcAtt * attUnits = varDim->get_att("units");
+				if (attUnits != NULL) {
+					itVarDim->second.m_strUnits = attUnits->as_string(0);
+				}
+
+				NcAtt * attCalendar = varDim->get_att("calendar");
+				if (attCalendar != NULL) {
+					itVarDim->second.m_strCalendar = attCalendar->as_string(0);
+				}
 
 				std::vector<double> & dDimData = prDimDataInfo.first->second;
 

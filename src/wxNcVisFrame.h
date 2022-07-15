@@ -373,18 +373,6 @@ private:
 	class DimDataFileIdAndCoordMap : public std::map<size_t, std::vector<double> > {
 		public:
 			///	<summary>
-			///		Constructor.
-			///	</summary>
-			DimDataFileIdAndCoordMap(
-				std::string strUnits,
-				std::string strCalendar
-			) :
-				m_strUnits(strUnits),
-				m_strCalendar(strCalendar)
-			{ }
-
-		public:
-			///	<summary>
 			///		Get the units for this dimension.
 			///	</summary>
 			const std::string & units() const {
