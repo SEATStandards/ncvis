@@ -983,7 +983,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.13");
+		wxString strMessageBak = _T("NcVis 2022.07.15");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -1024,6 +1024,27 @@ void wxNcVisFrame::OnClose(
 void wxNcVisFrame::OnDataTransClicked(
 	wxCommandEvent & event
 ) {
+	if (m_imagepanel == NULL) {
+		return;
+	}
+
+	wxString wxstrLabel = m_wxDataTransButton->GetLabel();
+
+	if (wxstrLabel == "Linear") {
+		m_wxDataTransButton->SetLabel("Low");
+		m_imagepanel->SetColorMapScalingFactor(0.25, true);
+
+	} else if (wxstrLabel == "Low") {
+		m_wxDataTransButton->SetLabel("High");
+		m_imagepanel->SetColorMapScalingFactor(4.0, true);
+
+	} else if (wxstrLabel == "High") {
+		m_wxDataTransButton->SetLabel("Linear");
+		m_imagepanel->SetColorMapScalingFactor(1.0, true);
+
+	} else {
+		_EXCEPTION();
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////

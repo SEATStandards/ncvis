@@ -11,6 +11,7 @@
 #include "Exception.h"
 #include <string>
 #include <vector>
+#include <cmath>
 
 #define DEFAULT_COLORMAP "thermal"
 
@@ -45,6 +46,40 @@ public:
 		cG = (*this)[ixColor][1];
 		cB = (*this)[ixColor][2];
 	}
+
+	///	<summary>
+	///		Sample the colormap with a power scaling factor.
+	///	</summary>
+	inline void SampleWithScaling(
+		float dValue,
+		float dMinValue,
+		float dMaxValue,
+		float dScalingFactor,
+		unsigned char & cR,
+		unsigned char & cG,
+		unsigned char & cB
+	) {
+		float dAlpha = (dValue - dMinValue) / (dMaxValue - dMinValue);
+		if (dAlpha < 0.0) {
+			dAlpha = 0.0;
+		} else if (dAlpha > 1.0) {
+			dAlpha = 1.0;
+		}
+		dAlpha = std::pow(dAlpha, dScalingFactor);
+
+		int ixColor = static_cast<int>(dAlpha * size());
+
+		if (ixColor < 0) {
+			ixColor = 0;
+		} else if (ixColor >= size()) {
+			ixColor = size()-1;
+		}
+
+		cR = (*this)[ixColor][0];
+		cG = (*this)[ixColor][1];
+		cB = (*this)[ixColor][2];
+	}
+
 };
 
 ////////////////////////////////////////////////////////////////////////////////

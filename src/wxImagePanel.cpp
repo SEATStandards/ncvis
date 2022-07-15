@@ -58,6 +58,7 @@ wxImagePanel::wxImagePanel(
 	wxNcVisFrame * parent
 ) :
 	wxPanel(parent),
+	m_dColorMapScalingFactor(1.0),
 	m_fGridLinesOn(false),
 	m_fResize(false)
 {
@@ -310,49 +311,96 @@ void wxImagePanel::GenerateImageFromImageMap(
 		imagedata[3 * (sWidth * (sHeight-1) + i) + 2] = 0;
 	}
 
-	// Draw map
+	// Draw map, using different loops 
 	if (!m_pncvisparent->DataHasMissingValue()) {
-		int s = 0;
-		for (size_t j = 0; j < sImageHeight; j++) {
-			size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
-			for (size_t i = 0; i < sImageWidth; i++) {
-				size_t ix = i + DISPLAY_BORDER;
+		if (m_dColorMapScalingFactor == 1.0) {
+			for (size_t j = 0, s = 0; j < sImageHeight; j++) {
+				size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+				for (size_t i = 0; i < sImageWidth; i++) {
+					size_t ix = i + DISPLAY_BORDER;
 
-				m_colormap.Sample(
-					data[m_imagemap[s]],
-					m_dDataRange[0],
-					m_dDataRange[1],
-					imagedata[3 * sWidth * jx + 3 * ix + 0],
-					imagedata[3 * sWidth * jx + 3 * ix + 1],
-					imagedata[3 * sWidth * jx + 3 * ix + 2]);
-
-				s++;
-			}
-		}
-
-	} else {
-		float dMissingValue = m_pncvisparent->GetMissingValueFloat();
-		int s = 0;
-		for (size_t j = 0; j < sImageHeight; j++) {
-			size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
-			for (size_t i = 0; i < sImageWidth; i++) {
-				size_t ix = i + DISPLAY_BORDER;
-
-				float dValue = data[m_imagemap[s]];
-				if (dValue != dMissingValue) {
 					m_colormap.Sample(
-						dValue,
+						data[m_imagemap[s]],
 						m_dDataRange[0],
 						m_dDataRange[1],
 						imagedata[3 * sWidth * jx + 3 * ix + 0],
 						imagedata[3 * sWidth * jx + 3 * ix + 1],
 						imagedata[3 * sWidth * jx + 3 * ix + 2]);
-				} else {
-					imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
-					imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
-					imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+
+					s++;
 				}
-				s++;
+			}
+
+		} else {
+			for (size_t j = 0, s = 0; j < sImageHeight; j++) {
+				size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+				for (size_t i = 0; i < sImageWidth; i++) {
+					size_t ix = i + DISPLAY_BORDER;
+
+					m_colormap.SampleWithScaling(
+						data[m_imagemap[s]],
+						m_dDataRange[0],
+						m_dDataRange[1],
+						m_dColorMapScalingFactor,
+						imagedata[3 * sWidth * jx + 3 * ix + 0],
+						imagedata[3 * sWidth * jx + 3 * ix + 1],
+						imagedata[3 * sWidth * jx + 3 * ix + 2]);
+
+					s++;
+				}
+			}
+		}
+
+	} else {
+		float dMissingValue = m_pncvisparent->GetMissingValueFloat();
+
+		if (m_dColorMapScalingFactor == 1.0) {
+			for (size_t j = 0, s = 0; j < sImageHeight; j++) {
+				size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+				for (size_t i = 0; i < sImageWidth; i++) {
+					size_t ix = i + DISPLAY_BORDER;
+
+					float dValue = data[m_imagemap[s]];
+					if (dValue != dMissingValue) {
+						m_colormap.Sample(
+							dValue,
+							m_dDataRange[0],
+							m_dDataRange[1],
+							imagedata[3 * sWidth * jx + 3 * ix + 0],
+							imagedata[3 * sWidth * jx + 3 * ix + 1],
+							imagedata[3 * sWidth * jx + 3 * ix + 2]);
+					} else {
+						imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+					}
+					s++;
+				}
+			}
+
+		} else {
+			for (size_t j = 0, s = 0; j < sImageHeight; j++) {
+				size_t jx = sHeight - (j + DISPLAY_BORDER) - 1;
+				for (size_t i = 0; i < sImageWidth; i++) {
+					size_t ix = i + DISPLAY_BORDER;
+
+					float dValue = data[m_imagemap[s]];
+					if (dValue != dMissingValue) {
+						m_colormap.SampleWithScaling(
+							dValue,
+							m_dDataRange[0],
+							m_dDataRange[1],
+							m_dColorMapScalingFactor,
+							imagedata[3 * sWidth * jx + 3 * ix + 0],
+							imagedata[3 * sWidth * jx + 3 * ix + 1],
+							imagedata[3 * sWidth * jx + 3 * ix + 2]);
+					} else {
+						imagedata[3 * sWidth * jx + 3 * ix + 0] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 1] = 255;
+						imagedata[3 * sWidth * jx + 3 * ix + 2] = 255;
+					}
+					s++;
+				}
 			}
 		}
 	}
@@ -511,10 +559,11 @@ void wxImagePanel::GenerateImageFromImageMap(
 					* (static_cast<double>(sBox) + 0.5)
 					/ static_cast<double>(LABELBAR_BOXCOUNT);
 
-			m_colormap.Sample(
+			m_colormap.SampleWithScaling(
 				dColorValue,
 				m_dDataRange[0],
 				m_dDataRange[1],
+				m_dColorMapScalingFactor,
 				cR, cG, cB);
 
 			//std::cout << "BOX: " << sHeight - (sLabelBarBoxYBegin + sBox * sLabelBarBoxHeight) - 1 << std::endl;
@@ -562,6 +611,21 @@ void wxImagePanel::SetColorMap(
 	bool fRedraw
 ) {
 	m_pncvisparent->GetColorMapLibrary().GenerateColorMap(strColorMap, m_colormap);
+
+	if (fRedraw) {
+		GenerateImageFromImageMap(true);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxImagePanel::SetColorMapScalingFactor(
+	float dColorMapScalingFactor,
+	bool fRedraw
+) {
+	_ASSERT(dColorMapScalingFactor > 0.0);
+
+	m_dColorMapScalingFactor = dColorMapScalingFactor;
 
 	if (fRedraw) {
 		GenerateImageFromImageMap(true);

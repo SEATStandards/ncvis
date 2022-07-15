@@ -102,6 +102,14 @@ public:
 	);
 
 	///	<summary>
+	///		Set the colormap scaling factor.
+	///	</summary>
+	void SetColorMapScalingFactor(
+		float dColorMapScalingFactor,
+		bool fRedraw = false
+	);
+
+	///	<summary>
 	///		Resample the coordinate range.
 	///	</summary>
 	void SetCoordinateRange(
@@ -224,6 +232,11 @@ private:
 	///		Colormap.
 	///	</summary>
 	ColorMap m_colormap;
+
+	///	<summary>
+	///		Colormap power scaling factor.
+	///	</summary>
+	float m_dColorMapScalingFactor;
 
 	///	<summary>
 	///		Font information for label bar.
