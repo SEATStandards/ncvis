@@ -9,6 +9,8 @@
 #include "wxNcVisFrame.h"
 #include "utf8_to_utf32.h"
 
+#include <wx/kbdstate.h>
+
 ////////////////////////////////////////////////////////////////////////////////
 
 BEGIN_EVENT_TABLE(wxImagePanel, wxPanel)
@@ -168,7 +170,7 @@ void wxImagePanel::OnMouseLeaveWindow(wxMouseEvent & evt) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
-	std::cout << "DOUBLE CLICK" << std::endl;
+	wxKeyboardState wxkeystate;
 
 	wxPoint pos = evt.GetPosition();
 
@@ -188,27 +190,57 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 	double dXdelta = m_dXrange[1] - m_dXrange[0];
 	double dYdelta = m_dYrange[1] - m_dYrange[0];
 
-	m_dXrange[0] = dX - 0.25 * dXdelta;
-	m_dXrange[1] = dX + 0.25 * dXdelta;
+	// Zoom out
+	if (evt.ShiftDown() || wxkeystate.ShiftDown()) {
+		std::cout << "DOUBLE CLICK + SHIFT" << std::endl;
 
-	m_dYrange[0] = dY - 0.25 * dYdelta;
-	m_dYrange[1] = dY + 0.25 * dYdelta;
+		m_dXrange[0] = dX - dXdelta;
+		m_dXrange[1] = dX + dXdelta;
 
-	if (m_dYrange[0] < -90.0) {
-		double dShiftY = -90.0 - m_dYrange[0];
-		m_dYrange[0] += dShiftY;
-		m_dYrange[1] += dShiftY;
-	}
-	if (m_dYrange[1] > 90.0) {
-		double dShiftY = m_dYrange[1] - 90.0;
-		m_dYrange[0] -= dShiftY;
-		m_dYrange[1] -= dShiftY;
-	}
-	if (m_dYrange[0] < -90.0) {
-		m_dYrange[0] = -90.0;
+		m_dYrange[0] = dY - dYdelta;
+		m_dYrange[1] = dY + dYdelta;
+
+		if (m_dYrange[0] < -90.0) {
+			double dShiftY = -90.0 - m_dYrange[0];
+			m_dYrange[0] += dShiftY;
+			m_dYrange[1] += dShiftY;
+		}
+		if (m_dYrange[1] > 90.0) {
+			double dShiftY = m_dYrange[1] - 90.0;
+			m_dYrange[0] -= dShiftY;
+			m_dYrange[1] -= dShiftY;
+		}
+		if (m_dYrange[0] < -90.0) {
+			m_dYrange[0] = -90.0;
+		}
+
+	// Zoom in
+	} else {
+		std::cout << "DOUBLE CLICK" << std::endl;
+
+		m_dXrange[0] = dX - 0.25 * dXdelta;
+		m_dXrange[1] = dX + 0.25 * dXdelta;
+
+		m_dYrange[0] = dY - 0.25 * dYdelta;
+		m_dYrange[1] = dY + 0.25 * dYdelta;
+
+		if (m_dYrange[0] < -90.0) {
+			double dShiftY = -90.0 - m_dYrange[0];
+			m_dYrange[0] += dShiftY;
+			m_dYrange[1] += dShiftY;
+		}
+		if (m_dYrange[1] > 90.0) {
+			double dShiftY = m_dYrange[1] - 90.0;
+			m_dYrange[0] -= dShiftY;
+			m_dYrange[1] -= dShiftY;
+		}
+		if (m_dYrange[0] < -90.0) {
+			m_dYrange[0] = -90.0;
+		}
 	}
 
 	SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1], true);
+
 }
 
 ////////////////////////////////////////////////////////////////////////////////

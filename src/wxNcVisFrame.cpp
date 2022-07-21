@@ -9,7 +9,7 @@
 #include <wx/filename.h>
 #include <wx/dir.h>
 
-#include "wxNcVisOptsDialog.h"
+#include "wxNcVisExportDialog.h"
 #include "STLStringHelper.h"
 #include "ShpFile.h"
 #include "TimeObj.h"
@@ -28,6 +28,7 @@ enum {
 	ID_GRIDLINES = 10,
 	ID_OVERLAYS = 11,
 	ID_SAMPLER = 12,
+	ID_EXPORT = 13,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
@@ -48,7 +49,7 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_MENU(wxID_EXIT, wxNcVisFrame::OnExit)
 	EVT_MENU(wxID_ABOUT, wxNcVisFrame::OnAbout)
 	EVT_BUTTON(ID_DATATRANS, wxNcVisFrame::OnDataTransClicked)
-	EVT_BUTTON(ID_OPTIONS, wxNcVisFrame::OnOptionsClicked)
+	EVT_BUTTON(ID_EXPORT, wxNcVisFrame::OnExportClicked)
 	EVT_TEXT_ENTER(ID_BOUNDS, wxNcVisFrame::OnBoundsChanged)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
@@ -81,7 +82,7 @@ wxNcVisFrame::wxNcVisFrame(
 	m_rightsizer(NULL),
 	m_vardimsizer(NULL),
 	m_imagepanel(NULL),
-	m_wxNcVisOptsDialog(NULL),
+	m_wxNcVisExportDialog(NULL),
 	m_wxDimTimer(this,ID_DIMTIMER),
 	m_varActive(NULL),
 	m_fIsVarActiveUnstructured(false),
@@ -328,17 +329,17 @@ void wxNcVisFrame::OpenFiles(
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::InitializeWindow() {
-/*
-	// Initialize options dialog
-	m_wxNcVisOptsDialog =
-		new wxNcVisOptsDialog(
-			_T("NcVis Options"),
+
+	// Initialize export dialog
+	m_wxNcVisExportDialog =
+		new wxNcVisExportDialog(
+			_T("NcVis Export"),
 			wxPoint(60, 60),
 			wxSize(400, 400),
 			m_strNcVisResourceDir);
 
-	m_wxNcVisOptsDialog->Hide();
-*/
+	m_wxNcVisExportDialog->Hide();
+
 	// Get the list of shapefiles in the resource dir
 	{
 		wxDir dirResources(m_strNcVisResourceDir);
@@ -434,7 +435,7 @@ void wxNcVisFrame::InitializeWindow() {
 	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxSamplerCombo, 0, wxEXPAND | wxALL, 2);
 	//menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(new wxButton(this, -1, _T("Export")), 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(new wxButton(this, ID_EXPORT, _T("Export...")), 0, wxEXPAND | wxALL, 2);
 
 	// Variable selector
 	wxBoxSizer *varsizer = new wxBoxSizer(wxHORIZONTAL);
@@ -1019,7 +1020,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.15");
+		wxString strMessageBak = _T("NcVis 2022.07.21");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -1049,8 +1050,8 @@ void wxNcVisFrame::OnAbout(
 void wxNcVisFrame::OnClose(
 	wxCloseEvent & event
 ) {
-	if (m_wxNcVisOptsDialog != NULL) {
-		m_wxNcVisOptsDialog->Destroy();
+	if (m_wxNcVisExportDialog != NULL) {
+		m_wxNcVisExportDialog->Destroy();
 	}
 	Destroy();
 }
@@ -1085,16 +1086,17 @@ void wxNcVisFrame::OnDataTransClicked(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-void wxNcVisFrame::OnOptionsClicked(
+void wxNcVisFrame::OnExportClicked(
 	wxCommandEvent & event
 ) {
+	std::cout << "EXPORT DIALOG" << std::endl;
 
-	if (m_wxNcVisOptsDialog == NULL) {
+	if (m_wxNcVisExportDialog == NULL) {
 		return;
 	}
 
-	m_wxNcVisOptsDialog->Show(true);
-	m_wxNcVisOptsDialog->SetFocus();
+	m_wxNcVisExportDialog->Show(true);
+	m_wxNcVisExportDialog->SetFocus();
 }
 
 ////////////////////////////////////////////////////////////////////////////////

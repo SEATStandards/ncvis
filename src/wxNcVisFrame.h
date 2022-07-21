@@ -22,7 +22,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-class wxNcVisOptsDialog;
+class wxNcVisExportDialog;
 class wxGridBagSizer;
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -210,9 +210,9 @@ private:
 	void OnDataTransClicked(wxCommandEvent & event);
 
 	///	<summary>
-	///		Callback triggered when the options button is pressed.
+	///		Callback triggered when the export button is pressed.
 	///	</summary>
-	void OnOptionsClicked(wxCommandEvent & event);
+	void OnExportClicked(wxCommandEvent & event);
 
 	///	<summary>
 	///		Generate dimension controls for a given variable.
@@ -353,7 +353,7 @@ private:
 	///	<summary>
 	///		Options frame.
 	///	</summary>
-	wxNcVisOptsDialog * m_wxNcVisOptsDialog;
+	wxNcVisExportDialog * m_wxNcVisExportDialog;
 
 	///	<summary>
 	///		Dimension timer.
