@@ -10,6 +10,7 @@
 #include <wx/stdpaths.h>
 #include <wx/filefn.h> 
 #include <string>
+#include <cctype>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -59,6 +60,7 @@ wxNcVisExportDialog::wxNcVisExportDialog(
 	wxDialog(parent, wxID_ANY, title, pos, size, wxDEFAULT_DIALOG_STYLE),
 	m_vecDimNames(vecDimNames),
 	m_vecDimBounds(vecDimBounds),
+	m_eExportCommand(ExportCommand_Cancel),
 	m_sCurrentWindowWidth(sCurrentWindowWidth),
 	m_sCurrentWindowHeight(sCurrentWindowHeight),
 	m_sExportWidth(1560),
@@ -309,20 +311,127 @@ void wxNcVisExportDialog::OnUseCurrentImageSizeClicked(
 void wxNcVisExportDialog::OnExportClicked(
 	wxCommandEvent & event
 ) {
+	bool fAllowExport = true;
+
+	// Export one frame radio button clicked
 	if (m_wxExportOneFrameRadio->GetValue()) {
 		m_eExportCommand = ExportCommand_OneFrame;
 		m_wxstrExportFilename = m_wxFilenameCtrl->GetValue();
 
+	// Export multiple frames radio button clicked
 	} else if (m_wxExportMultFrameRadio->GetValue()) {
 		m_eExportCommand = ExportCommand_MultipleFrames;
 		m_wxstrExportFilePath = m_wxFilePathCtrl->GetValue();
 		m_wxstrExportFilePattern = m_wxPatternCtrl->GetValue();
 
+		long dActive = (-1);
 		for (long d = 0; d < m_vecExportDimRadioButtons.size(); d++) {
 			if (m_vecExportDimRadioButtons[d]->GetValue()) {
 				m_strExportDim = m_vecDimNames[d];
 				m_iExportDimBegin = std::stoi(m_vecExportDimStartCtrl[d]->GetValue().ToStdString());
 				m_iExportDimEnd = std::stoi(m_vecExportDimEndCtrl[d]->GetValue().ToStdString());
+				dActive = d;
+				break;
+			}
+		}
+
+		_ASSERT(dActive != (-1));
+
+		// Error checking
+		if ((m_iExportDimBegin < m_vecDimBounds[dActive].first) ||
+		    (m_iExportDimBegin > m_vecDimBounds[dActive].second) ||
+		    (m_iExportDimEnd < m_vecDimBounds[dActive].first) ||
+		    (m_iExportDimEnd > m_vecDimBounds[dActive].second)
+		) {
+			wxMessageDialog wxResultDialog(
+				this,
+				wxString::Format("One or more indices for dimension \"%s\" out of range. Value must be between %li and %li.",
+					m_strExportDim.ToStdString().c_str(),
+					m_vecDimBounds[dActive].first,
+					m_vecDimBounds[dActive].second),
+				wxString::Format("Index out of range"),
+				wxOK | wxCENTRE | wxICON_EXCLAMATION);
+			wxResultDialog.ShowModal();
+			fAllowExport = false;
+		}
+
+		if (m_iExportDimBegin > m_iExportDimEnd) {
+			wxMessageDialog wxResultDialog(
+				this,
+				wxString::Format("Begin index (%li) for dimension \"%s\" exceeds end index (%li).",
+					m_strExportDim.ToStdString().c_str(),
+					m_iExportDimBegin,
+					m_iExportDimEnd),
+				wxString::Format("Invalid incides"),
+				wxOK | wxCENTRE | wxICON_EXCLAMATION);
+			wxResultDialog.ShowModal();
+			fAllowExport = false;
+		}
+
+		// Check pattern
+		{
+			// Check for at most one escape character and get its location
+			int iPercentIx = (-1);
+			for (int i = 0; i < m_wxstrExportFilePattern.length(); i++) {
+				if (m_wxstrExportFilePattern[i] == '%') {
+					if (iPercentIx != (-1)) {
+						wxMessageDialog wxResultDialog(
+							this,
+							wxString::Format("Only one escape character %% allowed in file pattern \"%s\".",
+								m_wxstrExportFilePattern.ToStdString().c_str()),
+							wxString::Format("Invalid file pattern"),
+							wxOK | wxCENTRE | wxICON_EXCLAMATION);
+						wxResultDialog.ShowModal();
+						fAllowExport = false;
+						break;
+
+					} else {
+						iPercentIx = i;
+					}
+				}
+			}
+
+			// Check for at least one escape character
+			if (fAllowExport && (iPercentIx == (-1))) {
+				wxMessageDialog wxResultDialog(
+					this,
+					wxString::Format("At least one escape character %% required in file pattern \"%s\".",
+						m_wxstrExportFilePattern.ToStdString().c_str()),
+					wxString::Format("Invalid file pattern"),
+					wxOK | wxCENTRE | wxICON_EXCLAMATION);
+				wxResultDialog.ShowModal();
+				fAllowExport = false;
+			}
+
+			// Check for malformed file pattern
+			if (fAllowExport) {
+				bool fMalformedPatternError = false;
+
+				if (iPercentIx == m_wxstrExportFilePattern.length()-1) {
+					fMalformedPatternError = true;
+
+				} else {
+					for (int i = iPercentIx+1; i < m_wxstrExportFilePattern.length(); i++) {
+						if (isdigit(m_wxstrExportFilePattern[i])) {
+							continue;
+						}
+						if (m_wxstrExportFilePattern[i] == 'i') {
+							break;
+						}
+						fMalformedPatternError = true;
+					}
+				}
+
+				if (fMalformedPatternError) {
+					wxMessageDialog wxResultDialog(
+						this,
+						wxString::Format("Malformed file pattern \"%s\".",
+							m_wxstrExportFilePattern.ToStdString().c_str()),
+						wxString::Format("Invalid file pattern"),
+						wxOK | wxCENTRE | wxICON_EXCLAMATION);
+					wxResultDialog.ShowModal();
+					fAllowExport = false;
+				}
 			}
 		}
 
@@ -338,7 +447,27 @@ void wxNcVisExportDialog::OnExportClicked(
 		m_sExportHeight = std::stoi(m_wxImageHeightCtrl->GetValue().ToStdString());
 	}
 
-	Close();
+	if (fAllowExport) {
+		if ((m_sExportWidth < 200) ||
+		    (m_sExportWidth > 100000) ||
+		    (m_sExportHeight < 80) ||
+		    (m_sExportHeight > 100000)
+		) {
+			wxMessageDialog wxResultDialog(
+				this,
+				wxString::Format("Width must be between 200 and 100000 pixels.  Height must be between 80 and 100000 pixels."),
+				wxString::Format("Invalid export image size"),
+				wxOK | wxCENTRE | wxICON_EXCLAMATION);
+			wxResultDialog.ShowModal();
+			fAllowExport = false;
+		}
+	}
+
+	if (fAllowExport) {
+		Close();
+	} else {
+		m_eExportCommand = ExportCommand_Cancel;
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
