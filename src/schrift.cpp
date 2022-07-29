@@ -33,7 +33,9 @@ extern "C" {
 # define WIN32_LEAN_AND_MEAN 1
 # include <windows.h>
 #else
-# define _POSIX_C_SOURCE 1
+# if !defined(_POSIX_C_SOURCE)
+#  define _POSIX_C_SOURCE 1
+# endif
 # include <fcntl.h>
 # include <sys/mman.h>
 # include <sys/stat.h>
@@ -129,7 +131,7 @@ struct SFT_Font
 
 /* function declarations */
 /* generic utility functions */
-static void *reallocarray(void *optr, size_t nmemb, size_t size);
+static void *reallocarray_openbsd(void *optr, size_t nmemb, size_t size);
 static inline int fast_floor(double x);
 static inline int fast_ceil (double x);
 /* file loading */
@@ -412,11 +414,11 @@ failure:
  * if both s1 < MUL_NO_OVERFLOW and s2 < MUL_NO_OVERFLOW */
 #define MUL_NO_OVERFLOW	((size_t)1 << (sizeof(size_t) * 4))
 
-/* OpenBSD's reallocarray() standard libary function.
+/* OpenBSD's reallocarray_openbsd() standard libary function.
  * A wrapper for realloc() that takes two size args like calloc().
  * Useful because it eliminates common integer overflow bugs. */
 static void *
-reallocarray(void *optr, size_t nmemb, size_t size)
+reallocarray_openbsd(void *optr, size_t nmemb, size_t size)
 {
 	if ((nmemb >= MUL_NO_OVERFLOW || size >= MUL_NO_OVERFLOW) &&
 	    nmemb > 0 && SIZE_MAX / nmemb < size) {
@@ -644,7 +646,7 @@ grow_points(Outline *outl)
 	if (outl->capPoints > UINT16_MAX / 2)
 		return -1;
 	cap = (uint_fast16_t) (2U * outl->capPoints);
-	if (!(mem = reallocarray(outl->points, cap, sizeof *outl->points)))
+	if (!(mem = reallocarray_openbsd(outl->points, cap, sizeof *outl->points)))
 		return -1;
 	outl->capPoints = (uint_least16_t) cap;
 	outl->points    = reinterpret_cast<Point *>(mem);
@@ -660,7 +662,7 @@ grow_curves(Outline *outl)
 	if (outl->capCurves > UINT16_MAX / 2)
 		return -1;
 	cap = (uint_fast16_t) (2U * outl->capCurves);
-	if (!(mem = reallocarray(outl->curves, cap, sizeof *outl->curves)))
+	if (!(mem = reallocarray_openbsd(outl->curves, cap, sizeof *outl->curves)))
 		return -1;
 	outl->capCurves = (uint_least16_t) cap;
 	outl->curves    = reinterpret_cast<Curve *>(mem);
@@ -676,7 +678,7 @@ grow_lines(Outline *outl)
 	if (outl->capLines > UINT16_MAX / 2)
 		return -1;
 	cap = (uint_fast16_t) (2U * outl->capLines);
-	if (!(mem = reallocarray(outl->lines, cap, sizeof *outl->lines)))
+	if (!(mem = reallocarray_openbsd(outl->lines, cap, sizeof *outl->lines)))
 		return -1;
 	outl->capLines = (uint_least16_t) cap;
 	outl->lines    = reinterpret_cast<Line *>(mem);

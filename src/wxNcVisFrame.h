@@ -181,6 +181,13 @@ public:
 	);
 
 	///	<summary>
+	///		Get the dimension value displayed.
+	///	</summary>
+	long GetDisplayedDimensionValue(
+		long lDim
+	);
+
+	///	<summary>
 	///		Set the status message.
 	///	</summary>
 	void SetStatusMessage(
@@ -341,9 +348,14 @@ private:
 	wxTextCtrl * m_vecwxDimValue[NcVarMaximumDimensions];
 
 	///	<summary>
-	///		Pointer to currently active play button.
+	///		Button for animating data.
 	///	</summary>
 	wxButton * m_vecwxPlayButton[NcVarMaximumDimensions];
+
+	///	<summary>
+	///		Button for exporting data.
+	///	</summary>
+	wxButton * m_wxExportButton;
 
 	///	<summary>
 	///		Image panel used to display data.

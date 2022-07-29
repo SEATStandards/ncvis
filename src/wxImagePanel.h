@@ -87,6 +87,20 @@ public:
 	);
 
 	///	<summary>
+	///		Generate the image data from the image map.
+	///	</summary>
+	template <int NDIM>
+	void GenerateImageDataFromImageMap(
+		const size_t sOffsetX,
+		const size_t sOffsetY,
+		const size_t sImageWidth,
+		const size_t sImageHeight,
+		const size_t sCanvasWidth,
+		const size_t sCanvasHeight,
+		unsigned char * imagedata
+	);
+
+	///	<summary>
 	///		Generate the image from the image map.
 	///	</summary>
 	void GenerateImageFromImageMap(
@@ -120,12 +134,43 @@ public:
 	///		Resample the coordinate range.
 	///	</summary>
 	void SetCoordinateRange(
+		size_t sImageWidth,
+		size_t sImageHeight,
 		double dX0,
 		double dX1,
 		double dY0,
 		double dY1,
 		bool fRedraw = false
 	);
+
+	///	<summary>
+	///		Resample the coordinate range.
+	///	</summary>
+	void SetCoordinateRange(
+		double dX0,
+		double dX1,
+		double dY0,
+		double dY1,
+		bool fRedraw = false
+	);
+
+	///	<summary>
+	///		Impose the image size and disable redraw.
+	///	</summary>
+	void ImposeImageSize(
+		size_t sImageWidth,
+		size_t sImageHeight
+	);
+
+	///	<summary>
+	///		Reset the image size to be determined by the panel.
+	///	</summary>
+	void ResetImageSize();
+
+	///	<summary>
+	///		Get the image size.
+	///	</summary>
+	wxSize GetImageSize();
 
 	///	<summary>
 	///		Set the data range.
@@ -143,6 +188,15 @@ public:
 		bool fGridLinesOn,
 		bool fRedraw = false
 	);
+
+	///	<summary>
+	///		Show override message.
+	///	</summary>
+	void EnableRedraw(
+		bool fEnableRedraw = true
+	) {
+		m_fEnableRedraw = fEnableRedraw;
+	}
 
 public:
 	///	<summary>
@@ -200,10 +254,14 @@ public:
 	///		using font information from m_sft.  The coordinate (x,y) indicates
 	///		the top-left corner of the character.
 	///	</summary>
+	template <int NDIM>
 	void DrawCharacter(
 		unsigned char c,
-		size_t x,
-		size_t y,
+		size_t sX,
+		size_t sY,
+		size_t sCanvasWidth,
+		size_t sCanvasHeight,
+		unsigned char * imagedata,
 		int * pwidth = NULL,
 		int * pheight = NULL);
 
@@ -212,12 +270,25 @@ public:
 	///		using font information from m_sft.  The coordinate (x,y) indicates
 	///		the top-left corner of the string.
 	///	</summary>
+	template <int NDIM>
 	void DrawString(
 		const std::string & str,
-		size_t x,
-		size_t y,
+		size_t sX,
+		size_t sY,
+		size_t sCanvasWidth,
+		size_t sCanvasHeight,
+		unsigned char * imagedata,
 		int * pwidth = NULL,
 		int * pheight = NULL);
+
+	///	<summary>
+	///		Export the image to a PNG file.
+	///	</summary>
+	bool ExportToPNG(
+		const wxString & wxstrFilename,
+		size_t sImageWidth = static_cast<size_t>(-1),
+		size_t sImageHeight = static_cast<size_t>(-1)
+	);
 
 	///	<summary>
 	///		Repaint the panel now.
@@ -249,6 +320,11 @@ private:
 	///		Font information for label bar.
 	///	</summary>
 	SFT m_sft;
+
+	///	<summary>
+	///		Disable rendering.
+	///	</summary>
+	bool m_fEnableRedraw;
 
 	///	<summary>
 	///		Longitude region displayed in plot.

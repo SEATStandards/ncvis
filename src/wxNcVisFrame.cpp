@@ -330,16 +330,6 @@ void wxNcVisFrame::OpenFiles(
 
 void wxNcVisFrame::InitializeWindow() {
 
-	// Initialize export dialog
-	m_wxNcVisExportDialog =
-		new wxNcVisExportDialog(
-			_T("NcVis Export"),
-			wxPoint(60, 60),
-			wxSize(400, 400),
-			m_strNcVisResourceDir);
-
-	m_wxNcVisExportDialog->Hide();
-
 	// Get the list of shapefiles in the resource dir
 	{
 		wxDir dirResources(m_strNcVisResourceDir);
@@ -382,7 +372,7 @@ void wxNcVisFrame::InitializeWindow() {
 
 	// Variable controls
 	m_rightsizer = new wxStaticBoxSizer(wxVERTICAL, this);
-	m_rightsizer->SetMinSize(640,220);
+	m_rightsizer->SetMinSize(660,220);
 
 	m_ctrlsizer->Add(menusizer, 0);
 	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
@@ -428,14 +418,17 @@ void wxNcVisFrame::InitializeWindow() {
 	wxSamplerCombo->SetSelection((int)m_egdsoption);
 	wxSamplerCombo->SetEditable(false);
 
+	// Export button
+	m_wxExportButton = new wxButton(this, ID_EXPORT, _T("Export..."));
+	m_wxExportButton->Enable(false);
+
 	// Add controls to the manusizer
 	menusizer->Add(wxColorMapCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxSamplerCombo, 0, wxEXPAND | wxALL, 2);
-	//menusizer->Add(new wxButton(this, ID_OPTIONS, _T("Options")), 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(new wxButton(this, ID_EXPORT, _T("Export...")), 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(m_wxExportButton, 0, wxEXPAND | wxALL, 2);
 
 	// Variable selector
 	wxBoxSizer *varsizer = new wxBoxSizer(wxHORIZONTAL);
@@ -682,7 +675,7 @@ void wxNcVisFrame::SampleData(
 	const DataArray1D<double> & dSampleY,
 	DataArray1D<int> & imagemap
 ) {
-	std::cout << "SAMPLE DATA" << std::endl;
+	std::cout << "SAMPLE DATA " << dSampleX.GetRows() << " " << dSampleY.GetRows() << std::endl;
 
 	_ASSERT(imagemap.GetRows() >= dSampleX.GetRows() * dSampleY.GetRows());
 	_ASSERT(m_data.GetRows() > 0);
@@ -1015,12 +1008,24 @@ void wxNcVisFrame::SetDisplayedDimensionValue(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+long wxNcVisFrame::GetDisplayedDimensionValue(
+	long lDim
+) {
+	_ASSERT(m_varActive != NULL);
+	_ASSERT((lDim >= 0) && (lDim < m_varActive->num_dims()));
+	wxString wxstrValue = m_vecwxDimIndex[lDim]->GetValue();
+
+	return std::stol(wxstrValue.ToStdString());
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::SetStatusMessage(
 	const wxString & strMessage,
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.21");
+		wxString strMessageBak = _T("NcVis 2022.07.28");
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -1050,9 +1055,6 @@ void wxNcVisFrame::OnAbout(
 void wxNcVisFrame::OnClose(
 	wxCloseEvent & event
 ) {
-	if (m_wxNcVisExportDialog != NULL) {
-		m_wxNcVisExportDialog->Destroy();
-	}
 	Destroy();
 }
 
@@ -1091,12 +1093,127 @@ void wxNcVisFrame::OnExportClicked(
 ) {
 	std::cout << "EXPORT DIALOG" << std::endl;
 
-	if (m_wxNcVisExportDialog == NULL) {
+	if (m_varActive == NULL) {
 		return;
 	}
 
-	m_wxNcVisExportDialog->Show(true);
-	m_wxNcVisExportDialog->SetFocus();
+	std::vector< wxString > vecDimNames;
+	std::vector< std::pair<long,long> > vecDimBounds;
+	for (long d = 0; d < m_varActive->num_dims(); d++) {
+		if ((d == m_lDisplayedDims[0]) || (d == m_lDisplayedDims[1])) {
+			continue;
+		}
+		vecDimNames.push_back(wxString(m_varActive->get_dim(d)->name()));
+		vecDimBounds.push_back(std::pair<long,long>(0,m_varActive->get_dim(d)->size()-1));
+	}
+
+	// Initialize export dialog
+	m_wxNcVisExportDialog =
+		new wxNcVisExportDialog(
+			this,
+			_T("NcVis Export"),
+			wxPoint(60, 60),
+			wxSize(400, 400),
+			vecDimNames,
+			vecDimBounds,
+			m_imagepanel->GetImageSize().GetWidth(),
+			m_imagepanel->GetImageSize().GetHeight());
+
+	m_wxNcVisExportDialog->ShowModal();
+
+	wxNcVisExportDialog::ExportCommand eExportCommand = m_wxNcVisExportDialog->GetExportCommand();
+
+	bool fSuccess = true;
+
+	// Image size for export
+	size_t sImageWidth = m_wxNcVisExportDialog->GetExportWidth();
+	size_t sImageHeight = m_wxNcVisExportDialog->GetExportHeight();
+
+	// Cancel
+	if (eExportCommand == wxNcVisExportDialog::ExportCommand_Cancel) {
+		return;
+
+	// Export one frame
+	} else if (eExportCommand == wxNcVisExportDialog::ExportCommand_OneFrame) {
+		std::cout << "Exporting frame to " << m_wxNcVisExportDialog->GetExportFilename() << std::endl;
+
+		SetStatusMessage(_T("Rendering Frame 1/1"), true);
+
+		m_imagepanel->ImposeImageSize(sImageWidth, sImageHeight);
+
+		fSuccess =
+			m_imagepanel->ExportToPNG(
+				m_wxNcVisExportDialog->GetExportFilename(),
+				sImageWidth,
+				sImageHeight);
+
+		m_imagepanel->ResetImageSize();
+
+		SetStatusMessage(_T(""), true);
+
+	// Export multiple frames
+	} else if (eExportCommand == wxNcVisExportDialog::ExportCommand_MultipleFrames) {
+
+		wxString wxstrExportFilePath = m_wxNcVisExportDialog->GetExportFilePath();
+		wxString wxstrExportFilePattern = m_wxNcVisExportDialog->GetExportFilePattern();
+
+		wxString wxstrExportDimName = m_wxNcVisExportDialog->GetExportDimName();
+		long lExportDimBegin = m_wxNcVisExportDialog->GetExportDimBegin();
+		long lExportDimEnd = m_wxNcVisExportDialog->GetExportDimEnd();
+
+		long lActiveDim = (-1);
+		for (long d = 0; d < m_varActive->num_dims(); d++) {
+			if (wxstrExportDimName == m_varActive->get_dim(d)->name()) {
+				lActiveDim = d;
+				break;
+			}
+		}
+		_ASSERT(lActiveDim != (-1));
+
+		m_imagepanel->ImposeImageSize(sImageWidth, sImageHeight);
+
+		long lDisplayedValueBackup = GetDisplayedDimensionValue(lActiveDim);
+
+		for (long i = lExportDimBegin; i <= lExportDimEnd; i++) {
+			long ix = i - lExportDimBegin;
+			SetStatusMessage(wxString::Format("Rendering Frame %li/%li", ix, lExportDimEnd - lExportDimBegin + 1), true);
+
+			m_lVarActiveDims[lActiveDim] = i;
+			SetDisplayedDimensionValue(lActiveDim, i);
+			LoadData();
+
+			wxFileName wxfile(wxstrExportFilePath, wxString::Format(wxstrExportFilePattern, static_cast<int>(ix)));
+
+			std::cout << "Exporting frame to " << wxfile.GetFullPath() << std::endl;
+
+			fSuccess =
+				m_imagepanel->ExportToPNG(
+					wxfile.GetFullPath(),
+					sImageWidth,
+					sImageHeight);
+
+			if (!fSuccess) {
+				break;
+			}
+		}
+
+		m_lVarActiveDims[lActiveDim] = lDisplayedValueBackup;
+		SetDisplayedDimensionValue(lActiveDim, lDisplayedValueBackup);
+		LoadData();
+
+		m_imagepanel->ResetImageSize();
+
+		SetStatusMessage(_T(""), true);
+	}
+
+	if (!fSuccess) {
+		wxMessageDialog wxResultDialog(this, _T("Export failed"), _T("Export to PNG"), wxOK | wxCENTRE | wxICON_EXCLAMATION);
+		wxResultDialog.ShowModal();
+	}
+
+	//std::cout << m_wxNcVisExportDialog->m_nExportWidth << std::endl;
+	//m_wxNcVisExportDialog->SetFocus();
+	//m_wxNcVisExportDialog->Destroy();
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1430,6 +1547,9 @@ void wxNcVisFrame::OnVariableSelected(
 
 	// Generate dimension controls
 	GenerateDimensionControls();
+
+	// Activate the export button
+	m_wxExportButton->Enable(true);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
