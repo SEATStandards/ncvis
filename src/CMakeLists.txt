@@ -47,4 +47,6 @@ source_group(
   FILES ${NCVIS_SOURCE_FILES})
 
 # Install target
-INSTALL(TARGETS ncvis)
+INSTALL(TARGETS ncvis
+  RUNTIME DESTINATION bin
+)
