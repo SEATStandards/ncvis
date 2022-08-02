@@ -30,6 +30,15 @@ if (NETCDF_INCLUDES AND NETCDF_LIBRARIES)
   set (NETCDF_FIND_QUIETLY TRUE)
 endif (NETCDF_INCLUDES AND NETCDF_LIBRARIES)
 
+if (DEFINED ${NETCDF_DIR})
+  message("-- Using NetCDF directory (user-specified): ${NETCDF_DIR}")
+else (DEFINED ${NETCDF_DIR})
+  if (DEFINED ENV{NETCDF_DIR})
+    set (NETCDF_DIR $ENV{NETCDF_DIR})
+    message("-- Using NetCDF directory (environment): ${NETCDF_DIR}")
+  endif (DEFINED ENV{NETCDF_DIR})
+endif (DEFINED ${NETCDF_DIR})
+
 find_path (NETCDF_INCLUDES netcdf.h
   HINTS ${NETCDF_DIR}/include ENV NETCDF_DIR)
 
