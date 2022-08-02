@@ -32,19 +32,8 @@ set_target_properties(ncvis
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS NO
-        LINK_FLAGS "${WX_LINK_FLAGS} ${NC_LINK_FLAGS}"
+        LINK_FLAGS "${NCVIS_LINKER_FLAGS}"
 )
-
-# IDEs should put the headers in a nice place
-source_group(
-  TREE "${PROJECT_SOURCE_DIR}/src"
-  PREFIX "Header Files"
-  FILES ${NCVIS_HEADER_FILES})
-
-source_group(
-  TREE "${PROJECT_SOURCE_DIR}/src"
-  PREFIX "Source Files"
-  FILES ${NCVIS_SOURCE_FILES})
 
 # Install target
 INSTALL(TARGETS ncvis
