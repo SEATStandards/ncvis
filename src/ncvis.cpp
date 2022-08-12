@@ -54,13 +54,13 @@ bool wxNcVisApp::OnInit() {
 
 	int iarg = 1;
 
-	std::map<std::string, std::string> mapOptions;
+	std::map<wxString, wxString> mapOptions;
 	for (; iarg < argc; iarg++) {
 		if (argv[iarg][0] == '-') {
 			if (iarg+1 < argc) {
 				if (argv[iarg+1][0] != '-') {
 					mapOptions.insert(
-						std::pair<std::string, std::string>(
+						std::pair<wxString, wxString>(
 							argv[iarg], argv[iarg+1]));
 					iarg++;
 				}

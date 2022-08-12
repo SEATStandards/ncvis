@@ -59,7 +59,7 @@ public:
 		const wxPoint & pos,
 		const wxSize & size,
 		const wxString & wxstrNcVisResourceDir,
-		const std::map<std::string, std::string> & mapOptions,
+		const std::map<wxString, wxString> & mapOptions,
 		const std::vector<wxString> & vecFilenames
 	);
 
@@ -393,7 +393,7 @@ private:
 	///	<summary>
 	///		Command-line options.
 	///	</summary>
-	std::map<std::string, std::string> m_mapOptions;
+	std::map<wxString, wxString> m_mapOptions;
 
 	///	<summary>
 	///		Color map library.

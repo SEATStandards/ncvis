@@ -74,7 +74,7 @@ wxNcVisFrame::wxNcVisFrame(
 	const wxPoint & pos,
 	const wxSize & size,
 	const wxString & wxstrNcVisResourceDir,
-	const std::map<std::string, std::string> & mapOptions,
+	const std::map<wxString, wxString> & mapOptions,
 	const std::vector<wxString> & vecFilenames
 ) :
 	wxFrame(NULL, wxID_ANY, title, pos, size),
