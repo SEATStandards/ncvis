@@ -4,7 +4,7 @@
 CXX=g++
 
 # set the install prefix
-PREFIX="$(pwd -P)/"
+PREFIX="$(pwd -P)/bin/"
 
 # get the wxwidgets build flags
 WXFLAGS=`wx-config --cxxflags --libs --cppflags`
@@ -16,4 +16,4 @@ NCFLAGS=`nc-config --cflags --libs`
 RPATH=`wx-config --prefix`/lib
 
 # build the executable
-cd src && $CXX -std=c++11 -fpermissive -Wl,-rpath,${RPATH} -o ${PREFIX}/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxNcVisExportDialog.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp TimeObj.cpp ShpFile.cpp schrift.cpp lodepng.cpp ${WXFLAGS} ${NCFLAGS}
+cd src && $CXX -shared -fPIC -std=c++11 -fpermissive -Wl,-rpath,${RPATH} -o ${PREFIX}/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxNcVisExportDialog.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp TimeObj.cpp ShpFile.cpp schrift.cpp lodepng.cpp ${WXFLAGS} ${NCFLAGS}
