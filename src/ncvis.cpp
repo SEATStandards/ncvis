@@ -87,7 +87,7 @@ bool wxNcVisApp::OnInit() {
 		wxfn.AppendDir(_T("resources"));
 		wxfn.MakeAbsolute();
 		wxstrNcVisResourceDir = wxfn.GetPath();
-		if (!wxfn.IsDir()) {
+		if (!wxfn.DirExists()) {
 			std::cout << "ERROR: Cannot open resource directory \"" << wxstrNcVisResourceDir << "\"" << std::endl;
 			std::cout << "Set environment variable NCVIS_RESOURCE_DIR instead" << std::endl;
 			exit(-1);
