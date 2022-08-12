@@ -11,7 +11,6 @@
 #include "Announce.h"
 #include "QuadTree.h"
 #include "kdtree.h"
-#include "DataArray1D.h"
 #include "netcdfcpp.h"
 
 #include <vector>
@@ -31,17 +30,17 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const DataArray1D<double> & dLon,
-		const DataArray1D<double> & dLat
+		const std::vector<double> & dLon,
+		const std::vector<double> & dLat
 	);
 
 	///	<summary>
 	///		Sample.
 	///	</summary>
 	virtual void Sample(
-		const DataArray1D<double> & dSampleLon,
-		const DataArray1D<double> & dSampleLat,
-		DataArray1D<int> & dImageMap
+		const std::vector<double> & dSampleLon,
+		const std::vector<double> & dSampleLat,
+		std::vector<int> & dImageMap
 	) const = 0;
 
 	///	<summary>
@@ -77,17 +76,17 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const DataArray1D<double> & dLon,
-		const DataArray1D<double> & dLat
+		const std::vector<double> & dLon,
+		const std::vector<double> & dLat
 	);
 
 	///	<summary>
 	///		Generate
 	///	</summary>
 	virtual void Sample(
-		const DataArray1D<double> & dSampleLon,
-		const DataArray1D<double> & dSampleLat,
-		DataArray1D<int> & dImageMap
+		const std::vector<double> & dSampleLon,
+		const std::vector<double> & dSampleLat,
+		std::vector<int> & dImageMap
 	) const;
 
 public:
@@ -105,17 +104,17 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const DataArray1D<double> & dLon,
-		const DataArray1D<double> & dLat
+		const std::vector<double> & dLon,
+		const std::vector<double> & dLat
 	);
 
 	///	<summary>
 	///		Generate
 	///	</summary>
 	virtual void Sample(
-		const DataArray1D<double> & dSampleLon,
-		const DataArray1D<double> & dSampleLat,
-		DataArray1D<int> & dImageMap
+		const std::vector<double> & dSampleLon,
+		const std::vector<double> & dSampleLat,
+		std::vector<int> & dImageMap
 	) const;
 
 public:
@@ -133,17 +132,17 @@ public:
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
-		const DataArray1D<double> & dLon,
-		const DataArray1D<double> & dLat
+		const std::vector<double> & dLon,
+		const std::vector<double> & dLat
 	);
 
 	///	<summary>
 	///		Generate
 	///	</summary>
 	virtual void Sample(
-		const DataArray1D<double> & dSampleLon,
-		const DataArray1D<double> & dSampleLat,
-		DataArray1D<int> & dImageMap
+		const std::vector<double> & dSampleLon,
+		const std::vector<double> & dSampleLat,
+		std::vector<int> & dImageMap
 	) const;
 
 public:

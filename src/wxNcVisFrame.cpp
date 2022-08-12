@@ -17,6 +17,12 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
+static const char * szVersion = "NcVis 2022.08.11";
+
+static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
+
+////////////////////////////////////////////////////////////////////////////////
+
 enum {
 	ID_COLORMAP = 2,
 	ID_DATATRANS = 3,
@@ -67,14 +73,15 @@ wxNcVisFrame::wxNcVisFrame(
 	const wxString & title,
 	const wxPoint & pos,
 	const wxSize & size,
-	const std::string & strNcVisResourceDir,
+	const wxString & wxstrNcVisResourceDir,
 	const std::map<std::string, std::string> & mapOptions,
-	const std::vector<std::string> & vecFilenames
+	const std::vector<wxString> & vecFilenames
 ) :
 	wxFrame(NULL, wxID_ANY, title, pos, size),
-	m_strNcVisResourceDir(strNcVisResourceDir),
+	m_fVerbose(false),
+	m_wxstrNcVisResourceDir(wxstrNcVisResourceDir),
 	m_mapOptions(mapOptions),
-	m_colormaplib(strNcVisResourceDir),
+	m_colormaplib(wxstrNcVisResourceDir),
 	m_egdsoption(GridDataSamplerOption_QuadTree),
 	m_wxDataTransButton(NULL),
 	m_panelsizer(NULL),
@@ -90,6 +97,8 @@ wxNcVisFrame::wxNcVisFrame(
 	m_sColorMap(0),
 	m_fDataHasMissingValue(false)
 {
+	std::cout << szVersion << " Paul A. Ullrich" << std::endl;
+
 	m_lDisplayedDims[0] = (-1);
 	m_lDisplayedDims[1] = (-1);
 
@@ -103,11 +112,15 @@ wxNcVisFrame::wxNcVisFrame(
 		m_vecwxPlayButton[d] = NULL;
 	}
 
-	m_data.Allocate(1);
+	m_data.resize(1);
 	m_data[0] = 0.0;
 
 	if (m_colormaplib.GetColorMapCount() == 0) {
 		_EXCEPTIONT("FATAL ERROR: At least one colormap must be specified");
+	}
+
+	if (mapOptions.find("-v") != mapOptions.end()) {
+		m_fVerbose = true;
 	}
 
 	OpenFiles(vecFilenames);
@@ -142,8 +155,8 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 	// At this point we can assume that the mesh is unstructured
 	m_strUnstructDimName = varLon->get_dim(0)->name();
 
-	DataArray1D<double> dLon(varLon->get_dim(0)->size());
-	DataArray1D<double> dLat(varLat->get_dim(0)->size());
+	std::vector<double> dLon(varLon->get_dim(0)->size());
+	std::vector<double> dLat(varLat->get_dim(0)->size());
 
 	varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
 	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
@@ -164,15 +177,15 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 	}
 
 	// Allocate data space
-	if (m_data.GetRows() != varLon->get_dim(0)->size()) {
-		m_data.Allocate(varLon->get_dim(0)->size());
+	if (m_data.size() != varLon->get_dim(0)->size()) {
+		m_data.resize(varLon->get_dim(0)->size());
 	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OpenFiles(
-	const std::vector<std::string> & vecFilenames
+	const std::vector<wxString> & vecFilenames
 ) {
 	_ASSERT(m_vecpncfiles.size() == 0);
 
@@ -184,8 +197,8 @@ void wxNcVisFrame::OpenFiles(
 	for (size_t f = 0; f < vecFilenames.size(); f++) {
 		NcFile * pfile = new NcFile(vecFilenames[f].c_str());
 		if (!pfile->is_valid()) {
-			std::cout << "Error: Unable to open file \"" << vecFilenames[f] << "\"" << std::endl;
-			_EXCEPTION();
+			std::cout << "ERROR: Unable to open file \"" << vecFilenames[f] << "\"" << std::endl;
+			exit(-1);
 		}
 		m_vecpncfiles.push_back(pfile);
 
@@ -193,8 +206,8 @@ void wxNcVisFrame::OpenFiles(
 			NcVar * var = pfile->get_var(v);
 			size_t sVarDims = static_cast<size_t>(var->num_dims());
 			if (var->num_dims() >= NcVarMaximumDimensions) {
-				std::cout << "Error: Only variables of dimension <= " << NcVarMaximumDimensions << " supported" << std::endl;
-				_EXCEPTION();
+				std::cout << "ERROR: Only variables of dimension <= " << NcVarMaximumDimensions << " supported" << std::endl;
+				exit(-1);
 			}
 
 			for (long d = 0; d < var->num_dims(); d++) {
@@ -223,11 +236,13 @@ void wxNcVisFrame::OpenFiles(
 				if (varDim->num_dims() != 1) {
 					std::cout << "ERROR: NetCDF fileset contains a dimension variable \"" << itVarDim->first
 						<< "\" which has dimension different than 1" << std::endl;
-					_EXCEPTION();
+					exit(-1);
 				}
 
-				Announce("Dimension variable \"%s\" in file %lu (%li values)",
-					itVarDim->first.c_str(), f, varDim->get_dim(0)->size());
+				if (m_fVerbose) {
+					Announce("Dimension variable \"%s\" in file %lu (%li values)",
+						itVarDim->first.c_str(), f, varDim->get_dim(0)->size());
+				}
 				auto prDimDataInfo =
 					itVarDim->second.insert(
 						DimDataFileIdAndCoordMap::value_type(
@@ -276,7 +291,7 @@ void wxNcVisFrame::OpenFiles(
 					if (!fMonotone) {
 						std::cout << "ERROR: NetCDF fileset contains a dimension variable \""
 							<< itVarDim->first << "\" that is non-monotone" << std::endl;
-						_EXCEPTION();
+						exit(-1);
 					}
 				}
 			}
@@ -295,11 +310,11 @@ void wxNcVisFrame::OpenFiles(
 
 	if ((itLonDimVar == m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
 		std::cout << "ERROR: In input file \"lat\" is a dimension variable but \"lon\" is not" << std::endl;
-		_EXCEPTION();
+		exit(-1);
 	}
 	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar == m_mapDimData.end())) {
 		std::cout << "ERROR: In input file \"lat\" is a dimension variable but \"lon\" is not" << std::endl;
-		_EXCEPTION();
+		exit(-1);
 	}
 	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
 		return;
@@ -332,9 +347,10 @@ void wxNcVisFrame::InitializeWindow() {
 
 	// Get the list of shapefiles in the resource dir
 	{
-		wxDir dirResources(m_strNcVisResourceDir);
+		wxDir dirResources(m_wxstrNcVisResourceDir);
 		if (!dirResources.IsOpened()) {
-			std::cout << "ERROR: Cannot open resource directory \"" << m_strNcVisResourceDir << "\". Resources will not be populated." << std::endl;
+			std::cout << "ERROR: Cannot open resource directory \"" << m_wxstrNcVisResourceDir << "\". Resources will not be populated." << std::endl;
+			exit(-1);
 		} else {
 			wxString wxstrFilename;
 			bool cont = dirResources.GetFirst(&wxstrFilename, _T("*.shp"), wxDIR_FILES);
@@ -485,7 +501,7 @@ void wxNcVisFrame::LoadData() {
 
 	// 0D data
 	if (m_varActive->num_dims() == 0) {
-		m_data.Allocate(1);
+		m_data.resize(1);
 		m_varActive->get(&(m_data[0]), 1);
 		return;
 	}
@@ -503,8 +519,8 @@ void wxNcVisFrame::LoadData() {
 		std::vector<long> vecSize(m_varActive->num_dims(), 1);
 		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
 
-		if (m_data.GetRows() != vecSize[m_lDisplayedDims[0]]) {
-			m_data.Allocate(vecSize[m_lDisplayedDims[0]]);
+		if (m_data.size() != vecSize[m_lDisplayedDims[0]]) {
+			m_data.resize(vecSize[m_lDisplayedDims[0]]);
 		}
 
 		// Load data
@@ -533,8 +549,8 @@ void wxNcVisFrame::LoadData() {
 		vecSize[m_lDisplayedDims[0]] = m_varActive->get_dim(m_lDisplayedDims[0])->size();
 		vecSize[m_lDisplayedDims[1]] = m_varActive->get_dim(m_lDisplayedDims[1])->size();
 
-		if (m_data.GetRows() != vecSize[m_lDisplayedDims[0]] * vecSize[m_lDisplayedDims[1]]) {
-			m_data.Allocate(vecSize[m_lDisplayedDims[0]] * vecSize[m_lDisplayedDims[1]]);
+		if (m_data.size() != vecSize[m_lDisplayedDims[0]] * vecSize[m_lDisplayedDims[1]]) {
+			m_data.resize(vecSize[m_lDisplayedDims[0]] * vecSize[m_lDisplayedDims[1]]);
 		}
 
 		// Load data
@@ -591,13 +607,13 @@ void wxNcVisFrame::LoadData() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
-	const DataArray1D<double> & dSample,
+	const std::vector<double> & dSample,
 	long lDim,
 	std::vector<int> & veccoordmap
 ) {
 	_ASSERT(lDim < m_varActive->num_dims());
 
-	veccoordmap.resize(dSample.GetRows(), 0);
+	veccoordmap.resize(dSample.size(), 0);
 
 	std::string strDim = m_varActive->get_dim(lDim)->name();
 
@@ -625,7 +641,7 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 
 	// Monotone increasing coordinate
 	if ((*pvecDimValues)[1] > (*pvecDimValues)[0]) {
-		for (size_t s = 0; s < dSample.GetRows(); s++) {
+		for (size_t s = 0; s < dSample.size(); s++) {
 			for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
 				double dLeft = 0.5 * ((*pvecDimValues)[t-1] + (*pvecDimValues)[t]);
 				double dRight = 0.5 * ((*pvecDimValues)[t] + (*pvecDimValues)[t+1]);
@@ -646,7 +662,7 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 
 	// Monotone decreasing coordinate
 	} else {
-		for (size_t s = 0; s < dSample.GetRows(); s++) {
+		for (size_t s = 0; s < dSample.size(); s++) {
 			for (size_t t = 1; t < pvecDimValues->size()-1; t++) {
 				double dLeft = 0.5 * ((*pvecDimValues)[t-1] + (*pvecDimValues)[t]);
 				double dRight = 0.5 * ((*pvecDimValues)[t] + (*pvecDimValues)[t+1]);
@@ -669,16 +685,17 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 
 ////////////////////////////////////////////////////////////////////////////////
 
-// TODO: Change from DataArray1D to a vector
 void wxNcVisFrame::SampleData(
-	const DataArray1D<double> & dSampleX,
-	const DataArray1D<double> & dSampleY,
-	DataArray1D<int> & imagemap
+	const std::vector<double> & dSampleX,
+	const std::vector<double> & dSampleY,
+	std::vector<int> & imagemap
 ) {
-	std::cout << "SAMPLE DATA " << dSampleX.GetRows() << " " << dSampleY.GetRows() << std::endl;
+	if (m_fVerbose) {
+		std::cout << "SAMPLE DATA " << dSampleX.size() << " " << dSampleY.size() << std::endl;
+	}
 
-	_ASSERT(imagemap.GetRows() >= dSampleX.GetRows() * dSampleY.GetRows());
-	_ASSERT(m_data.GetRows() > 0);
+	_ASSERT(imagemap.size() >= dSampleX.size() * dSampleY.size());
+	_ASSERT(m_data.size() > 0);
 
 	// Active variable is an unstructured variable; use sampling
 	if (m_fIsVarActiveUnstructured) {
@@ -694,7 +711,7 @@ void wxNcVisFrame::SampleData(
 
 	// No displayed variables
 	} else if ((m_lDisplayedDims[0] == (-1)) && (m_lDisplayedDims[1] == (-1))) {
-		for (size_t s = 0; s < imagemap.GetRows(); s++) {
+		for (size_t s = 0; s < imagemap.size(); s++) {
 			imagemap[s] = 0;
 		}
 
@@ -702,14 +719,14 @@ void wxNcVisFrame::SampleData(
 	} else if (m_lDisplayedDims[1] == (-1)) {
 		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
 
-		std::vector<int> veccoordmapX(dSampleX.GetRows(), 0);
+		std::vector<int> veccoordmapX(dSampleX.size(), 0);
 
 		MapSampleCoords1DFromActiveVar(dSampleX, m_lDisplayedDims[0], veccoordmapX);
 
 		// Assemble the image map
 		size_t s = 0;
-		for (size_t j = 0; j < dSampleY.GetRows(); j++) {
-		for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+		for (size_t j = 0; j < dSampleY.size(); j++) {
+		for (size_t i = 0; i < dSampleX.size(); i++) {
 			imagemap[s] = veccoordmapX[i];
 			s++;
 		}
@@ -720,8 +737,8 @@ void wxNcVisFrame::SampleData(
 		_ASSERT((m_lDisplayedDims[0] >= 0) && (m_lDisplayedDims[0] < m_varActive->num_dims()));
 		_ASSERT((m_lDisplayedDims[1] >= 0) && (m_lDisplayedDims[1] < m_varActive->num_dims()));
 
-		std::vector<int> veccoordmapX(dSampleX.GetRows(), 0);
-		std::vector<int> veccoordmapY(dSampleY.GetRows(), 0);
+		std::vector<int> veccoordmapX(dSampleX.size(), 0);
+		std::vector<int> veccoordmapY(dSampleY.size(), 0);
 
 		MapSampleCoords1DFromActiveVar(dSampleY, m_lDisplayedDims[0], veccoordmapY);
 		MapSampleCoords1DFromActiveVar(dSampleX, m_lDisplayedDims[1], veccoordmapX);
@@ -732,15 +749,15 @@ void wxNcVisFrame::SampleData(
 		// Assemble the image map
 		size_t s = 0;
 		if (m_lDisplayedDims[0] < m_lDisplayedDims[1]) {
-			for (size_t j = 0; j < dSampleY.GetRows(); j++) {
-			for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+			for (size_t j = 0; j < dSampleY.size(); j++) {
+			for (size_t i = 0; i < dSampleX.size(); i++) {
 				imagemap[s] = veccoordmapY[j] * sDimXSize + veccoordmapX[i];
 				s++;
 			}
 			}
 		} else {
-			for (size_t j = 0; j < dSampleY.GetRows(); j++) {
-			for (size_t i = 0; i < dSampleX.GetRows(); i++) {
+			for (size_t j = 0; j < dSampleY.size(); j++) {
+			for (size_t i = 0; i < dSampleX.size(); i++) {
 				imagemap[s] = veccoordmapX[i] * sDimYSize + veccoordmapY[j];
 				s++;
 			}
@@ -787,7 +804,10 @@ void wxNcVisFrame::ResetBounds(
 	int iDim,
 	bool fRedraw
 ) {
-	std::cout << "RESET BOUNDS" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "RESET BOUNDS" << std::endl;
+	}
+
 	double dXmin[2] = {0.0, -90.0};
 	double dXmax[2] = {360.0, 90.0};
 
@@ -926,14 +946,14 @@ void wxNcVisFrame::SetDisplayedDataRange(
 void wxNcVisFrame::SetDataRangeByMinMax(
 	bool fRedraw
 ) {
-	if (m_data.GetRows() == 0) {
+	if (m_data.size() == 0) {
 		return;
 	}
 
 	float dDataMin = m_data[0];
 	float dDataMax = m_data[0];
 	if (!m_fDataHasMissingValue) {
-		for (int i = 1; i < m_data.GetRows(); i++) {
+		for (int i = 1; i < m_data.size(); i++) {
 			if (m_data[i] < dDataMin) {
 				dDataMin = m_data[i];
 			}
@@ -943,14 +963,14 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 		}
 	} else {
 		int i;
-		for (i = 0; i < m_data.GetRows(); i++) {
+		for (i = 0; i < m_data.size(); i++) {
 			if (m_data[i] != m_dMissingValueFloat) {
 				dDataMin = m_data[i];
 				dDataMax = m_data[i];
 				break;
 			}
 		}
-		for (; i < m_data.GetRows(); i++) {
+		for (; i < m_data.size(); i++) {
 			if (m_data[i] == m_dMissingValueFloat) {
 				continue;
 			}
@@ -1025,7 +1045,7 @@ void wxNcVisFrame::SetStatusMessage(
 	bool fIncludeVersion
 ) {
 	if (fIncludeVersion) {
-		wxString strMessageBak = _T("NcVis 2022.07.28");
+		wxString strMessageBak(szVersion);
 		strMessageBak += strMessage;
 		SetStatusText( strMessageBak );
 	} else {
@@ -1046,8 +1066,7 @@ void wxNcVisFrame::OnExit(
 void wxNcVisFrame::OnAbout(
 	wxCommandEvent & event
 ) {
-	wxMessageBox( "Developed by Paul A. Ullrich\n\nFunding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project \"SEATS: Simplifying ESM Analysis Through Standards.\"",
-				  "NetCDF Visualizer (ncvis)", wxOK | wxICON_INFORMATION );
+	wxMessageBox(szDevInfo, "NetCDF Visualizer (NcVis)", wxOK | wxICON_INFORMATION);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1091,7 +1110,9 @@ void wxNcVisFrame::OnDataTransClicked(
 void wxNcVisFrame::OnExportClicked(
 	wxCommandEvent & event
 ) {
-	std::cout << "EXPORT DIALOG" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "EXPORT DIALOG" << std::endl;
+	}
 
 	if (m_varActive == NULL) {
 		return;
@@ -1113,7 +1134,7 @@ void wxNcVisFrame::OnExportClicked(
 			this,
 			_T("NcVis Export"),
 			wxPoint(60, 60),
-			wxSize(400, 400),
+			wxSize(500, 400),
 			vecDimNames,
 			vecDimBounds,
 			m_imagepanel->GetImageSize().GetWidth(),
@@ -1137,7 +1158,7 @@ void wxNcVisFrame::OnExportClicked(
 	} else if (eExportCommand == wxNcVisExportDialog::ExportCommand_OneFrame) {
 		std::cout << "Exporting frame to " << m_wxNcVisExportDialog->GetExportFilename() << std::endl;
 
-		SetStatusMessage(_T("Rendering Frame 1/1"), true);
+		SetStatusMessage(_T(" Rendering Frame 1/1"), true);
 
 		m_imagepanel->ImposeImageSize(sImageWidth, sImageHeight);
 
@@ -1176,7 +1197,7 @@ void wxNcVisFrame::OnExportClicked(
 
 		for (long i = lExportDimBegin; i <= lExportDimEnd; i++) {
 			long ix = i - lExportDimBegin;
-			SetStatusMessage(wxString::Format("Rendering Frame %li/%li", ix, lExportDimEnd - lExportDimBegin + 1), true);
+			SetStatusMessage(wxString::Format(" Rendering Frame %li/%li", ix, lExportDimEnd - lExportDimBegin + 1), true);
 
 			m_lVarActiveDims[lActiveDim] = i;
 			SetDisplayedDimensionValue(lActiveDim, i);
@@ -1393,7 +1414,9 @@ void wxNcVisFrame::GenerateDimensionControls() {
 void wxNcVisFrame::OnVariableSelected(
 	wxCommandEvent & event
 ) {
-	std::cout << "VARIABLE SELECTED" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "VARIABLE SELECTED" << std::endl;
+	}
 
 	// Turn off animation if active
 	StopAnimation();
@@ -1557,7 +1580,9 @@ void wxNcVisFrame::OnVariableSelected(
 void wxNcVisFrame::OnBoundsChanged(
 	wxCommandEvent & event
 ) {
-	std::cout << "BOUNDS CHANGED" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "BOUNDS CHANGED" << std::endl;
+	}
 
 	// 1D variable, only one set of bounds available
 	if ((m_vecwxImageBounds[0] == NULL) && (m_vecwxImageBounds[1] == NULL)) {
@@ -1622,7 +1647,9 @@ void wxNcVisFrame::OnBoundsChanged(
 void wxNcVisFrame::OnRangeChanged(
 	wxCommandEvent & event
 ) {
-	std::cout << "RANGE CHANGED" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "RANGE CHANGED" << std::endl;
+	}
 
 	std::string strMin = m_vecwxRange[0]->GetValue().ToStdString();
 	std::string strMax = m_vecwxRange[1]->GetValue().ToStdString();
@@ -1656,7 +1683,9 @@ void wxNcVisFrame::OnRangeResetMinMax(
 
 //TODO: Verify that timer is actually able to execute with the desired frequency
 void wxNcVisFrame::OnDimTimer(wxTimerEvent & event) {
-	std::cout << "TIMER" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "TIMER" << std::endl;
+	}
 
 	_ASSERT(m_varActive != NULL);
 
@@ -1701,7 +1730,9 @@ void wxNcVisFrame::StopAnimation() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
-	std::cout << "DIM BUTTON CLICKED" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "DIM BUTTON CLICKED" << std::endl;
+	}
 
 	_ASSERT(m_varActive != NULL);
 
@@ -1797,7 +1828,9 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
-	std::cout << "AXES BUTTON CLICKED" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "AXES BUTTON CLICKED" << std::endl;
+	}
 
 	enum {
 		AXESCOMMAND_X,
@@ -1894,7 +1927,9 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OnColorMapCombo(wxCommandEvent & event) {
-	std::cout << "COLORMAP COMBO" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "COLORMAP COMBO" << std::endl;
+	}
 
 	if (m_imagepanel == NULL) {
 		return;
@@ -1908,7 +1943,9 @@ void wxNcVisFrame::OnColorMapCombo(wxCommandEvent & event) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OnGridLinesCombo(wxCommandEvent & event) {
-	std::cout << "GRID COMBO" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "GRID COMBO" << std::endl;
+	}
 
 	if (m_imagepanel == NULL) {
 		return;
@@ -1926,7 +1963,9 @@ void wxNcVisFrame::OnGridLinesCombo(wxCommandEvent & event) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OnOverlaysCombo(wxCommandEvent & event) {
-	std::cout << "OVERLAYS COMBO" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "OVERLAYS COMBO" << std::endl;
+	}
 
 	if (m_imagepanel == NULL) {
 		return;
@@ -1939,7 +1978,7 @@ void wxNcVisFrame::OnOverlaysCombo(wxCommandEvent & event) {
 	if (strValue == "Overlays Off") {
 		overlaydata.clear();
 	} else {
-		wxFileName wxfileOverlayPath(m_strNcVisResourceDir, strValue);
+		wxFileName wxfileOverlayPath(m_wxstrNcVisResourceDir, strValue);
 
 		ReadShpFile(wxfileOverlayPath.GetFullPath().ToStdString(), overlaydata, false);
 	}
@@ -1950,7 +1989,9 @@ void wxNcVisFrame::OnOverlaysCombo(wxCommandEvent & event) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::OnSamplerCombo(wxCommandEvent & event) {
-	std::cout << "SAMPLER COMBO" << std::endl;
+	if (m_fVerbose) {
+		std::cout << "SAMPLER COMBO" << std::endl;
+	}
 
 	int iSamplerSelection = event.GetSelection();
 

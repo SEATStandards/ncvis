@@ -10,6 +10,8 @@
 #include "utf8_to_utf32.h"
 #include "lodepng.h"
 
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
 #include <wx/kbdstate.h>
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -80,12 +82,13 @@ wxImagePanel::wxImagePanel(
 	m_sft.yOffset = 0;
 	m_sft.flags = SFT_DOWNWARD_Y;
 
-	std::string strFontPath = m_pncvisparent->GetResourceDir() + "/Ubuntu-Regular.ttf";
+	wxFileName wxfnFontPath(m_pncvisparent->GetResourceDir(), _T("Ubuntu-Regular.ttf"));
+	wxString wxstrFontPath = wxfnFontPath.GetFullPath();
 
-	m_sft.font = sft_loadfile(strFontPath.c_str());
+	m_sft.font = sft_loadfile(wxstrFontPath.ToStdString().c_str());
 	if (m_sft.font == NULL) {
-		std::cout << "ERROR loading \"" << strFontPath.c_str() <<"\"" << std::endl;
-		_EXCEPTION();
+		std::cout << "ERROR: Font \"" << wxstrFontPath <<"\" not found" << std::endl;
+		exit(-1);
 	}
 
 	SetSize(wxSize(nPanelWidth, nPanelHeight));
@@ -99,7 +102,10 @@ wxImagePanel::wxImagePanel(
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::OnPaint(wxPaintEvent & evt) {
-	std::cout << "PAINT" << std::endl;
+	_ASSERT(m_pncvisparent != NULL);
+	if (m_pncvisparent->IsVerbose()) {
+		std::cout << "PAINT" << std::endl;
+	}
 	wxPaintDC dc(this);
 	Render(dc);
 }
@@ -108,9 +114,11 @@ void wxImagePanel::OnPaint(wxPaintEvent & evt) {
 
 void wxImagePanel::OnSize(wxSizeEvent & evt) {
 	wxSize wxs = evt.GetSize();
-	//image.Rescale(wxs.GetWidth(), wxs.GetHeight(), wxIMAGE_QUALITY_HIGH);
-	//image.Resize(wxs, wxPoint(0,0), 255, 255, 255);
-	std::cout << "RESIZE " << wxs.GetWidth() << " " << wxs.GetHeight() << std::endl;
+
+	_ASSERT(m_pncvisparent != NULL);
+	if (m_pncvisparent->IsVerbose()) {
+		std::cout << "RESIZE " << wxs.GetWidth() << " " << wxs.GetHeight() << std::endl;
+	}
 	m_fResize = true;
 }
 
@@ -118,7 +126,10 @@ void wxImagePanel::OnSize(wxSizeEvent & evt) {
 
 void wxImagePanel::OnIdle(wxIdleEvent & evt) {
 	if (m_fResize) {
-		std::cout << "FINAL RESIZE" << std::endl;
+		_ASSERT(m_pncvisparent != NULL);
+		if (m_pncvisparent->IsVerbose()) {
+			std::cout << "FINAL RESIZE" << std::endl;
+		}
 		m_fResize = false;
 
 		// Generate coordinates
@@ -134,26 +145,26 @@ void wxImagePanel::OnMouseMotion(wxMouseEvent & evt) {
 	pos.x -= DISPLAY_BORDER;
 	pos.y -= DISPLAY_BORDER;
 
-	if ((pos.x < 0) || (pos.x >= m_dSampleX.GetRows())) {
+	if ((pos.x < 0) || (pos.x >= m_dSampleX.size())) {
 		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
-	if ((pos.y < 0) || (pos.y >= m_dSampleY.GetRows())) {
+	if ((pos.y < 0) || (pos.y >= m_dSampleY.size())) {
 		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
 
 	double dX = m_dSampleX[pos.x];
-	double dY = m_dSampleY[m_dSampleY.GetRows() - pos.y - 1];
+	double dY = m_dSampleY[m_dSampleY.size() - pos.y - 1];
 
-	size_t sI = static_cast<size_t>((m_dSampleY.GetRows() - pos.y - 1) * m_dSampleX.GetRows() + pos.x);
+	size_t sI = static_cast<size_t>((m_dSampleY.size() - pos.y - 1) * m_dSampleX.size() + pos.x);
 
-	if (m_imagemap.GetRows() <= sI) {
+	if (m_imagemap.size() <= sI) {
 		return;
 	}
 
-	const DataArray1D<float> & data = m_pncvisparent->GetData();
-	if (m_imagemap[sI] >= data.GetRows()) {
+	const std::vector<float> & data = m_pncvisparent->GetData();
+	if (m_imagemap[sI] >= data.size()) {
 		return;
 	}
 
@@ -179,22 +190,25 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 	pos.x -= DISPLAY_BORDER;
 	pos.y -= DISPLAY_BORDER;
 
-	if ((pos.x < 0) || (pos.x >= m_dSampleX.GetRows())) {
+	if ((pos.x < 0) || (pos.x >= m_dSampleX.size())) {
 		return;
 	}
-	if ((pos.y < 0) || (pos.y >= m_dSampleY.GetRows())) {
+	if ((pos.y < 0) || (pos.y >= m_dSampleY.size())) {
 		return;
 	}
 
 	double dX = m_dSampleX[pos.x];
-	double dY = m_dSampleY[m_dSampleY.GetRows() - pos.y - 1];
+	double dY = m_dSampleY[m_dSampleY.size() - pos.y - 1];
 
 	double dXdelta = m_dXrange[1] - m_dXrange[0];
 	double dYdelta = m_dYrange[1] - m_dYrange[0];
 
 	// Zoom out
 	if (evt.ShiftDown() || wxkeystate.ShiftDown()) {
-		std::cout << "DOUBLE CLICK + SHIFT" << std::endl;
+		_ASSERT(m_pncvisparent != NULL);
+		if (m_pncvisparent->IsVerbose()) {
+			std::cout << "DOUBLE CLICK + SHIFT" << std::endl;
+		}
 
 		m_dXrange[0] = dX - dXdelta;
 		m_dXrange[1] = dX + dXdelta;
@@ -218,7 +232,10 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 
 	// Zoom in
 	} else {
-		std::cout << "DOUBLE CLICK" << std::endl;
+		_ASSERT(m_pncvisparent != NULL);
+		if (m_pncvisparent->IsVerbose()) {
+			std::cout << "DOUBLE CLICK" << std::endl;
+		}
 
 		m_dXrange[0] = dX - 0.25 * dXdelta;
 		m_dXrange[1] = dX + 0.25 * dXdelta;
@@ -318,7 +335,7 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 ) {
 	_ASSERT(m_pncvisparent != NULL);
 
-	const DataArray1D<float> & data = m_pncvisparent->GetData();
+	const std::vector<float> & data = m_pncvisparent->GetData();
 
 	// Set opacity
 	if (NDIM == 4) {
@@ -622,11 +639,17 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 void wxImagePanel::GenerateImageFromImageMap(
 	bool fRedraw
 ) {
-	std::cout << "GENERATE IMAGE" << std::endl;
+	_ASSERT(m_pncvisparent != NULL);
 
 	if (!m_fEnableRedraw) {
-		std::cout << "NOREDRAW" << std::endl;
+		if (m_pncvisparent->IsVerbose()) {
+			std::cout << "NOREDRAW" << std::endl;
+		}
 		return;
+	}
+
+	if (m_pncvisparent->IsVerbose()) {
+		std::cout << "GENERATE IMAGE" << std::endl;
 	}
 
 	wxSize wxs = this->GetSize();
@@ -677,7 +700,7 @@ void wxImagePanel::GenerateImageFromImageMap(
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::SetColorMap(
-	const std::string & strColorMap,
+	const wxString & strColorMap,
 	bool fRedraw
 ) {
 	m_pncvisparent->GetColorMapLibrary().GenerateColorMap(strColorMap, m_colormap);
@@ -707,7 +730,7 @@ void wxImagePanel::SetColorMapScalingFactor(
 void wxImagePanel::ResampleData(
 	bool fRedraw
 ) {
-	m_imagemap.Allocate(m_dSampleX.GetRows() * m_dSampleY.GetRows());
+	m_imagemap.resize(m_dSampleX.size() * m_dSampleY.size());
 
 	m_pncvisparent->SampleData(m_dSampleX, m_dSampleY, m_imagemap);
 
@@ -732,12 +755,12 @@ void wxImagePanel::SetCoordinateRange(
 	m_dYrange[0] = dY0;
 	m_dYrange[1] = dY1;
 
-	m_dSampleX.Allocate(sImageWidth);
+	m_dSampleX.resize(sImageWidth);
 	for (size_t i = 0; i < sImageWidth; i++) {
 		m_dSampleX[i] = m_dXrange[0] + (m_dXrange[1] - m_dXrange[0]) * (static_cast<double>(i) + 0.5) / static_cast<double>(sImageWidth);
 	}
 
-	m_dSampleY.Allocate(sImageHeight);
+	m_dSampleY.resize(sImageHeight);
 	for (size_t j = 0; j < sImageHeight; j++) {
 		m_dSampleY[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sImageHeight);
 	}
@@ -781,8 +804,8 @@ void wxImagePanel::ImposeImageSize(
 	size_t sImageWidth,
 	size_t sImageHeight
 ) {
-	if ((sImageWidth - LABELBAR_IMAGEWIDTH == m_dSampleX.GetRows()) &&
-	    (sImageHeight == m_dSampleY.GetRows())
+	if ((sImageWidth - LABELBAR_IMAGEWIDTH == m_dSampleX.size()) &&
+	    (sImageHeight == m_dSampleY.size())
 	) {
 		return;
 	}

@@ -11,7 +11,6 @@
 #include <wx/wx.h>
 #include <wx/sizer.h>
 
-#include "DataArray1D.h"
 #include "CoordTransforms.h"
 #include "GridDataSampler.h"
 #include "ColorMap.h"
@@ -111,7 +110,7 @@ public:
 	///		Set the color map.
 	///	</summary>
 	void SetColorMap(
-		const std::string & strColorMap,
+		const wxString & strColorMap,
 		bool fRedraw = false
 	);
 
@@ -344,17 +343,17 @@ private:
 	///	<summary>
 	///		Array of sample points in X direction.
 	///	</summary>
-	DataArray1D<double> m_dSampleX;
+	std::vector<double> m_dSampleX;
 
 	///	<summary>
 	///		Array of sample points in Y direction.
 	///	</summary>
-	DataArray1D<double> m_dSampleY;
+	std::vector<double> m_dSampleY;
 
 	///	<summary>
 	///		Image map.
 	///	</summary>
-	DataArray1D<int> m_imagemap;
+	std::vector<int> m_imagemap;
 
 	///	<summary>
 	///		Overlay information.

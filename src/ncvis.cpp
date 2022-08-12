@@ -12,6 +12,9 @@
 	#include <wx/wx.h>
 #endif
 
+#include <wx/filename.h>
+#include <wx/stdpaths.h>
+
 #include "wxNcVisFrame.h"
 #include "GridDataSampler.h"
 #include "netcdfcpp.h"
@@ -55,19 +58,21 @@ bool wxNcVisApp::OnInit() {
 	for (; iarg < argc; iarg++) {
 		if (argv[iarg][0] == '-') {
 			if (iarg+1 < argc) {
-				mapOptions.insert(
-					std::pair<std::string, std::string>(
-						argv[iarg], argv[iarg+1]));
-				iarg++;
+				if (argv[iarg+1][0] != '-') {
+					mapOptions.insert(
+						std::pair<std::string, std::string>(
+							argv[iarg], argv[iarg+1]));
+					iarg++;
+				}
 			}
 		} else {
 			break;
 		}
 	}
 
-	std::vector<std::string> vecFilenames;
+	std::vector<wxString> vecFilenames;
 	for (; iarg < argc; iarg++) {
-		vecFilenames.push_back(std::string(argv[iarg]));
+		vecFilenames.push_back(wxString(argv[iarg]));
 	}
 
 	if (vecFilenames.size() == 0) {
@@ -76,10 +81,13 @@ bool wxNcVisApp::OnInit() {
 		return false;
 	}
 
-	char * szNcVisResourceDir = std::getenv("NCVIS_RESOURCE_DIR");
-	if (szNcVisResourceDir == NULL) {
-		std::cout << "ERROR: Please set environment variable \"NCVIS_RESOURCE_DIR\"" << std::endl;
-		return false;
+	wxString wxstrNcVisResourceDir = wxString(std::getenv("NCVIS_RESOURCE_DIR"));
+	if (wxstrNcVisResourceDir.length() == 0) {
+		wxFileName wxfn(wxStandardPaths::Get().GetExecutablePath());
+		wxfn.RemoveLastDir();
+		wxfn.AppendDir(_T("resources"));
+		wxfn.MakeAbsolute();
+		wxstrNcVisResourceDir = wxfn.GetPath();
 	}
 
 	wxNcVisFrame * frame =
@@ -87,7 +95,7 @@ bool wxNcVisApp::OnInit() {
 			"NcVis",
 			wxPoint(50, 50),
 			wxSize(842, 462),
-			szNcVisResourceDir,
+			wxstrNcVisResourceDir,
 			mapOptions,
 			vecFilenames);
 

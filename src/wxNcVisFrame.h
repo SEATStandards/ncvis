@@ -58,9 +58,9 @@ public:
 		const wxString & title,
 		const wxPoint & pos,
 		const wxSize & size,
-		const std::string & strNcVisResourceDir,
+		const wxString & wxstrNcVisResourceDir,
 		const std::map<std::string, std::string> & mapOptions,
-		const std::vector<std::string> & vecFilenames
+		const std::vector<wxString> & vecFilenames
 	);
 
 	///	<summary>
@@ -72,7 +72,7 @@ public:
 	///		Open the specified files.
 	///	</summary>
 	void OpenFiles(
-		const std::vector<std::string> & strFilenames
+		const std::vector<wxString> & strFilenames
 	);
 
 	///	<summary>
@@ -81,10 +81,17 @@ public:
 	void InitializeWindow();
 
 	///	<summary>
+	///		Get the verbosity flag.
+	///	</summary>
+	bool IsVerbose() const {
+		return m_fVerbose;
+	}
+
+	///	<summary>
 	///		Get the NcVis resource directory.
 	///	</summary>
-	const std::string & GetResourceDir() const {
-		return m_strNcVisResourceDir;
+	const wxString & GetResourceDir() const {
+		return m_wxstrNcVisResourceDir;
 	}
 
 	///	<summary>
@@ -102,7 +109,7 @@ public:
 	///	<summary>
 	///		Get a pointer to the data.
 	///	</summary>
-	const DataArray1D<float> & GetData() const {
+	const std::vector<float> & GetData() const {
 		return m_data;
 	}
 
@@ -125,7 +132,7 @@ public:
 	///		the dimension variable of the active variable.
 	///	</summary>
 	void MapSampleCoords1DFromActiveVar(
-		const DataArray1D<double> & dSample,
+		const std::vector<double> & dSample,
 		long lDim,
 		std::vector<int> & veccoordmap
 	);
@@ -134,9 +141,9 @@ public:
 	///		Sample the data.
 	///	</summary>
 	void SampleData(
-		const DataArray1D<double> & dSampleX,
-		const DataArray1D<double> & dSampleY,
-		DataArray1D<int> & imagemap
+		const std::vector<double> & dSampleX,
+		const std::vector<double> & dSampleY,
+		std::vector<int> & imagemap
 	);
 
 	///	<summary>
@@ -374,9 +381,14 @@ private:
 
 private:
 	///	<summary>
+	///		Flag indicating verbose output is desired.
+	///	</summary>
+	bool m_fVerbose;
+
+	///	<summary>
 	///		Directory containing ncvis resources.
 	///	</summary>
-	std::string m_strNcVisResourceDir;
+	wxString m_wxstrNcVisResourceDir;
 
 	///	<summary>
 	///		Command-line options.
@@ -401,7 +413,7 @@ private:
 	///	<summary>
 	///		Filename being displayed.
 	///	</summary>
-	std::vector<std::string> m_vecFilenames;
+	std::vector<wxString> m_vecFilenames;
 
 	///	<summary>
 	///		NetCDF file being worked on.
@@ -510,7 +522,7 @@ private:
 	///	<summary>
 	///		Data being visualized.
 	///	</summary>
-	DataArray1D<float> m_data;
+	std::vector<float> m_data;
 
 	///	<summary>
 	///		A flag indicating the data has missing values.

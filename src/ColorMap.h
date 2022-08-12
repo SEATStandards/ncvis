@@ -8,6 +8,12 @@
 #ifndef _COLORMAP_H_
 #define _COLORMAP_H_
 
+
+#include <wx/wxprec.h>
+#ifndef WX_PRECOMP
+	#include <wx/wx.h>
+#endif
+
 #include "Exception.h"
 #include <string>
 #include <vector>
@@ -90,7 +96,7 @@ public:
 	///		Constructor.
 	///	</summary>
 	ColorMapLibrary(
-		const std::string & strResourceDir
+		const wxString & strResourceDir
 	);
 
 	///	<summary>
@@ -101,7 +107,7 @@ public:
 	///	<summary>
 	///		Get colormap name from index.
 	///	</summary>
-	const std::string & GetColorMapName(
+	const wxString & GetColorMapName(
 		size_t ix
 	);
 
@@ -109,7 +115,7 @@ public:
 	///		Generate the specified colormap.
 	///	</summary>
 	void GenerateColorMap(
-		const std::string & strColorMap,
+		const wxString & strColorMap,
 		ColorMap & colormap
 	) const;
 
@@ -117,12 +123,12 @@ private:
 	///	<summary>
 	///		Directory containing colormaps.
 	///	</summary>
-	std::string m_strResourceDir;
+	wxString m_wxstrResourceDir;
 
 	///	<summary>
 	///		List of colormap names.
 	///	</summary>
-	std::vector<std::string> m_vecColorMapNames;
+	std::vector<wxString> m_vecColorMapNames;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

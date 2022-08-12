@@ -15,14 +15,14 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 ColorMapLibrary::ColorMapLibrary(
-	const std::string & strResourceDir
+	const wxString & wxstrResourceDir
 ) :
-	m_strResourceDir(strResourceDir)
+	m_wxstrResourceDir(wxstrResourceDir)
 {
 	// Get all *.rgb files in the resource directory
-	wxDir dirResources(strResourceDir);
+	wxDir dirResources(wxstrResourceDir);
 	if (!dirResources.IsOpened()) {
-		std::cerr << "ERROR: Cannot open directory \"" << m_strResourceDir << "\". Resources will not be populated." << std::endl;
+		std::cerr << "ERROR: Cannot open directory \"" << m_wxstrResourceDir << "\". Resources will not be populated." << std::endl;
 		return;
 	}
 
@@ -69,7 +69,7 @@ size_t ColorMapLibrary::GetColorMapCount() {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-const std::string & ColorMapLibrary::GetColorMapName(
+const wxString & ColorMapLibrary::GetColorMapName(
 	size_t ix
 ) {
 	if (ix >= m_vecColorMapNames.size()) {
@@ -82,13 +82,13 @@ const std::string & ColorMapLibrary::GetColorMapName(
 ////////////////////////////////////////////////////////////////////////////////
 
 void ColorMapLibrary::GenerateColorMap(
-	const std::string & strColorMap,
+	const wxString & wxstrColorMap,
 	ColorMap & colormap
 ) const {
 	colormap.resize(256, std::vector<unsigned char>(3, 0) );
 
 	// "gray" color map
-	if (strColorMap == "gray") {
+	if (wxstrColorMap == _T("gray")) {
 		for (int i = 0; i < 256; i++) {
 			colormap[i][0] = i;
 			colormap[i][1] = i;
@@ -96,7 +96,7 @@ void ColorMapLibrary::GenerateColorMap(
 		}
 
 	// "jet" color map
-	} else if (strColorMap == "jet") {
+	} else if (wxstrColorMap == _T("jet")) {
 		for (int i = 0; i <= 32; i++) {
 			colormap[i][0] = 0;
 			colormap[i][1] = 0;
@@ -124,7 +124,7 @@ void ColorMapLibrary::GenerateColorMap(
 		}
 
 	// "bluered" colormap
-	} else if (strColorMap == "bluered") {
+	} else if (wxstrColorMap == _T("bluered")) {
 		for (int i = 0; i < 128; i++) {
 			colormap[i][0] = i*2;
 			colormap[i][1] = i*2;
@@ -139,7 +139,7 @@ void ColorMapLibrary::GenerateColorMap(
 	// Load colormap from resource directory
 	} else {
 
-		wxFileName wxfileColormapPath(m_strResourceDir, strColorMap, _T("rgb"));
+		wxFileName wxfileColormapPath(m_wxstrResourceDir, wxstrColorMap, _T("rgb"));
 
 		// Attempt to find a colormap file with the corresponding name
 		wxString wxstrColormapPath = wxfileColormapPath.GetFullPath();
@@ -159,7 +159,7 @@ void ColorMapLibrary::GenerateColorMap(
 
 		// Colormap doesn't exist
 		} else {
-			_EXCEPTION1("Invalid colormap \"%s\"", strColorMap.c_str());
+			_EXCEPTION1("Invalid colormap \"%s\"", wxstrColorMap.ToStdString().c_str());
 		}
 		
 	}

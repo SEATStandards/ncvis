@@ -14,8 +14,8 @@
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSampler::Initialize(
-	const DataArray1D<double> & dLon,
-	const DataArray1D<double> & dLat
+	const std::vector<double> & dLon,
+	const std::vector<double> & dLat
 ) {
 	m_fIsInitialized = true;
 }
@@ -117,19 +117,19 @@ void GridDataSamplerUsingCubedSphereQuadTree::ABPFromRLL(
 ////////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
-	const DataArray1D<double> & dLon,
-	const DataArray1D<double> & dLat
+	const std::vector<double> & dLon,
+	const std::vector<double> & dLat
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
-	_ASSERT(dLon.GetRows() == dLat.GetRows());
+	_ASSERT(dLon.size() == dLat.size());
 
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
 	m_vecquadtree.resize(6, QuadTreeNode(-0.5*M_PI, 0.5*M_PI, -0.5*M_PI, 0.5*M_PI));
 
-	long iReportSize = static_cast<long>(dLon.GetRows()) / 100;
-	for (long i = 0; i < dLon.GetRows(); i++) {
+	long iReportSize = static_cast<long>(dLon.size()) / 100;
+	for (long i = 0; i < dLon.size(); i++) {
 
 		double dA;
 		double dB;
@@ -152,15 +152,15 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingCubedSphereQuadTree::Sample(
-	const DataArray1D<double> & dSampleLon,
-	const DataArray1D<double> & dSampleLat,
-	DataArray1D<int> & dImageMap
+	const std::vector<double> & dSampleLon,
+	const std::vector<double> & dSampleLat,
+	std::vector<int> & dImageMap
 ) const {
-	dImageMap.Allocate(dSampleLon.GetRows() * dSampleLat.GetRows());
+	dImageMap.resize(dSampleLon.size() * dSampleLat.size());
 
 	int s = 0;
-	for (int j = 0; j < dSampleLat.GetRows(); j++) {
-	for (int i = 0; i < dSampleLon.GetRows(); i++) {
+	for (int j = 0; j < dSampleLat.size(); j++) {
+	for (int i = 0; i < dSampleLon.size(); i++) {
 
 		double dA;
 		double dB;
@@ -188,17 +188,17 @@ void GridDataSamplerUsingCubedSphereQuadTree::Sample(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingQuadTree::Initialize(
-	const DataArray1D<double> & dLon,
-	const DataArray1D<double> & dLat
+	const std::vector<double> & dLon,
+	const std::vector<double> & dLat
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
-	_ASSERT(dLon.GetRows() == dLat.GetRows());
+	_ASSERT(dLon.size() == dLat.size());
 
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
-	long iReportSize = static_cast<long>(dLon.GetRows()) / 100;
-	for (long i = 0; i < dLon.GetRows(); i++) {
+	long iReportSize = static_cast<long>(dLon.size()) / 100;
+	for (long i = 0; i < dLon.size(); i++) {
 
 		double dLonStandard = LonDegToStandardRange(dLon[i]);
 
@@ -215,19 +215,19 @@ void GridDataSamplerUsingQuadTree::Initialize(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingQuadTree::Sample(
-	const DataArray1D<double> & dSampleLon,
-	const DataArray1D<double> & dSampleLat,
-	DataArray1D<int> & dImageMap
+	const std::vector<double> & dSampleLon,
+	const std::vector<double> & dSampleLat,
+	std::vector<int> & dImageMap
 ) const {
 	//long lTotal = 0;
-	//long lReportSize = static_cast<long>(dSampleLat.GetRows()) * static_cast<long>(dSampleLon.GetRows()) / 100;
+	//long lReportSize = static_cast<long>(dSampleLat.size()) * static_cast<long>(dSampleLon.size()) / 100;
 	//AnnounceStartBlock("Querying data points within the quadtree");
 
-	dImageMap.Allocate(dSampleLon.GetRows() * dSampleLat.GetRows());
+	dImageMap.resize(dSampleLon.size() * dSampleLat.size());
 
 	int s = 0;
-	for (int j = 0; j < dSampleLat.GetRows(); j++) {
-	for (int i = 0; i < dSampleLon.GetRows(); i++) {
+	for (int j = 0; j < dSampleLat.size(); j++) {
+	for (int i = 0; i < dSampleLon.size(); i++) {
 		size_t sI = m_quadtree.find_inexact(LonDegToStandardRange(dSampleLon[i]), dSampleLat[j]);
 
 		if (sI == static_cast<size_t>(-1)) {
@@ -252,8 +252,8 @@ void GridDataSamplerUsingQuadTree::Sample(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingKDTree::Initialize(
-	const DataArray1D<double> & dLon,
-	const DataArray1D<double> & dLat
+	const std::vector<double> & dLon,
+	const std::vector<double> & dLat
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
@@ -264,8 +264,8 @@ void GridDataSamplerUsingKDTree::Initialize(
 		_EXCEPTIONT("kd_create(3) failed");
 	}
 
-	long iReportSize = static_cast<long>(dLon.GetRows()) / 100;
-	for (long i = 0; i < static_cast<long>(dLon.GetRows()); i++) {
+	long iReportSize = static_cast<long>(dLon.size()) / 100;
+	for (long i = 0; i < static_cast<long>(dLon.size()); i++) {
 
 		double dX;
 		double dY;
@@ -286,20 +286,20 @@ void GridDataSamplerUsingKDTree::Initialize(
 ///////////////////////////////////////////////////////////////////////////////
 
 void GridDataSamplerUsingKDTree::Sample(
-	const DataArray1D<double> & dSampleLon,
-	const DataArray1D<double> & dSampleLat,
-	DataArray1D<int> & dImageMap
+	const std::vector<double> & dSampleLon,
+	const std::vector<double> & dSampleLat,
+	std::vector<int> & dImageMap
 ) const {
 
 	//long lTotal = 0;
-	//long lReportSize = static_cast<long>(dSampleLat.GetRows()) * static_cast<long>(dSampleLon.GetRows()) / 100;
+	//long lReportSize = static_cast<long>(dSampleLat.size()) * static_cast<long>(dSampleLon.size()) / 100;
 	//AnnounceStartBlock("Querying data points within the kdtree");
 
-	dImageMap.Allocate(dSampleLon.GetRows() * dSampleLat.GetRows());
+	dImageMap.resize(dSampleLon.size() * dSampleLat.size());
 
 	int s = 0;
-	for (int j = 0; j < dSampleLat.GetRows(); j++) {
-	for (int i = 0; i < dSampleLon.GetRows(); i++) {
+	for (int j = 0; j < dSampleLat.size(); j++) {
+	for (int i = 0; i < dSampleLon.size(); i++) {
 
 		double dX;
 		double dY;
