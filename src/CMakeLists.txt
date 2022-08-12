@@ -15,6 +15,7 @@ set(NCVIS_SOURCE_FILES
   TimeObj.cpp 
   ShpFile.cpp 
   schrift.cpp
+  lodepng.cpp
 )
 
 # 3rd party include directories
