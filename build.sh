@@ -15,8 +15,5 @@ NCFLAGS=`nc-config --cflags --libs`
 # infer the RPATH needed for dynamic linking to wxwidgets
 RPATH=`wx-config --prefix`/lib
 
-# create the install directory
-mkdir -p ${PREFIX}/bin
-
 # build the executable
-cd src && $CXX -std=c++11 -fpermissive -Wl,-rpath,${RPATH} -o ${PREFIX}/bin/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxNcVisExportDialog.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp TimeObj.cpp ShpFile.cpp schrift.cpp lodepng.cpp ${WXFLAGS} ${NCFLAGS}
+cd src && $CXX -std=c++11 -fpermissive -Wl,-rpath,${RPATH} -o ${PREFIX}/ncvis ncvis.cpp kdtree.cpp wxNcVisFrame.cpp wxNcVisExportDialog.cpp wxImagePanel.cpp GridDataSampler.cpp ColorMap.cpp netcdf.cpp ncvalues.cpp Announce.cpp TimeObj.cpp ShpFile.cpp schrift.cpp lodepng.cpp ${WXFLAGS} ${NCFLAGS}
