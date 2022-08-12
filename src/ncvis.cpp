@@ -49,7 +49,7 @@ bool wxNcVisApp::OnInit() {
 	// Process command line arguments
 	if (argc < 2) {
 		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
-		return false;
+		exit(-1);
 	}
 
 	int iarg = 1;
@@ -78,16 +78,20 @@ bool wxNcVisApp::OnInit() {
 	if (vecFilenames.size() == 0) {
 		std::cout << "ERROR: No filenames specified" << std::endl;
 		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
-		return false;
+		exit(-1);
 	}
 
 	wxString wxstrNcVisResourceDir = wxString(std::getenv("NCVIS_RESOURCE_DIR"));
 	if (wxstrNcVisResourceDir.length() == 0) {
 		wxFileName wxfn(wxStandardPaths::Get().GetExecutablePath());
-		wxfn.RemoveLastDir();
 		wxfn.AppendDir(_T("resources"));
 		wxfn.MakeAbsolute();
 		wxstrNcVisResourceDir = wxfn.GetPath();
+		if (!wxfn.IsDir()) {
+			std::cout << "ERROR: Cannot open resource directory \"" << wxstrNcVisResourceDir << "\"" << std::endl;
+			std::cout << "Set environment variable NCVIS_RESOURCE_DIR instead" << std::endl;
+			exit(-1);
+		}
 	}
 
 	wxNcVisFrame * frame =
