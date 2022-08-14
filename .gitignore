@@ -30,6 +30,7 @@
 *.exe
 *.out
 *.app
+ncvis
 
 # the local bin directory
 bin/*
@@ -40,3 +41,7 @@ bin/*
 # netcdf files
 *.nc
 *.nc4
+
+# cmake stuff
+bld/*
+
