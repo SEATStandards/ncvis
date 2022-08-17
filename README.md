@@ -3,7 +3,7 @@
 
 Developed by Paul A. Ullrich
 
-Significant Contributions by Travis O'Brien
+Significant Contributions by Travis O'Brien and Vijay Mahadevan
 
 Funding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project "SEATS: Simplifying ESM Analysis Through Standards."
 
