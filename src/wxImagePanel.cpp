@@ -203,6 +203,15 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 	double dXdelta = m_dXrange[1] - m_dXrange[0];
 	double dYdelta = m_dYrange[1] - m_dYrange[0];
 
+	double dXmin = m_pncvisparent->GetDisplayedDimensionMin(1);
+	double dXmax = m_pncvisparent->GetDisplayedDimensionMax(1);
+
+	double dYmin = m_pncvisparent->GetDisplayedDimensionMin(0);
+	double dYmax = m_pncvisparent->GetDisplayedDimensionMax(0);
+
+	bool fXperiodic = m_pncvisparent->IsDisplayedDimensionPeriodic(1);
+	bool fYperiodic = m_pncvisparent->IsDisplayedDimensionPeriodic(0);
+
 	// Zoom out
 	if (evt.ShiftDown() || wxkeystate.ShiftDown()) {
 		_ASSERT(m_pncvisparent != NULL);
@@ -216,20 +225,6 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 		m_dYrange[0] = dY - dYdelta;
 		m_dYrange[1] = dY + dYdelta;
 
-		if (m_dYrange[0] < -90.0) {
-			double dShiftY = -90.0 - m_dYrange[0];
-			m_dYrange[0] += dShiftY;
-			m_dYrange[1] += dShiftY;
-		}
-		if (m_dYrange[1] > 90.0) {
-			double dShiftY = m_dYrange[1] - 90.0;
-			m_dYrange[0] -= dShiftY;
-			m_dYrange[1] -= dShiftY;
-		}
-		if (m_dYrange[0] < -90.0) {
-			m_dYrange[0] = -90.0;
-		}
-
 	// Zoom in
 	} else {
 		_ASSERT(m_pncvisparent != NULL);
@@ -242,24 +237,42 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 
 		m_dYrange[0] = dY - 0.25 * dYdelta;
 		m_dYrange[1] = dY + 0.25 * dYdelta;
+	}
 
-		if (m_dYrange[0] < -90.0) {
-			double dShiftY = -90.0 - m_dYrange[0];
+	// Impose bounds
+	if (!fXperiodic) {
+		if (m_dXrange[0] < dXmin) {
+			double dShiftX = dXmin - m_dXrange[0];
+			m_dXrange[0] += dShiftX;
+			m_dXrange[1] += dShiftX;
+		}
+		if (m_dXrange[1] > dXmax) {
+			double dShiftX = m_dXrange[1] - dXmax;
+			m_dXrange[0] -= dShiftX;
+			m_dXrange[1] -= dShiftX;
+		}
+		if (m_dXrange[0] < dXmin) {
+			m_dXrange[0] = dXmin;
+		}
+	}
+	if (!fYperiodic) {
+		if (m_dYrange[0] < dYmin) {
+			double dShiftY = dYmin - m_dYrange[0];
 			m_dYrange[0] += dShiftY;
 			m_dYrange[1] += dShiftY;
 		}
-		if (m_dYrange[1] > 90.0) {
-			double dShiftY = m_dYrange[1] - 90.0;
+		if (m_dYrange[1] > dYmax) {
+			double dShiftY = m_dYrange[1] - dYmax;
 			m_dYrange[0] -= dShiftY;
 			m_dYrange[1] -= dShiftY;
 		}
-		if (m_dYrange[0] < -90.0) {
-			m_dYrange[0] = -90.0;
+		if (m_dYrange[0] < dYmin) {
+			m_dYrange[0] = dYmin;
 		}
 	}
 
+	// Set coordinate range
 	SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1], true);
-
 }
 
 ////////////////////////////////////////////////////////////////////////////////

@@ -165,6 +165,33 @@ public:
 	);
 
 	///	<summary>
+	///		Get the coordinate minimum of the given displayed dimension.
+	///	</summary>
+	double GetDisplayedDimensionMin(
+		int iDim
+	) {
+		return m_dDisplayedDimBounds[iDim][0];
+	}
+
+	///	<summary>
+	///		Get the coordinate maximum of the given displayed dimension.
+	///	</summary>
+	double GetDisplayedDimensionMax(
+		int iDim
+	) {
+		return m_dDisplayedDimBounds[iDim][1];
+	}
+
+	///	<summary>
+	///		Check if the coordinate is periodic.
+	///	</summary>
+	bool IsDisplayedDimensionPeriodic(
+		int iDim
+	) {
+		return m_fDisplayedDimPeriodic[iDim];
+	}
+
+	///	<summary>
 	///		Update the data range displayed in the controls.
 	///	</summary>
 	void SetDisplayedDataRange(
@@ -486,6 +513,16 @@ private:
 	///		Currently displayed variable dimension indices.
 	///	</summary>
 	long m_lDisplayedDims[2];
+
+	///	<summary>
+	///		Absolute dimension bounds.
+	///	</summary>
+	double m_dDisplayedDimBounds[2][2];
+
+	///	<summary>
+	///		A flag indicating the coordinate is periodic.
+	///	</summary>
+	bool m_fDisplayedDimPeriodic[2];
 
 	///	<summary>
 	///		Variable dimension currently being animated.

@@ -392,13 +392,7 @@ void wxNcVisFrame::InitializeWindow() {
 
 	m_ctrlsizer->Add(menusizer, 0);
 	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
-/*
-	// Info box
-	wxTextCtrl *infobox = new wxTextCtrl(this, -1,
-      wxT("Hi!"), wxDefaultPosition, wxDefaultSize,
-      wxTE_MULTILINE | wxTE_RICH , wxDefaultValidator, wxTextCtrlNameStr);
-      Maximize();
-*/
+
 	// Data transform button (also reference widget height)
 	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
 
@@ -808,11 +802,19 @@ void wxNcVisFrame::ResetBounds(
 		std::cout << "RESET BOUNDS" << std::endl;
 	}
 
-	double dXmin[2] = {0.0, -90.0};
-	double dXmax[2] = {360.0, 90.0};
+	m_fDisplayedDimPeriodic[0] = false;
+	m_fDisplayedDimPeriodic[1] = false;
+
+	m_dDisplayedDimBounds[0][0] = -90.0;
+	m_dDisplayedDimBounds[0][1] = 90.0;
+	m_dDisplayedDimBounds[1][0] = 0.0;
+	m_dDisplayedDimBounds[1][1] = 360.0;
+
+	double dXmin[2] = {m_dDisplayedDimBounds[0][0], m_dDisplayedDimBounds[1][0]};
+	double dXmax[2] = {m_dDisplayedDimBounds[0][1], m_dDisplayedDimBounds[1][1]};
 
 	if (m_varActive == NULL) {
-		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], fRedraw);
+		m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], fRedraw);
 		return;
 	}
 	if (m_varActive->num_dims() == 0) {
@@ -825,35 +827,14 @@ void wxNcVisFrame::ResetBounds(
 	if (m_lDisplayedDims[0] != (-1)) {
 		if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
 			_ASSERT(m_lDisplayedDims[1] == (-1));
-			m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], dXmin[1], dXmax[1], fRedraw);
+			m_fDisplayedDimPeriodic[1] = true;
+			m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], fRedraw);
 			return;
 		}
 	}
 
-	size_t dmin, dmax;
-	if (iDim == (-1)) {
-		dmin = 0;
-		dmax = 2;
-
-	} else if (iDim == 0) {
-		dmin = static_cast<size_t>(0);
-		dmax = static_cast<size_t>(1);
-
-		dXmin[1] = m_imagepanel->GetXRangeMin();
-		dXmax[1] = m_imagepanel->GetXRangeMax();
-
-	} else if (iDim == 1) {
-		dmin = static_cast<size_t>(1);
-		dmax = static_cast<size_t>(2);
-
-		dXmin[0] = m_imagepanel->GetYRangeMin();
-		dXmax[0] = m_imagepanel->GetYRangeMax();
-
-	} else {
-		_EXCEPTION();
-	}
-
-	for (size_t d = dmin; d < dmax; d++) {
+	// Determine bounds for all displayed dimensions
+	for (size_t d = 0; d < 2; d++) {
 		if (m_lDisplayedDims[d] == (-1)) {
 			continue;
 		}
@@ -863,68 +844,108 @@ void wxNcVisFrame::ResetBounds(
 		auto itDim = m_mapDimData.find(strDimName);
 		if (itDim != m_mapDimData.end()) {
 			if (itDim->second.size() == 0) {
-				dXmin[d] = -0.5;
-				dXmax[d] = static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
+				m_dDisplayedDimBounds[d][0] = -0.5;
+				m_dDisplayedDimBounds[d][1] =
+					static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
 				continue;
 			}
 
 			auto itDimCoord = itDim->second.begin();
 			const std::vector<double> & coord = itDimCoord->second;
 			if (coord.size() == 1) {
-				dXmin[d] = coord[0];
-				dXmax[d] = coord[0];
+				m_dDisplayedDimBounds[d][0] = coord[0];
+				m_dDisplayedDimBounds[d][1] = coord[0];
 			} else if (coord[1] > coord[0]) {
 				int nc = coord.size();
-				dXmin[d] = coord[0] - 0.5 * (coord[1] - coord[0]);
-				dXmax[d] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
+				m_dDisplayedDimBounds[d][0] = coord[0] - 0.5 * (coord[1] - coord[0]);
+				m_dDisplayedDimBounds[d][1] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
 			} else {
 				int nc = coord.size();
-				dXmin[d] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
-				dXmax[d] = coord[0] - 0.5 * (coord[1] - coord[0]);
+				m_dDisplayedDimBounds[d][0] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
+				m_dDisplayedDimBounds[d][1] = coord[0] - 0.5 * (coord[1] - coord[0]);
 			}
 
-			// Special cases (latitude)
+			// Special cases (latitude in degrees)
 			if ((strDimName.find("lat") != std::string::npos) ||
 			    (strDimName.find("Lat") != std::string::npos) ||
 			    (strDimName.find("LAT") != std::string::npos)
 			) {
-				if (dXmin[d] < -90.0) {
-					dXmin[d] = -90.0;
+				if (m_dDisplayedDimBounds[d][0] < -90.0) {
+					m_dDisplayedDimBounds[d][0] = -90.0;
 				}
-				if (dXmax[d] < -90.0) {
-					dXmax[d] = -90.0;
+				if (m_dDisplayedDimBounds[d][1] < -90.0) {
+					m_dDisplayedDimBounds[d][1] = -90.0;
 				}
-				if (dXmin[d] > 90.0) {
-					dXmin[d] = 90.0;
+				if (m_dDisplayedDimBounds[d][0] > 90.0) {
+					m_dDisplayedDimBounds[d][0] = 90.0;
 				}
-				if (dXmax[d] > 90.0) {
-					dXmax[d] = 90.0;
+				if (m_dDisplayedDimBounds[d][1] > 90.0) {
+					m_dDisplayedDimBounds[d][1] = 90.0;
 				}
 			}
 
-			// Special cases (longitude)
+			// Special cases (longitude in degrees)
 			if ((strDimName.find("lon") != std::string::npos) ||
 			    (strDimName.find("Lon") != std::string::npos) ||
 			    (strDimName.find("LON") != std::string::npos)
 			) {
+				//TODO: Implement periodic longitudes for 2D variables
+				//m_fDisplayedDimPeriodic[d] = true;
 				if (fabs(dXmax[d] - dXmin[d] - 360.0) < 1.0e-5) {
 					if (coord[1] > coord[0]) {
-						dXmin[d] = coord[0];
-						dXmax[d] = coord[0] + 360.0;
+						m_dDisplayedDimBounds[d][0] = coord[0];
+						m_dDisplayedDimBounds[d][1] = coord[0] + 360.0;
 					} else {
-						dXmin[d] = coord[coord.size()-1];
-						dXmax[d] = coord[coord.size()-1] + 360.0;
+						m_dDisplayedDimBounds[d][0] = coord[coord.size()-1];
+						m_dDisplayedDimBounds[d][1] = coord[coord.size()-1] + 360.0;
 					}
 				}
 			}
 
 		} else {
-			dXmin[d] = -0.5;
-			dXmax[d] = static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
+			m_dDisplayedDimBounds[d][0] = -0.5;
+			m_dDisplayedDimBounds[d][1] = static_cast<double>(m_varActive->get_dim(m_lDisplayedDims[d])->size()-1) + 0.5;
 		}
 	}
 
+	// Set coordinate range for specified dimensions
+	size_t dmin, dmax;
+	if (iDim == (-1)) {
+		dmin = 0;
+		dmax = 2;
+
+		dXmin[0] = m_dDisplayedDimBounds[0][0];
+		dXmax[0] = m_dDisplayedDimBounds[0][1];
+
+		dXmin[1] = m_dDisplayedDimBounds[1][0];
+		dXmax[1] = m_dDisplayedDimBounds[1][1];
+
+	} else if (iDim == 0) {
+		dmin = static_cast<size_t>(0);
+		dmax = static_cast<size_t>(1);
+
+		dXmin[0] = m_dDisplayedDimBounds[0][0];
+		dXmax[0] = m_dDisplayedDimBounds[0][1];
+
+		dXmin[1] = m_imagepanel->GetYRangeMin();
+		dXmax[1] = m_imagepanel->GetYRangeMax();
+
+	} else if (iDim == 1) {
+		dmin = static_cast<size_t>(1);
+		dmax = static_cast<size_t>(2);
+
+		dXmin[0] = m_imagepanel->GetXRangeMin();
+		dXmax[0] = m_imagepanel->GetXRangeMax();
+
+		dXmin[1] = m_dDisplayedDimBounds[1][0];
+		dXmax[1] = m_dDisplayedDimBounds[1][1];
+
+	} else {
+		_EXCEPTION();
+	}
+
 	if (m_varActive->num_dims() == 1) {
+		m_fDisplayedDimPeriodic[1] = true;
 		m_imagepanel->SetCoordinateRange(dXmin[0], dXmax[0], 0.0, 1.0, fRedraw);
 	} else {
 		m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], fRedraw);
