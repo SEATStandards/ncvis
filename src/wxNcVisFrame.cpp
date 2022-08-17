@@ -175,6 +175,52 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 	// Initialize the GridDataSampler
 	{
 		wxStopWatch sw;
+
+		m_dgdsLonBounds[0] = dLon[0];
+		m_dgdsLonBounds[1] = dLon[0];
+		m_dgdsLatBounds[0] = dLat[0];
+		m_dgdsLatBounds[1] = dLat[0];
+		for (size_t i = 1; i < dLon.size(); i++) {
+			if (dLon[i] < m_dgdsLonBounds[0]) {
+				m_dgdsLonBounds[0] = dLon[i];
+			}
+			if (dLon[i] > m_dgdsLonBounds[1]) {
+				m_dgdsLonBounds[1] = dLon[i];
+			}
+			if (dLat[i] < m_dgdsLatBounds[0]) {
+				m_dgdsLatBounds[0] = dLat[i];
+			}
+			if (dLat[i] > m_dgdsLatBounds[1]) {
+				m_dgdsLatBounds[1] = dLat[i];
+			}
+		}
+		if (fabs(m_dgdsLonBounds[1] - m_dgdsLonBounds[0] - 360.0) < 1.0) {
+			if (fabs(m_dgdsLonBounds[0]) < 1.0) {
+				m_dgdsLonBounds[0] = 0.0;
+			}
+			if (fabs(m_dgdsLonBounds[0] + 180.0) < 1.0) {
+				m_dgdsLonBounds[0] = -180.0;
+			}
+			m_dgdsLonBounds[1] = m_dgdsLonBounds[0] + 360.0;
+		}
+		if ((fabs(m_dgdsLatBounds[0] + 90.0) < 1.0) && (fabs(m_dgdsLatBounds[1] - 90.0) < 1.0)) {
+			m_dgdsLatBounds[0] = -90.0;
+			m_dgdsLatBounds[1] = 90.0;
+		}
+		if (fabs(m_dgdsLonBounds[1] - m_dgdsLonBounds[0] - 2.0 * M_PI) < 0.1) {
+			if (fabs(m_dgdsLonBounds[0]) < 0.1) {
+				m_dgdsLonBounds[0] = 0.0;
+			}
+			if (fabs(m_dgdsLonBounds[0] + M_PI) < 0.1) {
+				m_dgdsLonBounds[0] = - M_PI;
+			}
+			m_dgdsLonBounds[1] = m_dgdsLonBounds[0] + 2.0 * M_PI;
+		}
+		if ((fabs(m_dgdsLatBounds[0] + 0.5 * M_PI) < 0.1) && (fabs(m_dgdsLatBounds[1] - 0.5 * M_PI) < 0.1)) {
+			m_dgdsLatBounds[0] = - 0.5 * M_PI;
+			m_dgdsLatBounds[1] = 0.5 * M_PI;
+		}
+
 		if (m_egdsoption == GridDataSamplerOption_QuadTree) {
 			m_gdsqt.Initialize(dLon, dLat);
 		}
@@ -849,8 +895,20 @@ void wxNcVisFrame::ResetBounds(
 	if (m_lDisplayedDims[0] != (-1)) {
 		if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
 			_ASSERT(m_lDisplayedDims[1] == (-1));
+			
+			m_dDisplayedDimBounds[0][0] = m_dgdsLatBounds[0];
+			m_dDisplayedDimBounds[0][1] = m_dgdsLatBounds[1];
+			m_dDisplayedDimBounds[1][0] = m_dgdsLonBounds[0];
+			m_dDisplayedDimBounds[1][1] = m_dgdsLonBounds[1];
+
 			m_fDisplayedDimPeriodic[1] = true;
-			m_imagepanel->SetCoordinateRange(dXmin[1], dXmax[1], dXmin[0], dXmax[0], fRedraw);
+
+			m_imagepanel->SetCoordinateRange(
+				m_dDisplayedDimBounds[1][0],
+				m_dDisplayedDimBounds[1][1],
+				m_dDisplayedDimBounds[0][0],
+				m_dDisplayedDimBounds[0][1],
+				fRedraw);
 			return;
 		}
 	}

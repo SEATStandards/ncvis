@@ -542,6 +542,16 @@ private:
 	size_t m_sColorMap;
 
 	///	<summary>
+	///		Longitude bounds from the GridDataSampler.
+	///	</summary>
+	double m_dgdsLonBounds[2];
+
+	///	<summary>
+	///		Latitude bounds from the GridDataSampler.
+	///	</summary>
+	double m_dgdsLatBounds[2];
+
+	///	<summary>
 	///		Class for sampling data on the grid using a quad tree.
 	///	</summary>
 	GridDataSamplerUsingQuadTree m_gdsqt;
