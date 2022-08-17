@@ -40,3 +40,10 @@ bin/*
 # netcdf files
 *.nc
 *.nc4
+
+# CMake files
+CMakeFiles
+CMakeCache.txt
+cmake_install.cmake
+src/CMakeFiles
+bld/*
