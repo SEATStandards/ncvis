@@ -37,6 +37,7 @@ library.  To complete the build on Cheyenne the following commands should be
 run prior to compilation:
 
 ```
+module load gnu/12.1.0
 module unload ncarenv
 module unload ncarcompilers
 module unload netcdf
