@@ -41,7 +41,12 @@ bin/*
 *.nc
 *.nc4
 
+# executable
+ncvis
+
 # CMake files
+Makefile
+src/Makefile
 CMakeFiles
 CMakeCache.txt
 cmake_install.cmake

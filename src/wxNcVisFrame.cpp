@@ -132,20 +132,31 @@ wxNcVisFrame::wxNcVisFrame(
 
 void wxNcVisFrame::InitializeGridDataSampler() {
 
+	std::string strLonName("lon");
+	std::string strLatName("lat");
+
 	// Identify longitude and latitude to determine if unstructured grid is needed
 	auto itLon = m_mapVarNames[1].find("lon");
 	if (itLon == m_mapVarNames[1].end()) {
-		return;
+		itLon = m_mapVarNames[1].find("lonCell");
+		if (itLon == m_mapVarNames[1].end()) {
+			return;
+		}
+		strLonName = "lonCell";
 	}
 	auto itLat = m_mapVarNames[1].find("lat");
 	if (itLat == m_mapVarNames[1].end()) {
-		return;
+		itLat = m_mapVarNames[1].find("latCell");
+		if (itLat == m_mapVarNames[1].end()) {
+			return;
+		}
+		strLatName = "latCell";
 	}
 
 	// Check if lat and lon are the same length
-	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var("lon");
+	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var(strLonName.c_str());
 	_ASSERT(varLon != NULL);
-	NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var("lat");
+	NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(strLatName.c_str());
 	_ASSERT(varLat != NULL);
 
 	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
@@ -305,15 +316,26 @@ void wxNcVisFrame::OpenFiles(
 
 	// Check if lon and lat are dimension variables; if they are then they
 	// should not be coordinates on the unstructured mesh.
+	std::string strLonName("lon");
+	std::string strLatName("lat");
+
 	auto itLonDimVar = m_mapDimData.find("lon");
+	if (itLonDimVar == m_mapDimData.end()) {
+		itLonDimVar = m_mapDimData.find("lonCell");
+		strLonName = "lonCell";
+	}
 	auto itLatDimVar = m_mapDimData.find("lat");
+	if (itLatDimVar == m_mapDimData.end()) {
+		itLatDimVar = m_mapDimData.find("latCell");
+		strLatName = "latCell";
+	}
 
 	if ((itLonDimVar == m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
-		std::cout << "ERROR: In input file \"lat\" is a dimension variable but \"lon\" is not" << std::endl;
+		std::cout << "ERROR: In input file \"" << strLatName << "\" is a dimension variable but \"" << strLonName << "\" is not" << std::endl;
 		exit(-1);
 	}
 	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar == m_mapDimData.end())) {
-		std::cout << "ERROR: In input file \"lat\" is a dimension variable but \"lon\" is not" << std::endl;
+		std::cout << "ERROR: In input file \"" << strLonName << "\" is a dimension variable but \"" << strLatName << "\" is not" << std::endl;
 		exit(-1);
 	}
 	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
