@@ -5,7 +5,7 @@
 
 The prerequisites can readily be installed using the `conda` package manager:
 
-```bash
+```
 conda create -n ncvis -c conda-forge wxwidgets libnetcdf
 conda activate ncvis
 ```
@@ -19,10 +19,10 @@ A cmake based build infrastructure has been included to assist with
 configuring the build.  To build ncvis in this manner, in the `ncvis` folder
 run commands:
 
-```cmake .
+```
+cmake .
 make all
 ```
-
 # Install with build.sh
 
 The executable can also be built by running `sh ./build.sh`.  The script
@@ -36,7 +36,14 @@ linking with HDF5 and other dependencies when building with the netcdf
 library.  To complete the build on Cheyenne the following commands should be
 run prior to compilation:
 
-```module unload ncarenv
+```
+module unload ncarenv
 module unload ncarcompilers
 module unload netcdf
 ```
+# Environment variables
+
+Resources needed by `ncvis` for execution are normally found in the `resources`
+folder, which is assumed to be in the same folder as the `ncvis` executable.
+If an alternate resource folder location is needed, the environment variable
+`NCVIS_RESOURCE_DIR` should be set to the resources path.
