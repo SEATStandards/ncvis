@@ -10,8 +10,33 @@ conda create -n ncvis -c conda-forge wxwidgets libnetcdf
 conda activate ncvis
 ```
 
-# Install
+Work is presently underway to put ncvis on conda-forge, and is expected for
+our second release.
 
-The executable can be built simply by running `sh ./build.sh`.  The script
+# Install with cmake
+
+A cmake based build infrastructure has been included to assist with
+configuring the build.  To build ncvis in this manner, in the `ncvis` folder
+run commands:
+
+```cmake .
+make all
+```
+
+# Install with build.sh
+
+The executable can also be built by running `sh ./build.sh`.  The script
 has some configurable flags, such as the install prefix.  By default the
-install is created in `/.../bin/` of the source tree.
+install is created in the root directory.
+
+# Install on Cheyenne
+
+On NCAR's Cheyenne supercomputer, by default several modules prevent static
+linking with HDF5 and other dependencies when building with the netcdf
+library.  To complete the build on Cheyenne the following commands should be
+run prior to compilation:
+
+```module unload ncarenv
+module unload ncarcompilers
+module unload netcdf
+```
