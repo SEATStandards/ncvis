@@ -52,6 +52,48 @@ public:
 
 public:
 	///	<summary>
+	///		A data structure containing dimension values and units.
+	///	</summary>
+	class DimDataFileIdAndCoordMap : public std::map<size_t, std::vector<double> > {
+		public:
+			///	<summary>
+			///		Get the units for this dimension.
+			///	</summary>
+			const std::string & units() const {
+				return m_strUnits;
+			}
+
+			///	<summary>
+			///		Get the calendar for this dimension.
+			///	</summary>
+			const std::string & calendar() const {
+				return m_strCalendar;
+			}
+
+		public:
+			///	<summary>
+			///		Units for this dimension.
+			///	</summary>
+			std::string m_strUnits;
+
+			///	<summary>
+			///		Calendar for this dimension.
+			///	</summary>
+			std::string m_strCalendar;
+	};
+
+	///	<summary>
+	///		A map between a variable name and the dimension data.
+	///	</summary>
+	typedef std::map<std::string, DimDataFileIdAndCoordMap> DimDataMap;
+
+	///	<summary>
+	///		A map between a variable name and file index.
+	///	</summary>
+	typedef std::map<std::string, std::vector<size_t> > VariableNameFileIxMap;
+
+public:
+	///	<summary>
 	///		Constructor.
 	///	</summary>
 	wxNcVisFrame(
@@ -62,6 +104,30 @@ public:
 		const std::map<wxString, wxString> & mapOptions,
 		const std::vector<wxString> & vecFilenames
 	);
+
+	///	<summary>
+	///		Get an iterator to m_mapVarNames containing the longitude
+	///		and latitude variables.
+	///	</summary>
+	///	<returns>
+	///		true if longitude and latitude variables were found, false otherwise.
+	///	</returns>
+	bool GetLonLatVariableNameIter(
+		VariableNameFileIxMap::const_iterator & itLon,
+		VariableNameFileIxMap::const_iterator & itLat
+	) const;
+
+	///	<summary>
+	///		Get an iterator to m_mapDimData containing the longitude
+	///		and latitude variables.
+	///	</summary>
+	///	<returns>
+	///		true if longitude and latitude variables were found, false otherwise.
+	///	</returns>
+	bool GetLonLatDimDataIter(
+		DimDataMap::const_iterator & itLon,
+		DimDataMap::const_iterator & itLat
+	) const;
 
 	///	<summary>
 	///		Initialize the GridDataSampler.
@@ -448,40 +514,8 @@ private:
 	std::vector<NcFile *> m_vecpncfiles;
 
 	///	<summary>
-	///		A data structure containing dimension values and units.
-	///	</summary>
-	class DimDataFileIdAndCoordMap : public std::map<size_t, std::vector<double> > {
-		public:
-			///	<summary>
-			///		Get the units for this dimension.
-			///	</summary>
-			const std::string & units() const {
-				return m_strUnits;
-			}
-
-			///	<summary>
-			///		Get the calendar for this dimension.
-			///	</summary>
-			const std::string & calendar() const {
-				return m_strCalendar;
-			}
-
-		public:
-			///	<summary>
-			///		Units for this dimension.
-			///	</summary>
-			std::string m_strUnits;
-
-			///	<summary>
-			///		Calendar for this dimension.
-			///	</summary>
-			std::string m_strCalendar;
-	};
-
-	///	<summary>
 	///		Dimension data, stored persistently to avoid having to reload.
 	///	</summary>
-	typedef std::map<std::string, DimDataFileIdAndCoordMap> DimDataMap;
 	DimDataMap m_mapDimData;
 
 	///	<summary>
@@ -533,7 +567,7 @@ private:
 	///		Map between variables found among files and file index where they can be
 	///		found.  Variables are further indexed by number of dimensions.
 	///	</summary>
-	std::map<std::string, std::vector<size_t> > m_mapVarNames[10];
+	VariableNameFileIxMap m_mapVarNames[10];
 
 private:
 	///	<summary>

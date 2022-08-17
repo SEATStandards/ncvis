@@ -17,7 +17,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.08.11";
+static const char * szVersion = "NcVis 2022.08.17";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -130,28 +130,95 @@ wxNcVisFrame::wxNcVisFrame(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+bool wxNcVisFrame::GetLonLatVariableNameIter(
+	VariableNameFileIxMap::const_iterator & itLon,
+	VariableNameFileIxMap::const_iterator & itLat
+) const {
+	std::vector<std::string> vecLonNames;
+	vecLonNames.push_back("lon");
+	vecLonNames.push_back("longitude");
+	vecLonNames.push_back("lonCell");
+	vecLonNames.push_back("mesh_node_x");
+
+	std::vector<std::string> vecLatNames;
+	vecLatNames.push_back("lat");
+	vecLatNames.push_back("latitude");
+	vecLatNames.push_back("latCell");
+	vecLatNames.push_back("mesh_node_y");
+
+	itLon = m_mapVarNames[1].find(vecLonNames[0]);
+	for (int i = 1; (i < vecLonNames.size()) && (itLon == m_mapVarNames[1].end()); i++) {
+		itLon = m_mapVarNames[1].find(vecLonNames[i]);
+	}
+	if (itLon == m_mapVarNames[1].end()) {
+		itLat = m_mapVarNames[1].end();
+		return false;
+	}
+
+	itLat = m_mapVarNames[1].find(vecLatNames[0]);
+	for (int i = 1; (i < vecLatNames.size()) && (itLat == m_mapVarNames[1].end()); i++) {
+		itLat = m_mapVarNames[1].find(vecLatNames[i]);
+	}
+	if (itLat == m_mapVarNames[1].end()) {
+		return false;
+	}
+
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxNcVisFrame::GetLonLatDimDataIter(
+	DimDataMap::const_iterator & itLon,
+	DimDataMap::const_iterator & itLat
+) const {
+	std::vector<std::string> vecLonNames;
+	vecLonNames.push_back("lon");
+	vecLonNames.push_back("longitude");
+	vecLonNames.push_back("lonCell");
+	vecLonNames.push_back("mesh_node_x");
+
+	std::vector<std::string> vecLatNames;
+	vecLatNames.push_back("lat");
+	vecLatNames.push_back("latitude");
+	vecLatNames.push_back("latCell");
+	vecLatNames.push_back("mesh_node_y");
+
+	itLon = m_mapDimData.find(vecLonNames[0]);
+	for (int i = 1; (i < vecLonNames.size()) && (itLon == m_mapDimData.end()); i++) {
+		itLon = m_mapDimData.find(vecLonNames[i]);
+	}
+	if (itLon == m_mapDimData.end()) {
+		itLat = m_mapDimData.end();
+		return false;
+	}
+
+	itLat = m_mapDimData.find(vecLatNames[0]);
+	for (int i = 1; (i < vecLatNames.size()) && (itLat == m_mapDimData.end()); i++) {
+		itLat = m_mapDimData.find(vecLatNames[i]);
+	}
+	if (itLat == m_mapDimData.end()) {
+		return false;
+	}
+
+	return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::InitializeGridDataSampler() {
 
-	std::string strLonName("lon");
-	std::string strLatName("lat");
+	// Get the latitude and longitude variables
+	VariableNameFileIxMap::const_iterator itLon;
+	VariableNameFileIxMap::const_iterator itLat;
 
-	// Identify longitude and latitude to determine if unstructured grid is needed
-	auto itLon = m_mapVarNames[1].find("lon");
-	if (itLon == m_mapVarNames[1].end()) {
-		itLon = m_mapVarNames[1].find("lonCell");
-		if (itLon == m_mapVarNames[1].end()) {
-			return;
-		}
-		strLonName = "lonCell";
+	bool fSuccess = GetLonLatVariableNameIter(itLon, itLat);
+	if (!fSuccess) {
+		return;
 	}
-	auto itLat = m_mapVarNames[1].find("lat");
-	if (itLat == m_mapVarNames[1].end()) {
-		itLat = m_mapVarNames[1].find("latCell");
-		if (itLat == m_mapVarNames[1].end()) {
-			return;
-		}
-		strLatName = "latCell";
-	}
+
+	std::string strLonName(itLon->first);
+	std::string strLatName(itLat->first);
 
 	// Check if lat and lon are the same length
 	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var(strLonName.c_str());
@@ -362,26 +429,17 @@ void wxNcVisFrame::OpenFiles(
 
 	// Check if lon and lat are dimension variables; if they are then they
 	// should not be coordinates on the unstructured mesh.
-	std::string strLonName("lon");
-	std::string strLatName("lat");
+	DimDataMap::const_iterator itLonDimVar;
+	DimDataMap::const_iterator itLatDimVar;
 
-	auto itLonDimVar = m_mapDimData.find("lon");
-	if (itLonDimVar == m_mapDimData.end()) {
-		itLonDimVar = m_mapDimData.find("lonCell");
-		strLonName = "lonCell";
-	}
-	auto itLatDimVar = m_mapDimData.find("lat");
-	if (itLatDimVar == m_mapDimData.end()) {
-		itLatDimVar = m_mapDimData.find("latCell");
-		strLatName = "latCell";
-	}
+	GetLonLatDimDataIter(itLonDimVar, itLatDimVar);
 
 	if ((itLonDimVar == m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
-		std::cout << "ERROR: In input file \"" << strLatName << "\" is a dimension variable but \"" << strLonName << "\" is not" << std::endl;
+		std::cout << "ERROR: In input file \"" << itLatDimVar->first << "\" is a dimension variable but \"lon\" is not" << std::endl;
 		exit(-1);
 	}
 	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar == m_mapDimData.end())) {
-		std::cout << "ERROR: In input file \"" << strLonName << "\" is a dimension variable but \"" << strLatName << "\" is not" << std::endl;
+		std::cout << "ERROR: In input file \"" << itLonDimVar->first << "\" is a dimension variable but \"lat\" is not" << std::endl;
 		exit(-1);
 	}
 	if ((itLonDimVar != m_mapDimData.end()) && (itLatDimVar != m_mapDimData.end())) {
