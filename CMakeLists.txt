@@ -38,7 +38,8 @@ execute_process(COMMAND "${NCCONFIG_EXE}" "--libs" "--static" OUTPUT_VARIABLE NC
 set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_GNU_FLAGS} ${WX_COMPILE_FLAGS} ${NC_COMPILE_FLAGS} -I${NC_INCLUDE_DIR}")
 set(NCVIS_LINKER_FLAGS "${WX_LINK_FLAGS} -L${NC_LIB_DIR} -lnetcdf ${NC_LINK_FLAGS}")
 
-set (CMAKE_SHARED_LINKER_FLAGS "-Wl,--as-needed -Wl,-rpath,${WXCONFIG_RPATH}/lib")
+set (CMAKE_SHARED_LINKER_FLAGS "-Wl,--as-needed ")
+set (CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,${WXCONFIG_RPATH}/lib")
 
 add_subdirectory("src")
 
