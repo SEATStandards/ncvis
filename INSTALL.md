@@ -13,6 +13,14 @@ conda activate ncvis
 Work is presently underway to put ncvis on conda-forge, and is expected for
 our second release.
 
+## Issues with Building under GNU g++ v4.8.5
+
+Issues have been reported with ncvis segfaulting when compiled with GNU g++
+version 4.8.5. A compiled executable with GNU g++ version 10 or later does
+not seem to suffer from this issue.  To ensure a modern version of the GNU
+compiler is used, you may wish to add `cxx-compiler` to the `conda`
+environment.
+
 # Install with cmake
 
 A cmake based build infrastructure has been included to assist with
