@@ -2,13 +2,14 @@
 ///
 ///	\file    wxNcVisFrame.cpp
 ///	\author  Paul Ullrich
-///	\version June 27, 2022
+///	\version August 25, 2022
 ///
 
 #include "wxNcVisFrame.h"
 #include <wx/filename.h>
 #include <wx/dir.h>
 
+#include "wxNcVisOptionsDialog.h"
 #include "wxNcVisExportDialog.h"
 #include "STLStringHelper.h"
 #include "ShpFile.h"
@@ -17,7 +18,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.08.17";
+static const char * szVersion = "NcVis 2022.08.25";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -56,6 +57,7 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_MENU(wxID_ABOUT, wxNcVisFrame::OnAbout)
 	EVT_BUTTON(ID_DATATRANS, wxNcVisFrame::OnDataTransClicked)
 	EVT_BUTTON(ID_EXPORT, wxNcVisFrame::OnExportClicked)
+	EVT_BUTTON(ID_OPTIONS, wxNcVisFrame::OnOptionsClicked)
 	EVT_TEXT_ENTER(ID_BOUNDS, wxNcVisFrame::OnBoundsChanged)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
@@ -529,14 +531,14 @@ void wxNcVisFrame::InitializeWindow() {
 	}
 	wxColorMapCombo->SetSelection(0);
 	wxColorMapCombo->SetEditable(false);
-
+/*
 	// Grid lines combobox
 	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
 	wxGridLinesCombo->Append(_T("Grid Off"));
 	wxGridLinesCombo->Append(_T("Grid On"));
 	wxGridLinesCombo->SetSelection(0);
 	wxGridLinesCombo->SetEditable(false);
-
+*/
 	// Overlap combobox
 	wxComboBox * wxOverlaysCombo = new wxComboBox(this, ID_OVERLAYS, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
 	wxOverlaysCombo->Append(_T("Overlays Off"));
@@ -554,6 +556,9 @@ void wxNcVisFrame::InitializeWindow() {
 	wxSamplerCombo->SetSelection((int)m_egdsoption);
 	wxSamplerCombo->SetEditable(false);
 
+	// Options button
+	wxButton * wxOptionsButton = new wxButton(this, ID_OPTIONS, _T("Options"));
+
 	// Export button
 	m_wxExportButton = new wxButton(this, ID_EXPORT, _T("Export..."));
 	m_wxExportButton->Enable(false);
@@ -561,9 +566,10 @@ void wxNcVisFrame::InitializeWindow() {
 	// Add controls to the manusizer
 	menusizer->Add(wxColorMapCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
-	menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
+	//menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxSamplerCombo, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxOptionsButton, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(m_wxExportButton, 0, wxEXPAND | wxALL, 2);
 
 	// Variable selector
@@ -1266,6 +1272,53 @@ void wxNcVisFrame::OnDataTransClicked(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::OnOptionsClicked(
+	wxCommandEvent & event
+) {
+	if (m_fVerbose) {
+		std::cout << "OPTIONS DIALOG" << std::endl;
+	}
+
+	// Open options dialog
+	m_wxNcVisOptionsDialog =
+		new wxNcVisOptionsDialog(
+			this,
+			_T("NcVis Options"),
+			wxPoint(60, 60),
+			wxSize(500, 400),
+			m_plotopts);
+
+	m_wxNcVisOptionsDialog->ShowModal();
+
+	// Check if Ok was clicked -- if so check if plot options have changed
+	if (m_wxNcVisOptionsDialog->IsOkClicked()) {
+		if (m_plotopts != m_wxNcVisOptionsDialog->GetPlotOptions()) {
+			m_plotopts = m_wxNcVisOptionsDialog->GetPlotOptions();
+
+			// Update the size of the image panel and size ratio
+			if (m_imagepanel->ResetPanelSize()) {
+				m_imagepanel->GenerateImageFromImageMap(true);
+			}
+			m_imagepanel->GetContainingSizer()->GetItem((size_t)(0))->SetRatio(
+				m_imagepanel->GetSize().GetWidth(),
+				m_imagepanel->GetSize().GetHeight());
+
+			// Resize window if needed
+			if (m_panelsizer->GetMinSize().GetHeight() != m_panelsizer->GetSize().GetHeight()) {
+				SetSizerAndFit(m_panelsizer);
+			}
+
+			// Layout widgets
+			m_vardimsizer->Layout();
+			m_rightsizer->Layout();
+			m_ctrlsizer->Layout();
+			m_panelsizer->Layout();
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::OnExportClicked(
 	wxCommandEvent & event
 ) {
@@ -1614,6 +1667,23 @@ void wxNcVisFrame::OnVariableSelected(
 	auto itVar = m_mapVarNames[vc].find(strValue);
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
 	_ASSERT(m_varActive != NULL);
+
+	// Generate title
+	{
+		NcAtt * attLongName = m_varActive->get_att("long_name");
+		if (attLongName != NULL) {
+			m_strVarActiveTitle = std::string("[") + m_varActive->name() + std::string("] ") + attLongName->as_string(0);
+		} else {
+			m_strVarActiveTitle = m_varActive->name();
+		}
+		
+		NcAtt * attUnits = m_varActive->get_att("units");
+		if (attUnits != NULL) {
+			m_strVarActiveUnits = attUnits->as_string(0);
+		} else {
+			m_strVarActiveUnits = "";
+		}
+	}
 
 	// Check for missing value
 	{

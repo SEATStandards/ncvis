@@ -10,6 +10,7 @@
 
 #include <wx/wx.h>
 #include <wx/sizer.h>
+#include <wx/position.h>
 
 #include "CoordTransforms.h"
 #include "GridDataSampler.h"
@@ -32,6 +33,32 @@ public:
 	wxImagePanel(
 		wxNcVisFrame * parent
 	);
+
+	///	<summary>
+	///		Get the size of the image panel for a given map size.
+	///	</summary>
+	wxSize GetPanelSize(
+		int nMapWidth = (-1),
+		int nMapHeight = (-1)
+	) const;
+
+	///	<summary>
+	///		Get the position and size of the map panel.
+	///	</summary>
+	void GetMapPositionSize(
+		wxSize & wxs,
+		wxPosition & wxp,
+		int nImageWidth = (-1),
+		int nImageHeight = (-1)
+	) const;
+
+	///	<summary>
+	///		Reset the size of the panel.
+	///	</summary>
+	///	<returns>
+	///		true if the panel size has changed, false otherwise.
+	///	</returns>
+	bool ResetPanelSize();
 
 public:
 	///	<summary>
@@ -90,12 +117,12 @@ public:
 	///	</summary>
 	template <int NDIM>
 	void GenerateImageDataFromImageMap(
-		const size_t sOffsetX,
-		const size_t sOffsetY,
+		const size_t sImageOffsetX,
+		const size_t sImageOffsetY,
 		const size_t sImageWidth,
 		const size_t sImageHeight,
-		const size_t sCanvasWidth,
-		const size_t sCanvasHeight,
+		const size_t sPanelWidth,
+		const size_t sPanelHeight,
 		unsigned char * imagedata
 	);
 
@@ -133,8 +160,8 @@ public:
 	///		Resample the coordinate range.
 	///	</summary>
 	void SetCoordinateRange(
-		size_t sImageWidth,
-		size_t sImageHeight,
+		size_t sMapWidth,
+		size_t sMapHeight,
 		double dX0,
 		double dX1,
 		double dY0,
@@ -249,12 +276,32 @@ public:
 
 public:
 	///	<summary>
+	///		Alignment of text.
+	///	</summary>
+	enum TextAlignment {
+		TextAlignment_Left,
+		TextAlignment_Right
+	};
+
+	///	<summary>
+	///		Calculate the minimum image buffer size for holding the given string.
+	///	</summary>
+	void CalculateStringMinImageBufferSize(
+		SFT & sft,
+		const std::string & str,
+		size_t & sMinWidth,
+		size_t & sMinHeight,
+		size_t & sBaseline
+	);
+
+	///	<summary>
 	///		Draw the specified character at the specified location on the image,
 	///		using font information from m_sft.  The coordinate (x,y) indicates
 	///		the top-left corner of the character.
 	///	</summary>
 	template <int NDIM>
 	void DrawCharacter(
+		SFT & sft,
 		unsigned char c,
 		size_t sX,
 		size_t sY,
@@ -271,9 +318,11 @@ public:
 	///	</summary>
 	template <int NDIM>
 	void DrawString(
+		SFT & sft,
 		const std::string & str,
 		size_t sX,
 		size_t sY,
+		TextAlignment eAlign,
 		size_t sCanvasWidth,
 		size_t sCanvasHeight,
 		unsigned char * imagedata,
@@ -316,9 +365,14 @@ private:
 	float m_dColorMapScalingFactor;
 
 	///	<summary>
+	///		Font information for title bar.
+	///	</summary>
+	SFT m_sftTitleBar;
+
+	///	<summary>
 	///		Font information for label bar.
 	///	</summary>
-	SFT m_sft;
+	SFT m_sftLabelBar;
 
 	///	<summary>
 	///		Disable rendering.

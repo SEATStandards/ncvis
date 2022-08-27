@@ -16,14 +16,15 @@
 #include "wxImagePanel.h"
 #include "ColorMap.h"
 #include "GridDataSampler.h"
+#include "NcVisPlotOptions.h"
 
 #include <map>
 #include <vector>
 
 ////////////////////////////////////////////////////////////////////////////////
 
+class wxNcVisOptionsDialog;
 class wxNcVisExportDialog;
-class wxGridBagSizer;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -295,6 +296,27 @@ public:
 		bool fIncludeVersion
 	);
 
+	///	<summary>
+	///		Get the plot options.
+	///	</summary>
+	const NcVisPlotOptions & GetPlotOptions() const {
+		return m_plotopts;
+	}
+
+	///	<summary>
+	///		Get the active variable title.
+	///	</summary>
+	const std::string & GetVarActiveTitle() const {
+		return m_strVarActiveTitle;
+	}
+
+	///	<summary>
+	///		Get the active variable units.
+	///	</summary>
+	const std::string & GetVarActiveUnits() const {
+		return m_strVarActiveUnits;
+	}
+
 private:
 	///	<summary>
 	///		Callback triggered when Exit is selected in the menu.
@@ -315,6 +337,11 @@ private:
 	///		Callback triggered when the data transform button is pressed.
 	///	</summary>
 	void OnDataTransClicked(wxCommandEvent & event);
+
+	///	<summary>
+	///		Callback triggered when the options button is pressed.
+	///	</summary>
+	void OnOptionsClicked(wxCommandEvent & event);
 
 	///	<summary>
 	///		Callback triggered when the export button is pressed.
@@ -465,6 +492,11 @@ private:
 	///	<summary>
 	///		Options frame.
 	///	</summary>
+	wxNcVisOptionsDialog * m_wxNcVisOptionsDialog;
+
+	///	<summary>
+	///		Options frame.
+	///	</summary>
 	wxNcVisExportDialog * m_wxNcVisExportDialog;
 
 	///	<summary>
@@ -527,6 +559,16 @@ private:
 	///		NetCDF variable currently loaded.
 	///	</summary>
 	NcVar * m_varActive;
+
+	///	<summary>
+	///		Active variable title.
+	///	</summary>
+	std::string m_strVarActiveTitle;
+
+	///	<summary>
+	///		Active variable units.
+	///	</summary>
+	std::string m_strVarActiveUnits;
 
 	///	<summary>
 	///		Bookmarked dimensions.
@@ -614,6 +656,11 @@ private:
 	///		Missing value.
 	///	</summary>
 	float m_dMissingValueFloat;
+
+	///	<summary>
+	///		Plot options.
+	///	</summary>
+	NcVisPlotOptions m_plotopts;
 
 	wxDECLARE_EVENT_TABLE();
 };

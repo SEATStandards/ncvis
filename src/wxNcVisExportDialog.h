@@ -18,7 +18,7 @@
 ////////////////////////////////////////////////////////////////////////////////
 
 ///	<summary>
-///		A class that manages the NcVis options dialog.
+///		A class that manages the NcVis export dialog.
 ///	</summary>
 class wxNcVisExportDialog : public wxDialog {
 
@@ -48,7 +48,7 @@ public:
 	);
 
 	///	<summary>
-	///		Initialize the wxNcVisFrame.
+	///		Initialize the wxNcVisExportDialog.
 	///	</summary>
 	void InitializeWindow();
 

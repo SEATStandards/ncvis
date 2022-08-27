@@ -7,8 +7,8 @@
 
 #include "wxImagePanel.h"
 #include "wxNcVisFrame.h"
-#include "utf8_to_utf32.h"
 #include "lodepng.h"
+#include "NcVisPlotOptions.h"
 
 #include <wx/filename.h>
 #include <wx/stdpaths.h>
@@ -30,12 +30,12 @@ END_EVENT_TABLE()
 ///	<summary>
 ///		Default width of the image panel.
 ///	</summary>
-static const int DISPLAY_WIDTH_DEFAULT = 720;
+static const int MAP_WIDTH_DEFAULT = 720;
 
 ///	<summary>
 ///		Default height of the image panel.
 ///	</summary>
-static const int DISPLAY_HEIGHT_DEFAULT = 360;
+static const int MAP_HEIGHT_DEFAULT = 360;
 
 ///	<summary>
 ///		Border size around image panel.
@@ -55,7 +55,17 @@ static const int LABELBAR_BOXCOUNT = 16;
 ///	<summary>
 ///		Font height of the label bar.
 ///	</summary>
-static const int LABELBAR_FONTHEIGHT = 14;
+static const int LABELBAR_FONTHEIGHT = 16;
+
+///	<summary>
+///		Font height of the title.
+///	</summary>
+static const int TITLE_FONTHEIGHT = 18;
+
+///	<summary>
+///		Margin width of the title.
+///	</summary>
+static const int TITLE_MARGINHEIGHT = 6;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -71,32 +81,131 @@ wxImagePanel::wxImagePanel(
 	m_pncvisparent = dynamic_cast<wxNcVisFrame *>(GetParent());
 	_ASSERT(m_pncvisparent != NULL);
 
-	int nPanelWidth = DISPLAY_WIDTH_DEFAULT + LABELBAR_IMAGEWIDTH + 2*DISPLAY_BORDER;
-	int nPanelHeight = DISPLAY_HEIGHT_DEFAULT + 2*DISPLAY_BORDER;
+	m_dXrange[0] = 0.0;
+	m_dXrange[1] = 1.0;
+	m_dYrange[0] = 0.0;
+	m_dYrange[1] = 1.0;
 
-	m_image.Create(nPanelWidth, nPanelHeight);
+	m_dDataRange[0] = 0.0;
+	m_dDataRange[1] = 1.0;
 
-	m_sft.xScale = LABELBAR_FONTHEIGHT;
-	m_sft.yScale = LABELBAR_FONTHEIGHT;
-	m_sft.xOffset = 0;
-	m_sft.yOffset = 0;
-	m_sft.flags = SFT_DOWNWARD_Y;
+	// Initialize the bitmap
+	wxSize wxs = GetPanelSize();
+
+	m_image.Create(wxs.GetWidth(), wxs.GetHeight());
+
+	SetSize(wxSize(wxs.GetWidth(), wxs.GetHeight()));
+	SetMinSize(wxSize(wxs.GetWidth(), wxs.GetHeight()));
+	SetCoordinateRange(0.0, 1.0, 0.0, 1.0);
+
+	// Initialize font information
+	m_sftTitleBar.xScale = TITLE_FONTHEIGHT;
+	m_sftTitleBar.yScale = TITLE_FONTHEIGHT;
+	m_sftTitleBar.xOffset = 0;
+	m_sftTitleBar.yOffset = 0;
+	m_sftTitleBar.flags = SFT_DOWNWARD_Y;
+
+	m_sftLabelBar.xScale = LABELBAR_FONTHEIGHT;
+	m_sftLabelBar.yScale = LABELBAR_FONTHEIGHT;
+	m_sftLabelBar.xOffset = 0;
+	m_sftLabelBar.yOffset = 0;
+	m_sftLabelBar.flags = SFT_DOWNWARD_Y;
 
 	wxFileName wxfnFontPath(m_pncvisparent->GetResourceDir(), _T("Ubuntu-Regular.ttf"));
 	wxString wxstrFontPath = wxfnFontPath.GetFullPath();
 
-	m_sft.font = sft_loadfile(wxstrFontPath.ToStdString().c_str());
-	if (m_sft.font == NULL) {
+	m_sftTitleBar.font = sft_loadfile(wxstrFontPath.ToStdString().c_str());
+	if (m_sftTitleBar.font == NULL) {
 		std::cout << "ERROR: Font \"" << wxstrFontPath <<"\" not found" << std::endl;
 		exit(-1);
 	}
 
-	SetSize(wxSize(nPanelWidth, nPanelHeight));
-	SetMinSize(wxSize(nPanelWidth, nPanelHeight));
-	SetCoordinateRange(0.0, 1.0, 0.0, 1.0);
+	m_sftLabelBar.font = m_sftTitleBar.font;
+}
 
-	m_dDataRange[0] = 0.0;
-	m_dDataRange[1] = 1.0;
+////////////////////////////////////////////////////////////////////////////////
+
+wxSize wxImagePanel::GetPanelSize(
+	int nMapWidth,
+	int nMapHeight
+) const {
+	if (nMapWidth == (-1)) {
+		nMapWidth = MAP_WIDTH_DEFAULT;
+	}
+	if (nMapHeight == (-1)) {
+		nMapHeight = MAP_HEIGHT_DEFAULT;
+	}
+
+	wxSize wxs(
+		nMapWidth + 2*DISPLAY_BORDER + LABELBAR_IMAGEWIDTH,
+		nMapHeight + 2*DISPLAY_BORDER);
+
+	if (m_pncvisparent->GetPlotOptions().m_fShowTitle) {
+		wxs.SetHeight(wxs.GetHeight() + (TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT));
+	}
+
+	return wxs;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxImagePanel::GetMapPositionSize(
+	wxSize & wxs,
+	wxPosition & wxp,
+	int nImageWidth,
+	int nImageHeight
+) const {
+
+	_ASSERT(m_pncvisparent != NULL);
+
+	wxs = GetSize();
+
+	if (nImageWidth != (-1)) {
+		wxs.SetWidth(nImageWidth);
+	} else {
+		wxs.SetWidth(wxs.GetWidth() - 2*DISPLAY_BORDER);
+	}
+	if (nImageHeight != (-1)) {
+		wxs.SetHeight(nImageHeight);
+	} else {
+		wxs.SetHeight(wxs.GetHeight() - 2*DISPLAY_BORDER);
+	}
+
+	wxs.SetHeight(wxs.GetHeight());
+	wxs.SetWidth(wxs.GetWidth() - LABELBAR_IMAGEWIDTH);
+
+	wxp.SetColumn(0);
+	wxp.SetRow(0);
+
+	if (m_pncvisparent->GetPlotOptions().m_fShowTitle) {
+		wxs.SetHeight(wxs.GetHeight() - (TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT));
+		wxp.SetRow(wxp.GetRow() + (TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT));
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxImagePanel::ResetPanelSize() {
+
+	_ASSERT(m_pncvisparent != NULL);
+
+	// New panel size
+	wxSize wxsUpdated = GetPanelSize(m_dSampleX.size(), m_dSampleY.size());
+
+	// Current panel size
+	wxSize wxsCurrent = GetSize();
+
+	if ((wxsUpdated.GetWidth() != wxsCurrent.GetWidth()) ||
+	    (wxsUpdated.GetHeight() != wxsCurrent.GetHeight())
+	) {
+		SetSize(wxsUpdated);
+		SetMinSize(wxsUpdated);
+
+		SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1], false);
+		return true;
+	}
+
+	return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -338,12 +447,12 @@ void wxImagePanel::RealCoordToImageCoord(
 
 template <int NDIM>
 void wxImagePanel::GenerateImageDataFromImageMap(
-	const size_t sOffsetX,
-	const size_t sOffsetY,
+	const size_t sImageOffsetX,
+	const size_t sImageOffsetY,
 	const size_t sImageWidth,
 	const size_t sImageHeight,
-	const size_t sCanvasWidth,
-	const size_t sCanvasHeight,
+	const size_t sPanelWidth,
+	const size_t sPanelHeight,
 	unsigned char * imagedata
 ) {
 	_ASSERT(m_pncvisparent != NULL);
@@ -352,51 +461,59 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 	// Set opacity
 	if (NDIM == 4) {
-		for (size_t i = 0; i < sCanvasWidth * sCanvasHeight; i++) {
+		for (size_t i = 0; i < sPanelWidth * sPanelHeight; i++) {
 			imagedata[NDIM * i + 3] = 255;
 		}
 	}
 
-	// Image excluding label bar
-	size_t sMapWidth = sImageWidth - LABELBAR_IMAGEWIDTH;
-	size_t sMapHeight = sImageHeight;
+	// Plot options
+	const NcVisPlotOptions & plotopts = m_pncvisparent->GetPlotOptions();
+
+	// Map size and position
+	wxSize wxsMap;
+	wxPosition wxpMap;
+	GetMapPositionSize(wxsMap, wxpMap, sImageWidth, sImageHeight);
+
+	size_t sMapWidth = wxsMap.GetWidth();
+	size_t sMapHeight = wxsMap.GetHeight();
+
+	_ASSERT(m_imagemap.size() == sMapWidth * sMapHeight);
+
+	size_t sMapOffsetX = wxpMap.GetCol() + sImageOffsetX;
+	size_t sMapOffsetY = wxpMap.GetRow() + sImageOffsetY;
 
 	// Draw map, using different loops 
 	if (!m_pncvisparent->DataHasMissingValue()) {
 		if (m_dColorMapScalingFactor == 1.0) {
 			for (size_t j = 0, s = 0; j < sMapHeight; j++) {
-				size_t jx = sCanvasHeight - (j + sOffsetY) - 1;
-				for (size_t i = 0; i < sMapWidth; i++) {
-					size_t ix = i + sOffsetX;
+				size_t jx = sMapOffsetY + sMapHeight - j - 1;
+				for (size_t i = 0; i < sMapWidth; i++, s++) {
+					size_t ix = sMapOffsetX + i;
 
 					m_colormap.Sample(
 						data[m_imagemap[s]],
 						m_dDataRange[0],
 						m_dDataRange[1],
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0],
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1],
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2]);
-
-					s++;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0],
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1],
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2]);
 				}
 			}
 
 		} else {
 			for (size_t j = 0, s = 0; j < sMapHeight; j++) {
-				size_t jx = sCanvasHeight - (j + sOffsetY) - 1;
-				for (size_t i = 0; i < sMapWidth; i++) {
-					size_t ix = i + sOffsetX;
+				size_t jx = sMapOffsetY + sMapHeight - j - 1;
+				for (size_t i = 0; i < sMapWidth; i++, s++) {
+					size_t ix = i + sMapOffsetX;
 
 					m_colormap.SampleWithScaling(
 						data[m_imagemap[s]],
 						m_dDataRange[0],
 						m_dDataRange[1],
 						m_dColorMapScalingFactor,
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0],
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1],
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2]);
-
-					s++;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0],
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1],
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2]);
 				}
 			}
 		}
@@ -406,9 +523,9 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 		if (m_dColorMapScalingFactor == 1.0) {
 			for (size_t j = 0, s = 0; j < sMapHeight; j++) {
-				size_t jx = sCanvasHeight - (j + sOffsetY) - 1;
-				for (size_t i = 0; i < sMapWidth; i++) {
-					size_t ix = i + sOffsetX;
+				size_t jx = sMapOffsetY + sMapHeight - j - 1;
+				for (size_t i = 0; i < sMapWidth; i++, s++) {
+					size_t ix = i + sMapOffsetX;
 
 					float dValue = data[m_imagemap[s]];
 					if (dValue != dMissingValue) {
@@ -416,23 +533,22 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 							dValue,
 							m_dDataRange[0],
 							m_dDataRange[1],
-							imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0],
-							imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1],
-							imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2]);
+							imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0],
+							imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1],
+							imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2]);
 					} else {
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 					}
-					s++;
 				}
 			}
 
 		} else {
 			for (size_t j = 0, s = 0; j < sMapHeight; j++) {
-				size_t jx = sCanvasHeight - (j + sOffsetY) - 1;
-				for (size_t i = 0; i < sMapWidth; i++) {
-					size_t ix = i + sOffsetX;
+				size_t jx = sMapOffsetY + sMapHeight - j - 1;
+				for (size_t i = 0; i < sMapWidth; i++, s++) {
+					size_t ix = i + sMapOffsetX;
 
 					float dValue = data[m_imagemap[s]];
 					if (dValue != dMissingValue) {
@@ -441,21 +557,21 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 							m_dDataRange[0],
 							m_dDataRange[1],
 							m_dColorMapScalingFactor,
-							imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0],
-							imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1],
-							imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2]);
+							imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0],
+							imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1],
+							imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2]);
 					} else {
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 					}
-					s++;
 				}
 			}
 		}
 	}
+
 	// Draw grid lines
-	if (m_fGridLinesOn) {
+	if (plotopts.m_fShowGrid) {
 		static const int nGridThickness = 2;
 
 		double dMajorDeltaX = m_dXrange[1] - m_dXrange[0];
@@ -471,13 +587,13 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 			if (std::floor(m_dSampleX[i] / dMajorDeltaX) !=
 			    std::floor(m_dSampleX[i+nGridThickness] / dMajorDeltaX)
 			) {
-				size_t ix = i + sOffsetX;
+				size_t ix = i + sImageOffsetX;
 				for (int j = 0; j < sMapHeight; j+=2) {
-					size_t jx = sCanvasHeight - (j + sOffsetY) - 1;
+					size_t jx = sPanelHeight - (j + sImageOffsetY) - 1;
 
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 				}
 			}
 		}
@@ -485,13 +601,13 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 			if (std::floor(m_dSampleY[j] / dMajorDeltaX) !=
 			    std::floor(m_dSampleY[j+nGridThickness] / dMajorDeltaX)
 			) {
-				size_t jx = sCanvasHeight - (j + sOffsetY) - 1;
+				size_t jx = sPanelHeight - (j + sImageOffsetY) - 1;
 				for (int i = 0; i < sMapWidth; i+=2) {
-					size_t ix = i + sOffsetX;
+					size_t ix = i + sImageOffsetX;
 
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 				}
 			}
 		}
@@ -551,22 +667,22 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 					int iYcoord = iYprev + static_cast<int>(dYstep * i);
 
 					if ((iXcoord >= 0) && (iXcoord < sMapWidth) && (iYcoord >= 0) && (iYcoord < sMapHeight)) {
-						size_t ix = iXcoord + sOffsetX;
-						size_t jx = sCanvasHeight - (iYcoord + sOffsetY) - 1;
+						size_t ix = iXcoord + sImageOffsetX;
+						size_t jx = sPanelHeight - (iYcoord + sImageOffsetY) - 1;
 
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 
 						jx++;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-						imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 
 						//ix++;
-						//imagedata[3 * sCanvasWidth * jx + 3 * ix + 0] = imagedata[3 * sWidth * jx + 3 * ix + 0] / 2;
-						//imagedata[3 * sCanvasWidth * jx + 3 * ix + 1] = imagedata[3 * sWidth * jx + 3 * ix + 1] / 2;
-						//imagedata[3 * sCanvasWidth * jx + 3 * ix + 2] = imagedata[3 * sWidth * jx + 3 * ix + 2] / 2;
+						//imagedata[3 * sPanelWidth * jx + 3 * ix + 0] = imagedata[3 * sWidth * jx + 3 * ix + 0] / 2;
+						//imagedata[3 * sPanelWidth * jx + 3 * ix + 1] = imagedata[3 * sWidth * jx + 3 * ix + 1] / 2;
+						//imagedata[3 * sPanelWidth * jx + 3 * ix + 2] = imagedata[3 * sWidth * jx + 3 * ix + 2] / 2;
 					}
 				}
 			}
@@ -575,8 +691,8 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 	// Create label bar
 	if (LABELBAR_IMAGEWIDTH != 0) {
-		size_t sLabelBarXStart = sMapWidth + sOffsetX;
-		size_t sLabelBarYStart = sOffsetY;
+		size_t sLabelBarXStart = sMapOffsetX + sMapWidth;
+		size_t sLabelBarYStart = sMapOffsetY;
 
 		size_t sLabelBarWidth = LABELBAR_IMAGEWIDTH;
 		size_t sLabelBarHeight = sMapHeight;
@@ -595,9 +711,9 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 			for (size_t i = 0; i < sLabelBarWidth; i++) {
 				size_t ix = sLabelBarXStart + i;
 
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255;
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255;
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
 			}
 		}
 
@@ -620,9 +736,9 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 				size_t jx = sLabelBarYEnd - ((sBox+1) * sLabelBarBoxHeight + j) - 1;
 				for (size_t i = 0; i < sLabelBarBoxWidth; i++) {
 					size_t ix = sLabelBarXStart + sLabelBarBoxWidth + i;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = cR;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = cG;
-					imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = cB;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = cR;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = cG;
+					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = cB;
 				}
 			}
 		}
@@ -637,14 +753,64 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 			FormatLabelBarLabel(dDataValue, strLabel);
 
 			DrawString<NDIM>(
+				m_sftLabelBar,
 				strLabel,
 				sLabelBarXStart + 2 * sLabelBarBoxWidth + sLabelBarBoxHalfWidth, 
 				sLabelBarYEnd - ((sBox+1) * sLabelBarBoxHeight - LABELBAR_FONTHEIGHT/2 + 1) - 1,
-				sCanvasWidth,
-				sCanvasHeight,
+				TextAlignment_Left,
+				sPanelWidth,
+				sPanelHeight,
 				imagedata); 
 		}
 	}
+
+	// Create title
+	if (m_pncvisparent->GetPlotOptions().m_fShowTitle) {
+		for (size_t j = 0; j < TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT - 1; j++) {
+			size_t jx = sImageOffsetY + j;
+			for (size_t i = 0; i < sImageWidth; i++) {
+				size_t ix = sImageOffsetX + i;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
+			}
+		}
+
+		DrawString<NDIM>(
+			m_sftTitleBar,
+			m_pncvisparent->GetVarActiveTitle(),
+			sImageOffsetX + TITLE_MARGINHEIGHT,
+			sImageOffsetY + TITLE_FONTHEIGHT - 1,
+			TextAlignment_Left,
+			sPanelWidth,
+			sPanelHeight,
+			imagedata); 
+
+		DrawString<NDIM>(
+			m_sftTitleBar,
+			m_pncvisparent->GetVarActiveUnits(),
+			sImageOffsetX + sMapWidth,
+			sImageOffsetY + TITLE_FONTHEIGHT - 1,
+			TextAlignment_Right,
+			sPanelWidth,
+			sPanelHeight,
+			imagedata); 
+
+		{
+			size_t jx = sImageOffsetY + TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT - 1;
+			for (size_t i = 0; i < sImageWidth; i++) {
+				size_t ix = sImageOffsetX + i;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 0;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 0;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 0;
+			}
+		}
+
+	}
+
+	//imagedata[NDIM * sPanelWidth * 1 + NDIM * 1 + 0] = 255;
+	//imagedata[NDIM * sPanelWidth * 1 + NDIM * 1 + 1] = 0;
+	//imagedata[NDIM * sPanelWidth * 1 + NDIM * 1 + 2] = 0;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -665,43 +831,43 @@ void wxImagePanel::GenerateImageFromImageMap(
 		std::cout << "GENERATE IMAGE" << std::endl;
 	}
 
-	wxSize wxs = this->GetSize();
+	wxSize wxs = GetSize();
 
-	size_t sCanvasWidth = wxs.GetWidth();
-	size_t sCanvasHeight = wxs.GetHeight();
+	size_t sPanelWidth = wxs.GetWidth();
+	size_t sPanelHeight = wxs.GetHeight();
 
 	m_image.Resize(wxs, wxPoint(0,0), 0, 0, 0);
 
 	unsigned char * imagedata = m_image.GetData();
 
 	// Draw border
-	for (size_t j = 0; j < sCanvasHeight; j++) {
-		imagedata[3 * sCanvasWidth * j + 0] = 0;
-		imagedata[3 * sCanvasWidth * j + 1] = 0;
-		imagedata[3 * sCanvasWidth * j + 2] = 0;
+	for (size_t j = 0; j < sPanelHeight; j++) {
+		imagedata[3 * sPanelWidth * j + 0] = 0;
+		imagedata[3 * sPanelWidth * j + 1] = 0;
+		imagedata[3 * sPanelWidth * j + 2] = 0;
 
-		imagedata[3 * (sCanvasWidth * (j+1) - 1) + 0] = 0;
-		imagedata[3 * (sCanvasWidth * (j+1) - 1) + 1] = 0;
-		imagedata[3 * (sCanvasWidth * (j+1) - 1) + 2] = 0;
+		imagedata[3 * (sPanelWidth * (j+1) - 1) + 0] = 0;
+		imagedata[3 * (sPanelWidth * (j+1) - 1) + 1] = 0;
+		imagedata[3 * (sPanelWidth * (j+1) - 1) + 2] = 0;
 	}
-	for (size_t i = 0; i < sCanvasWidth; i++) {
+	for (size_t i = 0; i < sPanelWidth; i++) {
 		imagedata[3 * i + 0] = 0;
 		imagedata[3 * i + 1] = 0;
 		imagedata[3 * i + 2] = 0;
 
-		imagedata[3 * (sCanvasWidth * (sCanvasHeight-1) + i) + 0] = 0;
-		imagedata[3 * (sCanvasWidth * (sCanvasHeight-1) + i) + 1] = 0;
-		imagedata[3 * (sCanvasWidth * (sCanvasHeight-1) + i) + 2] = 0;
+		imagedata[3 * (sPanelWidth * (sPanelHeight-1) + i) + 0] = 0;
+		imagedata[3 * (sPanelWidth * (sPanelHeight-1) + i) + 1] = 0;
+		imagedata[3 * (sPanelWidth * (sPanelHeight-1) + i) + 2] = 0;
 	}
 
 	// Generate image
 	GenerateImageDataFromImageMap<3>(
 		DISPLAY_BORDER,
 		DISPLAY_BORDER,
-		sCanvasWidth - 2 * DISPLAY_BORDER,
-		sCanvasHeight - 2 * DISPLAY_BORDER,
-		sCanvasWidth,
-		sCanvasHeight,
+		sPanelWidth - 2 * DISPLAY_BORDER,
+		sPanelHeight - 2 * DISPLAY_BORDER,
+		sPanelWidth,
+		sPanelHeight,
 		imagedata);
 
 	// Redraw
@@ -755,8 +921,8 @@ void wxImagePanel::ResampleData(
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::SetCoordinateRange(
-	size_t sImageWidth,
-	size_t sImageHeight,
+	size_t sMapWidth,
+	size_t sMapHeight,
 	double dX0,
 	double dX1,
 	double dY0,
@@ -768,14 +934,14 @@ void wxImagePanel::SetCoordinateRange(
 	m_dYrange[0] = dY0;
 	m_dYrange[1] = dY1;
 
-	m_dSampleX.resize(sImageWidth);
-	for (size_t i = 0; i < sImageWidth; i++) {
-		m_dSampleX[i] = m_dXrange[0] + (m_dXrange[1] - m_dXrange[0]) * (static_cast<double>(i) + 0.5) / static_cast<double>(sImageWidth);
+	m_dSampleX.resize(sMapWidth);
+	for (size_t i = 0; i < sMapWidth; i++) {
+		m_dSampleX[i] = m_dXrange[0] + (m_dXrange[1] - m_dXrange[0]) * (static_cast<double>(i) + 0.5) / static_cast<double>(sMapWidth);
 	}
 
-	m_dSampleY.resize(sImageHeight);
-	for (size_t j = 0; j < sImageHeight; j++) {
-		m_dSampleY[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sImageHeight);
+	m_dSampleY.resize(sMapHeight);
+	for (size_t j = 0; j < sMapHeight; j++) {
+		m_dSampleY[j] = m_dYrange[0] + (m_dYrange[1] - m_dYrange[0]) * (static_cast<double>(j) + 0.5) / static_cast<double>(sMapHeight);
 	}
 
 	m_pncvisparent->SetDisplayedBounds(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1]);
@@ -792,20 +958,16 @@ void wxImagePanel::SetCoordinateRange(
 	double dY1,
 	bool fRedraw
 ) {
-	wxSize wxs = this->GetSize();
+	wxSize wxs;
+	wxPosition wxp;
+	GetMapPositionSize(wxs, wxp);
 
-	size_t sWidth = wxs.GetWidth();
-	size_t sHeight = wxs.GetHeight();
-
-	_ASSERT(sWidth >= LABELBAR_IMAGEWIDTH + 2 * DISPLAY_BORDER);
-	_ASSERT(sHeight >= 2 * DISPLAY_BORDER);
-
-	size_t sImageWidth = sWidth - LABELBAR_IMAGEWIDTH - 2 * DISPLAY_BORDER;
-	size_t sImageHeight = sHeight - 2 * DISPLAY_BORDER;
+	_ASSERT(wxs.GetWidth() >= 0);
+	_ASSERT(wxs.GetHeight() >= 0);
 
 	SetCoordinateRange(
-		sImageWidth,
-		sImageHeight,
+		wxs.GetWidth(),
+		wxs.GetHeight(),
 		dX0, dX1,
 		dY0, dY1,
 		fRedraw);
@@ -825,9 +987,16 @@ void wxImagePanel::ImposeImageSize(
 
 	m_fEnableRedraw = false;
 
+	wxSize wxs;
+	wxPosition wxp;
+	GetMapPositionSize(wxs, wxp, sImageWidth, sImageHeight);
+
+	_ASSERT(wxs.GetWidth() >= 0);
+	_ASSERT(wxs.GetHeight() >= 0);
+
 	SetCoordinateRange(
-		sImageWidth - LABELBAR_IMAGEWIDTH,
-		sImageHeight,
+		wxs.GetWidth(),
+		wxs.GetHeight(),
 		m_dXrange[0], m_dXrange[1],
 		m_dYrange[0], m_dYrange[1],
 		false);
@@ -894,8 +1063,49 @@ void wxImagePanel::SetGridLinesOn(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxImagePanel::CalculateStringMinImageBufferSize(
+	SFT & sft,
+	const std::string & str,
+	size_t & sMinWidth,
+	size_t & sMinHeight,
+	size_t & sBaseline
+) {
+	sMinWidth = 0;
+	sMinHeight = 0;
+	sBaseline = 0;
+
+	for (int i = 0; i < str.length(); i++) {
+		SFT_Glyph gid;
+		if (sft_lookup(&sft, str[i], &gid) < 0) {
+			std::cout << "FATAL ERROR IN SFT: " << str[i] << " missing" << std::endl;
+			return;
+		}
+
+		SFT_GMetrics mtx;
+		if (sft_gmetrics(&sft, gid, &mtx) < 0) {
+			std::cout << "FATAL ERROR IN SFT: " << str[i] << " bad glyph metrics" << std::endl;
+			return;
+		}
+
+		if (mtx.minHeight > sMinHeight) {
+			sMinHeight = mtx.minHeight;
+		}
+		if (i != str.length()-1) {
+			sMinWidth += mtx.advanceWidth;
+		} else {
+			sMinWidth += mtx.minWidth;
+		}
+		if (-mtx.yOffset > sBaseline) {
+			sBaseline = -mtx.yOffset;
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 template <int NDIM>
 void wxImagePanel::DrawCharacter(
+	SFT & sft,
 	unsigned char c,
 	size_t sX,
 	size_t sY,
@@ -905,16 +1115,14 @@ void wxImagePanel::DrawCharacter(
 	int * pwidth,
 	int * pheight
 ) {
-	//uint32_t utf32 = utf8_to_utf32(c);
-
 	SFT_Glyph gid;
-	if (sft_lookup(&m_sft, c, &gid) < 0) {
+	if (sft_lookup(&sft, c, &gid) < 0) {
 		std::cout << "FATAL ERROR IN SFT: " << c << " missing" << std::endl;
 		return;
 	}
 
 	SFT_GMetrics mtx;
-	if (sft_gmetrics(&m_sft, gid, &mtx) < 0) {
+	if (sft_gmetrics(&sft, gid, &mtx) < 0) {
 		std::cout << "FATAL ERROR IN SFT: " << c << " bad glyph metrics" << std::endl;
 		return;
 	}
@@ -924,13 +1132,13 @@ void wxImagePanel::DrawCharacter(
 	img.height = mtx.minHeight;
 	char * pixels = new char[img.width * img.height];
 	img.pixels = pixels;
-	if (sft_render(&m_sft, gid, img) < 0) {
+	if (sft_render(&sft, gid, img) < 0) {
 		std::cout << "FATAL ERROR IN SFT: " << c << " not rendered" << std::endl;
 		return;
 	}
 
 	if (pwidth != NULL) {
-		(*pwidth) = mtx.minWidth;
+		(*pwidth) = mtx.advanceWidth;
 	}
 	if (pheight != NULL) {
 		(*pheight) = mtx.minHeight;
@@ -938,12 +1146,13 @@ void wxImagePanel::DrawCharacter(
 
 	int s = 0;
 	for (int j = 0; j < img.height; j++) {
-		size_t jx = static_cast<size_t>(j) + sY + mtx.yOffset;
+		size_t jx = sY + static_cast<size_t>(j) + mtx.yOffset;
 		for (int i = 0; i < img.width; i++) {
-			size_t ix = static_cast<size_t>(i) + sX;
-			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = 255 - pixels[s];
-			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = 255 - pixels[s];
-			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = 255 - pixels[s];
+			size_t ix = sX + static_cast<size_t>(i) + mtx.leftSideBearing;
+			float dShadingFrac = static_cast<float>(255 - pixels[s]) / 255.0;
+			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] *= dShadingFrac;
+			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] *= dShadingFrac;
+			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] *= dShadingFrac;
 			s++;
 		}
 	}
@@ -955,24 +1164,79 @@ void wxImagePanel::DrawCharacter(
 
 template <int NDIM>
 void wxImagePanel::DrawString(
+	SFT & sft,
 	const std::string & str,
 	size_t sX,
 	size_t sY,
+	TextAlignment eAlign,
 	size_t sCanvasWidth,
 	size_t sCanvasHeight,
 	unsigned char * imagedata,
 	int * pwidth,
 	int * pheight
 ) {
+	int cumulative_width = 0;
 	int cumulative_height = 0;
 	int width = 0;
 	int height = 0;
-	for (int i = 0; i < str.length(); i++) {
-		DrawCharacter<NDIM>(str[i], sX, sY, sCanvasWidth, sCanvasHeight, imagedata, &width, &height);
-		sX += static_cast<size_t>(width);
-		if ((pheight != NULL) && (height > cumulative_height)) {
-			cumulative_height = height;
+
+	// Render left-aligned text
+	if (eAlign == TextAlignment_Left) {
+		for (int i = 0; i < str.length(); i++) {
+			DrawCharacter<NDIM>(sft, str[i], sX, sY, sCanvasWidth, sCanvasHeight, imagedata, &width, &height);
+			sX += static_cast<size_t>(width);
+			cumulative_width += width;
+			if (height > cumulative_height) {
+				cumulative_height = height;
+			}
 		}
+
+	// Render right-aligned text
+	} else {
+		size_t sMinBufferWidth;
+		size_t sMinBufferHeight;
+		size_t sBaseline;
+		CalculateStringMinImageBufferSize(sft, str, sMinBufferWidth, sMinBufferHeight, sBaseline);
+
+		if (sMinBufferWidth == 0) {
+			if (pwidth != NULL) {
+				(*pwidth) = 0;
+			}
+			if (pheight != NULL) {
+				(*pheight) = 0;
+			}
+			return;
+		}
+
+		cumulative_height = sMinBufferHeight;
+
+		unsigned char * stringbuf = new unsigned char[NDIM * sMinBufferWidth * sMinBufferHeight];
+		memset(stringbuf, 255, NDIM * sMinBufferWidth * sMinBufferHeight * sizeof(unsigned char));
+
+		size_t sPenX = 0;
+
+		for (int i = 0; i < str.length(); i++) {
+			DrawCharacter<NDIM>(sft, str[i], sPenX, sBaseline, sMinBufferWidth, sMinBufferHeight, stringbuf, &width, &height);
+			sPenX += static_cast<size_t>(width);
+		}
+
+		for (int i = 0; i < sMinBufferWidth; i++) {
+			int ix = sX - sPenX + i;
+			for (int j = 0; j < sMinBufferHeight; j++) {
+				int jx = sY - sBaseline + j;
+				if (sCanvasWidth * jx + ix + 0 >= sCanvasWidth * sCanvasHeight) {
+					_EXCEPTION();
+				}
+				if (j * sMinBufferWidth + i >= sMinBufferWidth * sMinBufferHeight) {
+					_EXCEPTION();
+				}
+				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = stringbuf[NDIM * (j * sMinBufferWidth + i) + 0];
+				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = stringbuf[NDIM * (j * sMinBufferWidth + i) + 1];
+				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = stringbuf[NDIM * (j * sMinBufferWidth + i) + 2];
+			}
+		}
+
+		delete[] stringbuf;
 	}
 
 	if (pwidth != NULL) {
