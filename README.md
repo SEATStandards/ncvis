@@ -11,7 +11,7 @@ ncvis is inspired by David Pierce's most excellent ncview utility (http://meteor
 
 ## Configuration
 
-In order for ncvis to run the `NCVIS_RESOURCE_DIR` environment variable must be set. This should be set to path of the `ncvis/resources` subdirectory, and is where ncvis stores fonts, colormaps and shapefiles.
+In order for ncvis to run the `resources` directory must be in the same folder as `ncvis` or the `NCVIS_RESOURCE_DIR` environment variable must be set to the path of the ncvis resources folder. This directory is where ncvis stores fonts, colormaps and shapefiles.
 
 On Unix of Linux-based systems, ncvis uses GDK (via wxWidgets) for rendering of the interface.  The font size displayed in GDK can be adjusted by setting the `GDK_DPI_SCALE` environment variable, e.g. via `export GDK_DPI_SCALE=0.5`.
 
@@ -34,3 +34,7 @@ for cmap in cmocean.cm.cmapnames:
     # save the file to disk
     np.savetxt(f"{cmap}.rgb", color_table, fmt = "%i")
 ```
+
+## Screenshot (v2022.08.17)
+
+<img width="842" alt="ncvis_screenshot_2022-08-18" src="https://user-images.githubusercontent.com/5330916/185477195-0381f475-10d4-4aa4-acdf-c352c87824b2.png">
