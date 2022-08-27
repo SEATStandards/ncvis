@@ -5,6 +5,7 @@ file(GLOB NCVIS_HEADER_FILES CONFIGURE_DEPENDS "${ncvis_SOURCE_DIR}/src/*.h")
 set(NCVIS_SOURCE_FILES
   kdtree.cpp 
   wxNcVisFrame.cpp 
+  wxNcVisOptionsDialog.cpp
   wxNcVisExportDialog.cpp
   wxImagePanel.cpp 
   GridDataSampler.cpp 
