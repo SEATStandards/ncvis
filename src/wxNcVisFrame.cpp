@@ -1670,6 +1670,7 @@ void wxNcVisFrame::OnVariableSelected(
 
 	// Generate title
 	{
+		NcError error(NcError::silent_nonfatal);
 		NcAtt * attLongName = m_varActive->get_att("long_name");
 		if (attLongName != NULL) {
 			m_strVarActiveTitle = std::string("[") + m_varActive->name() + std::string("] ") + attLongName->as_string(0);
