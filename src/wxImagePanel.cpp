@@ -839,8 +839,8 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 					int iYcoord = iYprev + static_cast<int>(dYstep * i);
 
 					if ((iXcoord >= 0) && (iXcoord < sMapWidth) && (iYcoord >= 0) && (iYcoord < sMapHeight)) {
-						size_t ix = iXcoord + sImageOffsetX;
-						size_t jx = sPanelHeight - (iYcoord + sImageOffsetY) - 1;
+						size_t ix = iXcoord + sMapOffsetX;
+						size_t jx = sMapOffsetY + sMapHeight - iYcoord;
 
 						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
 						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
