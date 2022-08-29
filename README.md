@@ -35,6 +35,10 @@ for cmap in cmocean.cm.cmapnames:
     np.savetxt(f"{cmap}.rgb", color_table, fmt = "%i")
 ```
 
-## Screenshot (v2022.08.17)
+## Screenshot (v2022.08.28)
+
+<img width="922" alt="ncvis_2022_08_28_era5_topo" src="https://user-images.githubusercontent.com/5330916/187129223-b9d47718-fff3-4fd9-8efb-4f71bd86d3e2.png">
+
+## Screenshot (v2022.08.18)
 
 <img width="842" alt="ncvis_screenshot_2022-08-18" src="https://user-images.githubusercontent.com/5330916/185477195-0381f475-10d4-4aa4-acdf-c352c87824b2.png">
