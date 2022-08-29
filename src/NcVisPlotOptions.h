@@ -18,7 +18,7 @@ public:
 	///	</summary>
 	NcVisPlotOptions() :
 		m_fShowTitle(true),
-		m_fShowTickmarkLabels(false),
+		m_fShowTickmarkLabels(true),
 		m_fShowGrid(false)
 	{ }
 

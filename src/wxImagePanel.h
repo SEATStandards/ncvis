@@ -101,6 +101,14 @@ public:
 	);
 
 	///	<summary>
+	///		Format a tickmark label from a value.
+	///	</summary>
+	void FormatTickmarkLabel(
+		double dValue,
+		std::string & str
+	);
+
+	///	<summary>
 	///		Convert a real coordiante to an image coordinate.
 	///	</summary>
 	void RealCoordToImageCoord(
@@ -280,7 +288,8 @@ public:
 	///	</summary>
 	enum TextAlignment {
 		TextAlignment_Left,
-		TextAlignment_Right
+		TextAlignment_Right,
+		TextAlignment_Center
 	};
 
 	///	<summary>
@@ -373,6 +382,11 @@ private:
 	///		Font information for label bar.
 	///	</summary>
 	SFT m_sftLabelBar;
+
+	///	<summary>
+	///		Font information for tickmark labels.
+	///	</summary>
+	SFT m_sftTickmarkLabels;
 
 	///	<summary>
 	///		Disable rendering.

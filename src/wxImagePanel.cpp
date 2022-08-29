@@ -14,6 +14,8 @@
 #include <wx/stdpaths.h>
 #include <wx/kbdstate.h>
 
+#include <map>
+
 ////////////////////////////////////////////////////////////////////////////////
 
 BEGIN_EVENT_TABLE(wxImagePanel, wxPanel)
@@ -67,6 +69,36 @@ static const int TITLE_FONTHEIGHT = 18;
 ///	</summary>
 static const int TITLE_MARGINHEIGHT = 6;
 
+///	<summary>
+///		Thickness of grid lines.
+///	</summary>
+static const int GRID_THICKNESS = 2;
+
+///	<summary>
+///		Margin width for tickmark labels.
+///	</summary>
+static const int TICKMARK_MARGINWIDTH = 80;
+
+///	<summary>
+///		Margin height for tickmark labels.
+///	</summary>
+static const int TICKMARK_MARGINHEIGHT = 32;
+
+///	<summary>
+///		Length of a major tickmark.
+///	</summary>
+static const int TICKMARK_MAJORLENGTH = 8;
+
+///	<summary>
+///		Tickmark label font height.
+///	</summary>
+static const int TICKMARKLABEL_TICKLABELSPACING = 4;
+
+///	<summary>
+///		Tickmark label font height.
+///	</summary>
+static const int TICKMARKLABEL_FONTHEIGHT = 16;
+
 ////////////////////////////////////////////////////////////////////////////////
 
 wxImagePanel::wxImagePanel(
@@ -111,6 +143,12 @@ wxImagePanel::wxImagePanel(
 	m_sftLabelBar.yOffset = 0;
 	m_sftLabelBar.flags = SFT_DOWNWARD_Y;
 
+	m_sftTickmarkLabels.xScale = TICKMARKLABEL_FONTHEIGHT;
+	m_sftTickmarkLabels.yScale = TICKMARKLABEL_FONTHEIGHT;
+	m_sftTickmarkLabels.xOffset = 0;
+	m_sftTickmarkLabels.yOffset = 0;
+	m_sftTickmarkLabels.flags = SFT_DOWNWARD_Y;
+
 	wxFileName wxfnFontPath(m_pncvisparent->GetResourceDir(), _T("Ubuntu-Regular.ttf"));
 	wxString wxstrFontPath = wxfnFontPath.GetFullPath();
 
@@ -121,6 +159,7 @@ wxImagePanel::wxImagePanel(
 	}
 
 	m_sftLabelBar.font = m_sftTitleBar.font;
+	m_sftTickmarkLabels.font = m_sftTitleBar.font;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -141,7 +180,11 @@ wxSize wxImagePanel::GetPanelSize(
 		nMapHeight + 2*DISPLAY_BORDER);
 
 	if (m_pncvisparent->GetPlotOptions().m_fShowTitle) {
-		wxs.SetHeight(wxs.GetHeight() + (TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT));
+		wxs.SetHeight(wxs.GetHeight() + TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT);
+	}
+	if (m_pncvisparent->GetPlotOptions().m_fShowTickmarkLabels) {
+		wxs.SetHeight(wxs.GetHeight() + TICKMARK_MARGINHEIGHT);
+		wxs.SetWidth(wxs.GetWidth() + TICKMARK_MARGINWIDTH);
 	}
 
 	return wxs;
@@ -180,6 +223,11 @@ void wxImagePanel::GetMapPositionSize(
 	if (m_pncvisparent->GetPlotOptions().m_fShowTitle) {
 		wxs.SetHeight(wxs.GetHeight() - (TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT));
 		wxp.SetRow(wxp.GetRow() + (TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT));
+	}
+	if (m_pncvisparent->GetPlotOptions().m_fShowTickmarkLabels) {
+		wxs.SetHeight(wxs.GetHeight() - TICKMARK_MARGINHEIGHT);
+		wxs.SetWidth(wxs.GetWidth() - TICKMARK_MARGINWIDTH);
+		wxp.SetCol(wxp.GetCol() + TICKMARK_MARGINWIDTH);
 	}
 }
 
@@ -249,24 +297,28 @@ void wxImagePanel::OnIdle(wxIdleEvent & evt) {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::OnMouseMotion(wxMouseEvent & evt) {
-	wxPoint pos = evt.GetPosition();
+	wxPoint posMouse = evt.GetPosition();
 
-	pos.x -= DISPLAY_BORDER;
-	pos.y -= DISPLAY_BORDER;
+	wxSize wxsMap;
+	wxPosition wxpMap;
+	GetMapPositionSize(wxsMap, wxpMap);
 
-	if ((pos.x < 0) || (pos.x >= m_dSampleX.size())) {
+	posMouse.x -= wxpMap.GetCol();
+	posMouse.y -= wxpMap.GetRow();
+
+	if ((posMouse.x < 0) || (posMouse.x >= m_dSampleX.size())) {
 		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
-	if ((pos.y < 0) || (pos.y >= m_dSampleY.size())) {
+	if ((posMouse.y < 0) || (posMouse.y >= m_dSampleY.size())) {
 		m_pncvisparent->SetStatusMessage(_T(""), true);
 		return;
 	}
 
-	double dX = m_dSampleX[pos.x];
-	double dY = m_dSampleY[m_dSampleY.size() - pos.y - 1];
+	double dX = m_dSampleX[posMouse.x];
+	double dY = m_dSampleY[m_dSampleY.size() - posMouse.y - 1];
 
-	size_t sI = static_cast<size_t>((m_dSampleY.size() - pos.y - 1) * m_dSampleX.size() + pos.x);
+	size_t sI = static_cast<size_t>((m_dSampleY.size() - posMouse.y - 1) * m_dSampleX.size() + posMouse.x);
 
 	if (m_imagemap.size() <= sI) {
 		return;
@@ -406,23 +458,29 @@ void wxImagePanel::FormatLabelBarLabel(
 		snprintf(sz, 16, "%.7g", dValue);
 	}
 
-	/*
+	str = sz;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxImagePanel::FormatTickmarkLabel(
+	double dValue,
+	std::string & str
+) {
+	char sz[16];
 	if (dValue == 0.0) {
 		str = "0";
 		return;
-	}
-	if (fabs(dValue) >= 1000.0) {
-		snprintf(sz, 16, "%1.3e", dValue);
-	} else if (fabs(dValue) > 100.0) {
-		snprintf(sz, 16, "%3.3f", dValue);
-	} else if (fabs(dValue) > 10.0) {
-		snprintf(sz, 16, "%2.4f", dValue);
-	} else if (fabs(dValue) > 1.0e-2) {
-		snprintf(sz, 16, "%1.5f", dValue);
+	} else if ((fabs(dValue) >= 1.0e5) || (fabs(dValue) < 1.0e-2)) {
+		snprintf(sz, 16, "%.2g", dValue);
+	} else if (fabs(dValue) < 0.1) {
+		snprintf(sz, 16, "%.4g", dValue);
+	} else if (fabs(dValue) < 1.0) {
+		snprintf(sz, 16, "%.5g", dValue);
 	} else {
-		snprintf(sz, 16, "%1.3e", dValue);
+		snprintf(sz, 16, "%.6g", dValue);
 	}
-	*/
+
 	str = sz;
 }
 
@@ -459,12 +517,8 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 	const std::vector<float> & data = m_pncvisparent->GetData();
 
-	// Set opacity
-	if (NDIM == 4) {
-		for (size_t i = 0; i < sPanelWidth * sPanelHeight; i++) {
-			imagedata[NDIM * i + 3] = 255;
-		}
-	}
+	// Clear background
+	memset(imagedata, 255, NDIM * sPanelWidth * sPanelHeight * sizeof(unsigned char));
 
 	// Plot options
 	const NcVisPlotOptions & plotopts = m_pncvisparent->GetPlotOptions();
@@ -571,9 +625,9 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 	}
 
 	// Draw grid lines
-	if (plotopts.m_fShowGrid) {
-		static const int nGridThickness = 2;
+	if ((plotopts.m_fShowGrid) || (plotopts.m_fShowTickmarkLabels)) {
 
+		// Generate tickmark positions
 		double dMajorDeltaX = m_dXrange[1] - m_dXrange[0];
 		if (dMajorDeltaX >= 90.0) {
 			dMajorDeltaX = 30.0;
@@ -583,31 +637,149 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 			dMajorDeltaX = pow(10.0, static_cast<double>(iDeltaXMag10));
 		}
 
-		for (int i = nGridThickness; i < sMapWidth-nGridThickness; i++) {
-			if (std::floor(m_dSampleX[i] / dMajorDeltaX) !=
-			    std::floor(m_dSampleX[i+nGridThickness] / dMajorDeltaX)
-			) {
-				size_t ix = i + sImageOffsetX;
-				for (int j = 0; j < sMapHeight; j+=2) {
-					size_t jx = sPanelHeight - (j + sImageOffsetY) - 1;
+		std::map<int,double> mapTickmarkMajorX;
+		std::map<int,double> mapTickmarkMajorY;
 
-					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
-					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
-					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
+		for (int i = 0; i < m_dSampleX.size()-1; i++) {
+			if (std::floor(m_dSampleX[i] / dMajorDeltaX) !=
+			    std::floor(m_dSampleX[i+1] / dMajorDeltaX)
+			) {
+				mapTickmarkMajorX.insert(
+					std::pair<int,double>(
+						i,
+						std::floor(m_dSampleX[i+1] / dMajorDeltaX) * dMajorDeltaX));
+			}
+		}
+
+		mapTickmarkMajorX.insert(std::pair<int,double>(-1, m_dXrange[0]));
+		mapTickmarkMajorX.insert(std::pair<int,double>(static_cast<int>(sMapWidth), m_dXrange[1]));
+		mapTickmarkMajorY.insert(std::pair<int,double>(-1, m_dYrange[1]));
+		mapTickmarkMajorY.insert(std::pair<int,double>(static_cast<int>(sMapHeight), m_dYrange[0]));
+
+		for (int j = 0, s = 0; j < m_dSampleY.size()-1; j++) {
+			if (std::floor(m_dSampleY[j] / dMajorDeltaX) !=
+			    std::floor(m_dSampleY[j+1] / dMajorDeltaX)
+			) {
+				mapTickmarkMajorY.insert(
+					std::pair<int,double>(
+						static_cast<int>(sMapHeight) - j - 1,
+						std::floor(m_dSampleY[j+1] / dMajorDeltaX) * dMajorDeltaX));
+			}
+		}
+
+		// Draw the grid
+		if (plotopts.m_fShowGrid) {
+			for (int i = GRID_THICKNESS; i < sMapWidth-GRID_THICKNESS; i++) {
+				if ((mapTickmarkMajorX.find(i) != mapTickmarkMajorX.end()) ||
+				    (mapTickmarkMajorX.find(i+1) != mapTickmarkMajorX.end())
+				) {
+					size_t ix = i + sMapOffsetX;
+					for (int j = 0; j < sMapHeight; j+=2) {
+						size_t jx = sMapOffsetY + j;
+
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
+					}
+				}
+			}
+			for (int j = GRID_THICKNESS; j < sMapHeight-GRID_THICKNESS; j++) {
+				if ((mapTickmarkMajorY.find(j) != mapTickmarkMajorY.end()) ||
+				    (mapTickmarkMajorY.find(j+1) != mapTickmarkMajorY.end())
+				) {
+					size_t jx = sMapOffsetY + j;
+					for (int i = 0; i < sMapWidth; i+=2) {
+						size_t ix = i + sMapOffsetX;
+
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
+					}
 				}
 			}
 		}
-		for (int j = nGridThickness; j < sMapHeight-nGridThickness; j++) {
-			if (std::floor(m_dSampleY[j] / dMajorDeltaX) !=
-			    std::floor(m_dSampleY[j+nGridThickness] / dMajorDeltaX)
-			) {
-				size_t jx = sPanelHeight - (j + sImageOffsetY) - 1;
-				for (int i = 0; i < sMapWidth; i+=2) {
-					size_t ix = i + sImageOffsetX;
 
-					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
-					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
-					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
+		// Draw tickmarks and tickmark labels
+		if (plotopts.m_fShowTickmarkLabels) {
+			std::string strTickmarkLabel;
+
+			int nStringWidth = 0;
+
+			int lasti = -100;
+
+			for (int i = -1; i < static_cast<int>(sMapWidth+1); i++) {
+				auto itTickmarkMajorX = mapTickmarkMajorX.find(i);
+				if (itTickmarkMajorX != mapTickmarkMajorX.end()) {
+					size_t ix = i + sMapOffsetX;
+					for (int j = 1; j < TICKMARK_MAJORLENGTH+1; j++) {
+						size_t jx = sMapOffsetY + sMapHeight + j;
+
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 64;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 64;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 64;
+					}
+
+					// Prevent text from overwriting itself (need a better alg)
+					if (i != static_cast<int>(sMapWidth)) {
+						if (i - lasti < nStringWidth) {
+							continue;
+						}
+						if (i > static_cast<int>(sMapWidth) - nStringWidth) {
+							continue;
+						}
+					}
+					lasti = i;
+
+					// Generate label
+					FormatTickmarkLabel(itTickmarkMajorX->second, strTickmarkLabel);
+					DrawString<NDIM>(
+						m_sftTickmarkLabels,
+						strTickmarkLabel,
+						ix,
+						sMapOffsetY + sMapHeight + TICKMARK_MAJORLENGTH + TICKMARKLABEL_FONTHEIGHT + TICKMARKLABEL_TICKLABELSPACING,
+						TextAlignment_Center,
+						sPanelWidth,
+						sPanelHeight,
+						imagedata,
+						&nStringWidth);
+
+				}
+			}
+			int lastj = -100;
+			for (int j = -1; j < static_cast<int>(sMapHeight+1); j++) {
+				auto itTickmarkMajorY = mapTickmarkMajorY.find(j);
+				if (itTickmarkMajorY != mapTickmarkMajorY.end()) {
+					size_t jx = sMapOffsetY + j;
+					for (int i = -TICKMARK_MAJORLENGTH-1; i < -1; i++) {
+						size_t ix = i + sMapOffsetX;
+
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 64;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 64;
+						imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 64;
+					}
+
+					// Prevent text from overwriting itself
+					if (j != static_cast<int>(sMapHeight)) {
+						if (j - lastj < TICKMARKLABEL_FONTHEIGHT) {
+							continue;
+						}
+						if (j > static_cast<int>(sMapHeight) - TICKMARKLABEL_FONTHEIGHT) {
+							continue;
+						}
+					}
+					lastj = j;
+
+					// Generate label
+					FormatTickmarkLabel(itTickmarkMajorY->second, strTickmarkLabel);
+					DrawString<NDIM>(
+						m_sftTickmarkLabels,
+						strTickmarkLabel,
+						sMapOffsetX - TICKMARK_MAJORLENGTH - TICKMARKLABEL_TICKLABELSPACING,
+						sMapOffsetY + j + (TICKMARKLABEL_FONTHEIGHT / 2) - 2,
+						TextAlignment_Right,
+						sPanelWidth,
+						sPanelHeight,
+						imagedata); 
 				}
 			}
 		}
@@ -706,15 +878,12 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 		size_t sLabelBarBoxWidth = sLabelBarWidth / 8;
 		size_t sLabelBarBoxHalfWidth = sLabelBarBoxWidth / 2;
 
-		for (size_t j = 0; j < sLabelBarHeight; j++) {
-			size_t jx = sLabelBarYStart + j;
-			for (size_t i = 0; i < sLabelBarWidth; i++) {
-				size_t ix = sLabelBarXStart + i;
-
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
-			}
+		for (int j = sLabelBarYStart; j < sLabelBarYEnd; j++) {
+			size_t jx = j;
+			size_t ix = sLabelBarXStart;
+			imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 0;
+			imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 0;
+			imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 0;
 		}
 
 		for (size_t sBox = 0; sBox < LABELBAR_BOXCOUNT; sBox++) {
@@ -734,7 +903,7 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 			for (size_t j = 0; j < sLabelBarBoxHeight; j++) {
 				size_t jx = sLabelBarYEnd - ((sBox+1) * sLabelBarBoxHeight + j) - 1;
-				for (size_t i = 0; i < sLabelBarBoxWidth; i++) {
+				for (int i = 0; i < sLabelBarBoxWidth; i++) {
 					size_t ix = sLabelBarXStart + sLabelBarBoxWidth + i;
 					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = cR;
 					imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = cG;
@@ -766,20 +935,10 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 	// Create title
 	if (m_pncvisparent->GetPlotOptions().m_fShowTitle) {
-		for (size_t j = 0; j < TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT - 1; j++) {
-			size_t jx = sImageOffsetY + j;
-			for (size_t i = 0; i < sImageWidth; i++) {
-				size_t ix = sImageOffsetX + i;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 255;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 255;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 255;
-			}
-		}
-
 		DrawString<NDIM>(
 			m_sftTitleBar,
 			m_pncvisparent->GetVarActiveTitle(),
-			sImageOffsetX + TITLE_MARGINHEIGHT,
+			sMapOffsetX + TITLE_MARGINHEIGHT,
 			sImageOffsetY + TITLE_FONTHEIGHT - 1,
 			TextAlignment_Left,
 			sPanelWidth,
@@ -789,24 +948,51 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 		DrawString<NDIM>(
 			m_sftTitleBar,
 			m_pncvisparent->GetVarActiveUnits(),
-			sImageOffsetX + sMapWidth,
+			sMapOffsetX + sMapWidth,
 			sImageOffsetY + TITLE_FONTHEIGHT - 1,
 			TextAlignment_Right,
 			sPanelWidth,
 			sPanelHeight,
 			imagedata); 
+	}
+
+	// Draw border around image
+	if (plotopts.m_fShowTickmarkLabels) {
 
 		{
-			size_t jx = sImageOffsetY + TITLE_FONTHEIGHT + TITLE_MARGINHEIGHT - 1;
-			for (size_t i = 0; i < sImageWidth; i++) {
-				size_t ix = sImageOffsetX + i;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 0] = 0;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 1] = 0;
-				imagedata[NDIM * sPanelWidth * jx + NDIM * ix + 2] = 0;
+			size_t jx0 = sMapOffsetY - 1;
+			size_t jx1 = sMapOffsetY + sMapHeight;
+			for (int i = 0; i < sMapWidth+2; i++) {
+				size_t ix = sMapOffsetX + i - 1;
+
+				imagedata[NDIM * sPanelWidth * jx0 + NDIM * ix + 0] = 0;
+				imagedata[NDIM * sPanelWidth * jx0 + NDIM * ix + 1] = 0;
+				imagedata[NDIM * sPanelWidth * jx0 + NDIM * ix + 2] = 0;
+
+				imagedata[NDIM * sPanelWidth * jx1 + NDIM * ix + 0] = 0;
+				imagedata[NDIM * sPanelWidth * jx1 + NDIM * ix + 1] = 0;
+				imagedata[NDIM * sPanelWidth * jx1 + NDIM * ix + 2] = 0;
+			}
+		}
+
+		{
+			size_t ix0 = sMapOffsetX - 1;
+			size_t ix1 = sMapOffsetX + sMapWidth;
+			for (int j = 0; j < sMapHeight; j++) {
+				size_t jx = sMapOffsetY + j;
+
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix0 + 0] = 0;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix0 + 1] = 0;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix0 + 2] = 0;
+
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix1 + 0] = 0;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix1 + 1] = 0;
+				imagedata[NDIM * sPanelWidth * jx + NDIM * ix1 + 2] = 0;
 			}
 		}
 
 	}
+
 
 	//imagedata[NDIM * sPanelWidth * 1 + NDIM * 1 + 0] = 255;
 	//imagedata[NDIM * sPanelWidth * 1 + NDIM * 1 + 1] = 0;
@@ -840,6 +1026,16 @@ void wxImagePanel::GenerateImageFromImageMap(
 
 	unsigned char * imagedata = m_image.GetData();
 
+	// Generate image
+	GenerateImageDataFromImageMap<3>(
+		DISPLAY_BORDER,
+		DISPLAY_BORDER,
+		sPanelWidth - 2 * DISPLAY_BORDER,
+		sPanelHeight - 2 * DISPLAY_BORDER,
+		sPanelWidth,
+		sPanelHeight,
+		imagedata);
+
 	// Draw border
 	for (size_t j = 0; j < sPanelHeight; j++) {
 		imagedata[3 * sPanelWidth * j + 0] = 0;
@@ -859,16 +1055,6 @@ void wxImagePanel::GenerateImageFromImageMap(
 		imagedata[3 * (sPanelWidth * (sPanelHeight-1) + i) + 1] = 0;
 		imagedata[3 * (sPanelWidth * (sPanelHeight-1) + i) + 2] = 0;
 	}
-
-	// Generate image
-	GenerateImageDataFromImageMap<3>(
-		DISPLAY_BORDER,
-		DISPLAY_BORDER,
-		sPanelWidth - 2 * DISPLAY_BORDER,
-		sPanelHeight - 2 * DISPLAY_BORDER,
-		sPanelWidth,
-		sPanelHeight,
-		imagedata);
 
 	// Redraw
 	if (fRedraw) {
@@ -1087,16 +1273,19 @@ void wxImagePanel::CalculateStringMinImageBufferSize(
 			return;
 		}
 
+		if (-mtx.yOffset > sBaseline) {
+			sBaseline = -mtx.yOffset;
+		}
 		if (mtx.minHeight > sMinHeight) {
 			sMinHeight = mtx.minHeight;
+		}
+		if (mtx.minHeight + sBaseline > sMinHeight) {
+			sMinHeight = mtx.minHeight + sBaseline;
 		}
 		if (i != str.length()-1) {
 			sMinWidth += mtx.advanceWidth;
 		} else {
 			sMinWidth += mtx.minWidth;
-		}
-		if (-mtx.yOffset > sBaseline) {
-			sBaseline = -mtx.yOffset;
 		}
 	}
 }
@@ -1191,11 +1380,12 @@ void wxImagePanel::DrawString(
 			}
 		}
 
-	// Render right-aligned text
-	} else {
+	// Render right-aligned and center-aligned text using an image buffer
+	} else if ((eAlign == TextAlignment_Right) || (eAlign == TextAlignment_Center)) {
 		size_t sMinBufferWidth;
 		size_t sMinBufferHeight;
 		size_t sBaseline;
+
 		CalculateStringMinImageBufferSize(sft, str, sMinBufferWidth, sMinBufferHeight, sBaseline);
 
 		if (sMinBufferWidth == 0) {
@@ -1218,21 +1408,31 @@ void wxImagePanel::DrawString(
 		for (int i = 0; i < str.length(); i++) {
 			DrawCharacter<NDIM>(sft, str[i], sPenX, sBaseline, sMinBufferWidth, sMinBufferHeight, stringbuf, &width, &height);
 			sPenX += static_cast<size_t>(width);
+			cumulative_width += width;
+		}
+
+		size_t sPenBeginX = 0;
+		if (eAlign == TextAlignment_Right) {
+			sPenBeginX = sX - sPenX;
+		} else if (eAlign == TextAlignment_Center) {
+			sPenBeginX = sX - sPenX / 2;
 		}
 
 		for (int i = 0; i < sMinBufferWidth; i++) {
-			int ix = sX - sPenX + i;
+			int ix = sPenBeginX + i;
 			for (int j = 0; j < sMinBufferHeight; j++) {
 				int jx = sY - sBaseline + j;
-				if (sCanvasWidth * jx + ix + 0 >= sCanvasWidth * sCanvasHeight) {
-					_EXCEPTION();
+
+				if (sCanvasWidth * jx + ix >= sCanvasWidth * sCanvasHeight) {
+					continue;
 				}
 				if (j * sMinBufferWidth + i >= sMinBufferWidth * sMinBufferHeight) {
-					_EXCEPTION();
+					continue;
 				}
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] = stringbuf[NDIM * (j * sMinBufferWidth + i) + 0];
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] = stringbuf[NDIM * (j * sMinBufferWidth + i) + 1];
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] = stringbuf[NDIM * (j * sMinBufferWidth + i) + 2];
+				float dShadingFrac = static_cast<float>(stringbuf[NDIM * (j * sMinBufferWidth + i) + 0]) / 255.0; 
+				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] *= dShadingFrac;
+				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] *= dShadingFrac;
+				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] *= dShadingFrac;
 			}
 		}
 
@@ -1240,7 +1440,7 @@ void wxImagePanel::DrawString(
 	}
 
 	if (pwidth != NULL) {
-		(*pwidth) = static_cast<int>(sX);
+		(*pwidth) = cumulative_width;
 	}
 	if (pheight != NULL) {
 		(*pheight) = cumulative_height;

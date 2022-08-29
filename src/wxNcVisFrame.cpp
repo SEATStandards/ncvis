@@ -18,7 +18,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.08.25";
+static const char * szVersion = "NcVis 2022.08.28";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -1677,13 +1677,24 @@ void wxNcVisFrame::OnVariableSelected(
 		} else {
 			m_strVarActiveTitle = m_varActive->name();
 		}
-		
+
+		if (m_strVarActiveTitle.length() > 50) {
+			m_strVarActiveTitle = m_strVarActiveTitle.substr(0,50);
+			m_strVarActiveTitle += "...";
+		}
+
 		NcAtt * attUnits = m_varActive->get_att("units");
 		if (attUnits != NULL) {
 			m_strVarActiveUnits = attUnits->as_string(0);
 		} else {
 			m_strVarActiveUnits = "";
 		}
+
+		if (m_strVarActiveUnits.length() > 20) {
+			m_strVarActiveUnits = m_strVarActiveUnits.substr(0,20);
+			m_strVarActiveUnits += "...";
+		}
+
 	}
 
 	// Check for missing value
