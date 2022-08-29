@@ -5,7 +5,7 @@ Developed by Paul A. Ullrich
 
 Significant Contributions by Travis O'Brien and Vijay Mahadevan
 
-Funding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project "SEATS: Simplifying ESM Analysis Through Standards."
+Funding for the development of ncvis is provided by the United States Department of Energy Office of Science under the [Regional and Global Model Analysis](https://climatemodeling.science.energy.gov/program-area/regional-global-model-analysis) project "[SEATS: Simplifying ESM Analysis Through Standards](https://seatstandards.org/)."
 
 ncvis is inspired by David Pierce's most excellent ncview utility (http://meteora.ucsd.edu/~pierce/ncview_home_page.html)
 
