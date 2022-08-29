@@ -1678,8 +1678,8 @@ void wxNcVisFrame::OnVariableSelected(
 			m_strVarActiveTitle = m_varActive->name();
 		}
 
-		if (m_strVarActiveTitle.length() > 50) {
-			m_strVarActiveTitle = m_strVarActiveTitle.substr(0,50);
+		if (m_strVarActiveTitle.length() > 60) {
+			m_strVarActiveTitle = m_strVarActiveTitle.substr(0,60);
 			m_strVarActiveTitle += "...";
 		}
 
