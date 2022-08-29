@@ -521,6 +521,16 @@ private:
 	std::map<wxString, wxString> m_mapOptions;
 
 	///	<summary>
+	///		Name of the longitude variable.
+	///	</summary>
+	std::string m_strLonVarName;
+
+	///	<summary>
+	///		Name of the latitude variable.
+	///	</summary>
+	std::string m_strLatVarName;
+
+	///	<summary>
 	///		Color map library.
 	///	</summary>
 	ColorMapLibrary m_colormaplib;

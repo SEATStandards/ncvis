@@ -18,7 +18,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.08.28";
+static const char * szVersion = "NcVis 2022.08.29";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -136,36 +136,17 @@ bool wxNcVisFrame::GetLonLatVariableNameIter(
 	VariableNameFileIxMap::const_iterator & itLon,
 	VariableNameFileIxMap::const_iterator & itLat
 ) const {
-	std::vector<std::string> vecLonNames;
-	vecLonNames.push_back("lon");
-	vecLonNames.push_back("longitude");
-	vecLonNames.push_back("lonCell");
-	vecLonNames.push_back("mesh_node_x");
 
-	std::vector<std::string> vecLatNames;
-	vecLatNames.push_back("lat");
-	vecLatNames.push_back("latitude");
-	vecLatNames.push_back("latCell");
-	vecLatNames.push_back("mesh_node_y");
+	if ((m_strLonVarName != "") && (m_strLatVarName != "")) {
+		itLon = m_mapVarNames[1].find(m_strLonVarName);
+		itLat = m_mapVarNames[1].find(m_strLatVarName);
+		return true;
 
-	itLon = m_mapVarNames[1].find(vecLonNames[0]);
-	for (int i = 1; (i < vecLonNames.size()) && (itLon == m_mapVarNames[1].end()); i++) {
-		itLon = m_mapVarNames[1].find(vecLonNames[i]);
-	}
-	if (itLon == m_mapVarNames[1].end()) {
+	} else {
+		itLon = m_mapVarNames[1].end();
 		itLat = m_mapVarNames[1].end();
 		return false;
 	}
-
-	itLat = m_mapVarNames[1].find(vecLatNames[0]);
-	for (int i = 1; (i < vecLatNames.size()) && (itLat == m_mapVarNames[1].end()); i++) {
-		itLat = m_mapVarNames[1].find(vecLatNames[i]);
-	}
-	if (itLat == m_mapVarNames[1].end()) {
-		return false;
-	}
-
-	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -174,36 +155,17 @@ bool wxNcVisFrame::GetLonLatDimDataIter(
 	DimDataMap::const_iterator & itLon,
 	DimDataMap::const_iterator & itLat
 ) const {
-	std::vector<std::string> vecLonNames;
-	vecLonNames.push_back("lon");
-	vecLonNames.push_back("longitude");
-	vecLonNames.push_back("lonCell");
-	vecLonNames.push_back("mesh_node_x");
 
-	std::vector<std::string> vecLatNames;
-	vecLatNames.push_back("lat");
-	vecLatNames.push_back("latitude");
-	vecLatNames.push_back("latCell");
-	vecLatNames.push_back("mesh_node_y");
+	if ((m_strLonVarName != "") && (m_strLatVarName != "")) {
+		itLon = m_mapDimData.find(m_strLonVarName);
+		itLat = m_mapDimData.find(m_strLatVarName);
+		return true;
 
-	itLon = m_mapDimData.find(vecLonNames[0]);
-	for (int i = 1; (i < vecLonNames.size()) && (itLon == m_mapDimData.end()); i++) {
-		itLon = m_mapDimData.find(vecLonNames[i]);
-	}
-	if (itLon == m_mapDimData.end()) {
+	} else {
+		itLon = m_mapDimData.end();
 		itLat = m_mapDimData.end();
 		return false;
 	}
-
-	itLat = m_mapDimData.find(vecLatNames[0]);
-	for (int i = 1; (i < vecLatNames.size()) && (itLat == m_mapDimData.end()); i++) {
-		itLat = m_mapDimData.find(vecLatNames[i]);
-	}
-	if (itLat == m_mapDimData.end()) {
-		return false;
-	}
-
-	return true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -319,6 +281,22 @@ void wxNcVisFrame::OpenFiles(
 
 	m_vecFilenames = vecFilenames;
 
+	// Standard longitude and latitude names
+	const std::string strStandardLonName("longitude");
+	const std::string strStandardLatName("latitude");
+
+	std::vector<std::string> vecCommonLonVarNames;
+	vecCommonLonVarNames.push_back("lon");
+	vecCommonLonVarNames.push_back("longitude");
+	vecCommonLonVarNames.push_back("lonCell");
+	vecCommonLonVarNames.push_back("mesh_node_x");
+
+	std::vector<std::string> vecCommonLatVarNames;
+	vecCommonLatVarNames.push_back("lat");
+	vecCommonLatVarNames.push_back("latitude");
+	vecCommonLatVarNames.push_back("latCell");
+	vecCommonLatVarNames.push_back("mesh_node_y");
+
 	// Enumerate all variables, recording dimension variables
 	for (size_t f = 0; f < vecFilenames.size(); f++) {
 		NcFile * pfile = new NcFile(vecFilenames[f].c_str());
@@ -344,6 +322,57 @@ void wxNcVisFrame::OpenFiles(
 							DimDataFileIdAndCoordMap()));
 			}
 
+			// Check if this variable is longitude or latitude
+			if (sVarDims == 1) {
+				if (m_strLonVarName == "") {
+					for (int i = 0; i < vecCommonLonVarNames.size(); i++) {
+						if (vecCommonLonVarNames[i] == var->name()) {
+							m_strLonVarName = var->name();
+							break;
+						}
+					}
+				}
+				if (m_strLonVarName == "") {
+					NcAtt * attStandardName = var->get_att("standard_name");
+					if (attStandardName != NULL) {
+						if (strStandardLonName == attStandardName->as_string(0)) {
+							m_strLonVarName = var->name();
+						}
+					} else {
+						NcAtt * attLongName = var->get_att("long_name");
+						if (attLongName != NULL) {
+							if (strStandardLonName == attLongName->as_string(0)) {
+								m_strLonVarName = var->name();
+							}
+						}
+					}
+				}
+				if (m_strLatVarName == "") {
+					for (int i = 0; i < vecCommonLatVarNames.size(); i++) {
+						if (vecCommonLatVarNames[i] == var->name()) {
+							m_strLatVarName = var->name();
+							break;
+						}
+					}
+				}
+				if (m_strLatVarName == "") {
+					NcAtt * attStandardName = var->get_att("standard_name");
+					if (attStandardName != NULL) {
+						if (strStandardLatName == attStandardName->as_string(0)) {
+							m_strLatVarName = var->name();
+						}
+					} else {
+						NcAtt * attLongName = var->get_att("long_name");
+						if (attLongName != NULL) {
+							if (strStandardLatName == attLongName->as_string(0)) {
+								m_strLatVarName = var->name();
+							}
+						}
+					}
+				}
+			}
+
+			// Insert variable into map
 			auto itVar = m_mapVarNames[sVarDims].find(var->name());
 			if (itVar != m_mapVarNames[sVarDims].end()) {
 				itVar->second.push_back(f);
