@@ -5,7 +5,7 @@ Developed by Paul A. Ullrich
 
 Significant Contributions by Travis O'Brien and Vijay Mahadevan
 
-Funding for the development of ncvis is provided by the United States Department of Energy Office of Science under the Regional and Global Model Analysis project "SEATS: Simplifying ESM Analysis Through Standards."
+Funding for the development of ncvis is provided by the United States Department of Energy Office of Science under the [Regional and Global Model Analysis](https://climatemodeling.science.energy.gov/program-area/regional-global-model-analysis) project "[SEATS: Simplifying ESM Analysis Through Standards](https://seatstandards.org/)."
 
 ncvis is inspired by David Pierce's most excellent ncview utility (http://meteora.ucsd.edu/~pierce/ncview_home_page.html)
 
@@ -14,6 +14,8 @@ ncvis is inspired by David Pierce's most excellent ncview utility (http://meteor
 In order for ncvis to run the `resources` directory must be in the same folder as `ncvis` or the `NCVIS_RESOURCE_DIR` environment variable must be set to the path of the ncvis resources folder. This directory is where ncvis stores fonts, colormaps and shapefiles.
 
 On Unix of Linux-based systems, ncvis uses GDK (via wxWidgets) for rendering of the interface.  The font size displayed in GDK can be adjusted by setting the `GDK_DPI_SCALE` environment variable, e.g. via `export GDK_DPI_SCALE=0.5`.
+
+*Note for Cheyenne users:* On Cheyenne GLIBCXX is not available by default. To run ncvis you will need to first run `module load gnu/12.1.0`.
 
 ## Colormaps
 
@@ -35,6 +37,10 @@ for cmap in cmocean.cm.cmapnames:
     np.savetxt(f"{cmap}.rgb", color_table, fmt = "%i")
 ```
 
-## Screenshot (v2022.08.17)
+## Screenshot (v2022.08.28)
+
+<img width="922" alt="ncvis_2022_08_28_era5_topo" src="https://user-images.githubusercontent.com/5330916/187129223-b9d47718-fff3-4fd9-8efb-4f71bd86d3e2.png">
+
+## Screenshot (v2022.08.18)
 
 <img width="842" alt="ncvis_screenshot_2022-08-18" src="https://user-images.githubusercontent.com/5330916/185477195-0381f475-10d4-4aa4-acdf-c352c87824b2.png">
