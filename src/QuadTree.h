@@ -49,6 +49,25 @@ public:
 	}
 
 	///	<summary>
+	///		Destructor.
+	///	</summary>
+	~QuadTreeNode() {
+		clear();
+	}
+
+	///	<summary>
+	///		Delete all children of this QuadTreeNode.
+	///	</summary>
+	void clear() {
+		for (int i = 0; i < 4; i++) {
+			if (m_pChildren[i] != NULL) {
+				delete m_pChildren[i];
+				m_pChildren[i] = NULL;
+			}
+		}
+	}
+
+	///	<summary>
 	///		Insert a point into the quadtree.
 	///	</summary>
 	bool insert(

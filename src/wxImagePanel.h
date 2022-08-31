@@ -298,9 +298,9 @@ public:
 	void CalculateStringMinImageBufferSize(
 		SFT & sft,
 		const std::string & str,
-		size_t & sMinWidth,
-		size_t & sMinHeight,
-		size_t & sBaseline
+		int & nMinWidth,
+		int & nMinHeight,
+		int & nBaseline
 	);
 
 	///	<summary>
@@ -312,10 +312,10 @@ public:
 	void DrawCharacter(
 		SFT & sft,
 		unsigned char c,
-		size_t sX,
-		size_t sY,
-		size_t sCanvasWidth,
-		size_t sCanvasHeight,
+		int nX,
+		int nY,
+		int nCanvasWidth,
+		int nCanvasHeight,
 		unsigned char * imagedata,
 		int * pwidth = NULL,
 		int * pheight = NULL);
@@ -329,11 +329,11 @@ public:
 	void DrawString(
 		SFT & sft,
 		const std::string & str,
-		size_t sX,
-		size_t sY,
+		int nX,
+		int nY,
 		TextAlignment eAlign,
-		size_t sCanvasWidth,
-		size_t sCanvasHeight,
+		int nCanvasWidth,
+		int nCanvasHeight,
 		unsigned char * imagedata,
 		int * pwidth = NULL,
 		int * pheight = NULL);

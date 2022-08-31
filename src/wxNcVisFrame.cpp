@@ -18,7 +18,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.08.29";
+static const char * szVersion = "NcVis 2022.08.31";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -172,36 +172,85 @@ bool wxNcVisFrame::GetLonLatDimDataIter(
 
 void wxNcVisFrame::InitializeGridDataSampler() {
 
+	std::vector<double> dLon;
+	std::vector<double> dLat;
+
 	// Get the latitude and longitude variables
-	VariableNameFileIxMap::const_iterator itLon;
-	VariableNameFileIxMap::const_iterator itLat;
+	if (m_strVarActiveMultidimLon == "") {
+		VariableNameFileIxMap::const_iterator itLon;
+		VariableNameFileIxMap::const_iterator itLat;
+		bool fSuccess = GetLonLatVariableNameIter(itLon, itLat);
+		if (!fSuccess) {
+			return;
+		}
 
-	bool fSuccess = GetLonLatVariableNameIter(itLon, itLat);
-	if (!fSuccess) {
-		return;
+		std::string strLonName(itLon->first);
+		std::string strLatName(itLat->first);
+
+		// Check if lat and lon are the same length
+		NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var(strLonName.c_str());
+		_ASSERT(varLon != NULL);
+		NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(strLatName.c_str());
+		_ASSERT(varLat != NULL);
+
+		if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
+			return;
+		}
+
+		// At this point we can assume that the mesh is unstructured
+		dLon.resize(varLon->get_dim(0)->size());
+		dLat.resize(varLat->get_dim(0)->size());
+
+		varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
+		varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
+
+	// Multidimensional latitude and longitude already specified
+	} else {
+		_ASSERT(m_strVarActiveMultidimLat != "");
+		_ASSERT(m_varActive != NULL);
+
+		int nDims = m_varActive->num_dims();
+		VariableNameFileIxMap::const_iterator itLon =
+			m_mapVarNames[nDims].find(m_strVarActiveMultidimLon);
+		VariableNameFileIxMap::const_iterator itLat =
+			m_mapVarNames[nDims].find(m_strVarActiveMultidimLat);
+
+		_ASSERT(itLon != m_mapVarNames[nDims].end());
+		_ASSERT(itLat != m_mapVarNames[nDims].end());
+
+		NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var(m_strVarActiveMultidimLon.c_str());
+		_ASSERT(varLon != NULL);
+		NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(m_strVarActiveMultidimLat.c_str());
+		_ASSERT(varLat != NULL);
+
+		_ASSERT(varLon->num_dims() == m_varActive->num_dims());
+		_ASSERT(varLat->num_dims() == m_varActive->num_dims());
+
+		_ASSERT(m_lDisplayedDims[0] >= 0);
+		_ASSERT(m_lDisplayedDims[0] < m_varActive->num_dims());
+
+		dLon.resize(varLon->get_dim(m_lDisplayedDims[0])->size());
+		dLat.resize(varLat->get_dim(m_lDisplayedDims[0])->size());
+
+		std::vector<long> vecSize(varLon->num_dims(), 1);
+		vecSize[m_lDisplayedDims[0]] = varLon->get_dim(m_lDisplayedDims[0])->size();
+
+		varLon->set_cur(&(m_lVarActiveDims[0]));
+		varLat->set_cur(&(m_lVarActiveDims[0]));
+		if (m_lDisplayedDims[0] == varLon->num_dims()-1) {
+			varLon->get(&(dLon[0]), &(vecSize[0]));
+			varLat->get(&(dLat[0]), &(vecSize[0]));
+
+		} else {
+			std::vector<long> vecStride(varLon->num_dims(), 1);
+			for (long d = m_lDisplayedDims[0]+1; d < varLon->num_dims(); d++) {
+				vecStride[d] = varLon->get_dim(d)->size();
+			}
+
+			varLon->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
+			varLat->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
+		}
 	}
-
-	std::string strLonName(itLon->first);
-	std::string strLatName(itLat->first);
-
-	// Check if lat and lon are the same length
-	NcVar * varLon = m_vecpncfiles[itLon->second[0]]->get_var(strLonName.c_str());
-	_ASSERT(varLon != NULL);
-	NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(strLatName.c_str());
-	_ASSERT(varLat != NULL);
-
-	if (varLon->get_dim(0)->size() != varLat->get_dim(0)->size()) {
-		return;
-	}
-
-	// At this point we can assume that the mesh is unstructured
-	m_strUnstructDimName = varLon->get_dim(0)->name();
-
-	std::vector<double> dLon(varLon->get_dim(0)->size());
-	std::vector<double> dLat(varLat->get_dim(0)->size());
-
-	varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
-	varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
 	// Initialize the GridDataSampler
 	{
@@ -265,8 +314,8 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 	}
 
 	// Allocate data space
-	if (m_data.size() != varLon->get_dim(0)->size()) {
-		m_data.resize(varLon->get_dim(0)->size());
+	if (m_data.size() != dLon.size()) {
+		m_data.resize(dLon.size());
 	}
 }
 
@@ -322,6 +371,10 @@ void wxNcVisFrame::OpenFiles(
 							DimDataFileIdAndCoordMap()));
 			}
 
+			// Check for longitude/latitude attribute
+			NcAtt * attStandardName = var->get_att("standard_name");
+			NcAtt * attLongName = var->get_att("long_name");
+
 			// Check if this variable is longitude or latitude
 			if (sVarDims == 1) {
 				if (m_strLonVarName == "") {
@@ -333,13 +386,11 @@ void wxNcVisFrame::OpenFiles(
 					}
 				}
 				if (m_strLonVarName == "") {
-					NcAtt * attStandardName = var->get_att("standard_name");
 					if (attStandardName != NULL) {
 						if (strStandardLonName == attStandardName->as_string(0)) {
 							m_strLonVarName = var->name();
 						}
 					} else {
-						NcAtt * attLongName = var->get_att("long_name");
 						if (attLongName != NULL) {
 							if (strStandardLonName == attLongName->as_string(0)) {
 								m_strLonVarName = var->name();
@@ -356,19 +407,66 @@ void wxNcVisFrame::OpenFiles(
 					}
 				}
 				if (m_strLatVarName == "") {
-					NcAtt * attStandardName = var->get_att("standard_name");
 					if (attStandardName != NULL) {
 						if (strStandardLatName == attStandardName->as_string(0)) {
 							m_strLatVarName = var->name();
 						}
 					} else {
-						NcAtt * attLongName = var->get_att("long_name");
 						if (attLongName != NULL) {
 							if (strStandardLatName == attLongName->as_string(0)) {
 								m_strLatVarName = var->name();
 							}
 						}
 					}
+				}
+
+				if ((m_strLonVarName == var->name()) || (m_strLatVarName == var->name())) {
+					if (m_strDefaultUnstructDimName == "") {
+						m_strDefaultUnstructDimName = var->get_dim(0)->name();
+					} else if (m_strDefaultUnstructDimName != var->get_dim(0)->name()) {
+						m_strDefaultUnstructDimName = "-";
+					}
+				}
+
+			// Check for multidimensional longitudes/latitudes
+			} else {
+				bool fMultidimLon = false;
+				bool fMultidimLat = false;
+				if (attStandardName != NULL) {
+					if (strStandardLonName == attStandardName->as_string(0)) {
+						fMultidimLon = true;
+					}
+					if (strStandardLatName == attStandardName->as_string(0)) {
+						fMultidimLat = true;
+					}
+				}
+				if (attLongName != NULL) {
+					if (strStandardLonName == attLongName->as_string(0)) {
+						fMultidimLon = true;
+					}
+					if (strStandardLatName == attLongName->as_string(0)) {
+						fMultidimLat = true;
+					}
+				}
+				std::string strDims;
+				if ((fMultidimLon) || (fMultidimLat)) {
+					for (int d = 0; d < var->num_dims(); d++) {
+						strDims += var->get_dim(d)->name();
+						if (d != var->num_dims()-1) {
+							strDims += ", ";
+						}
+					}
+				}
+				if (fMultidimLon) {
+					std::cout << strDims << " " << var->name() << std::endl;
+					m_mapMultidimLonVars.insert(
+						std::pair<std::string, std::string>(
+							strDims, var->name()));
+				}
+				if (fMultidimLat) {
+					m_mapMultidimLatVars.insert(
+						std::pair<std::string, std::string>(
+							strDims, var->name()));
 				}
 			}
 
@@ -456,6 +554,13 @@ void wxNcVisFrame::OpenFiles(
 	// Remove dimension variables from the variable name map
 	for (auto it = m_mapDimData.begin(); it != m_mapDimData.end(); it++) {
 		m_mapVarNames[1].erase(it->first);
+	}
+
+	// Assuming a default unstructured dim name has been identified, set it as the unstructured dim
+	if ((m_strDefaultUnstructDimName == "-") || (m_strDefaultUnstructDimName == "")) {
+		return;
+	} else {
+		m_strUnstructDimName = m_strDefaultUnstructDimName;
 	}
 
 	// Check if lon and lat are dimension variables; if they are then they
@@ -1697,6 +1802,53 @@ void wxNcVisFrame::OnVariableSelected(
 	m_varActive = m_vecpncfiles[itVar->second[0]]->get_var(strValue.c_str());
 	_ASSERT(m_varActive != NULL);
 
+	// Check for multidimensional longitudes/latitudes
+	bool fReinitializeGridDataSampler = false;
+	{
+		std::string strDims;
+		for (int d = 0; d < m_varActive->num_dims(); d++) {
+			strDims += m_varActive->get_dim(d)->name();
+			if (d != m_varActive->num_dims()-1) {
+				strDims += ", ";
+			}
+		}
+
+		auto itMultidimLon = m_mapMultidimLonVars.find(strDims);
+		auto itMultidimLat = m_mapMultidimLatVars.find(strDims);
+
+		if ((itMultidimLon != m_mapMultidimLonVars.end()) && (itMultidimLat != m_mapMultidimLatVars.end())) {
+			_ASSERT(m_varActive->num_dims() > 0);
+			int nMaxDim = 0;
+			int nMaxDimSize = m_varActive->get_dim(0)->size();
+			for (int d = 1; d < m_varActive->num_dims(); d++) {
+				if (m_varActive->get_dim(d)->size() > nMaxDimSize) {
+					nMaxDimSize = m_varActive->get_dim(d)->size();
+					nMaxDim = d;
+				}
+			}
+			m_strUnstructDimName = m_varActive->get_dim(nMaxDim)->name();
+
+			if ((m_strVarActiveMultidimLon != itMultidimLon->second) ||
+			    (m_strVarActiveMultidimLat != itMultidimLat->second)
+			) {
+				fReinitializeGridDataSampler = true;
+				m_strVarActiveMultidimLon = itMultidimLon->second;
+				m_strVarActiveMultidimLat = itMultidimLat->second;
+			}
+
+			Announce("Multidimensional lon/lat found: %s %s", itMultidimLon->second.c_str(), itMultidimLat->second.c_str());
+			Announce("Assumed unstructured dim: %s", m_strUnstructDimName.c_str());
+
+		} else {
+			if (m_strVarActiveMultidimLon != "") {
+				m_strVarActiveMultidimLon = "";
+				m_strVarActiveMultidimLat = "";
+				m_strUnstructDimName = m_strDefaultUnstructDimName;
+				fReinitializeGridDataSampler = true;
+			}
+		}
+	}
+
 	// Generate title
 	{
 		NcError error(NcError::silent_nonfatal);
@@ -1771,6 +1923,10 @@ void wxNcVisFrame::OnVariableSelected(
 			}
 		}
 
+		if (fReinitializeGridDataSampler) {
+			InitializeGridDataSampler();
+		}
+
 		if (m_lDisplayedDims[0] == (-1)) {
 			if (m_varActive->num_dims() == 0) {
 				m_lDisplayedDims[1] = (-1);
@@ -1781,7 +1937,6 @@ void wxNcVisFrame::OnVariableSelected(
 				m_lDisplayedDims[1] = m_varActive->num_dims()-1;
 			}
 		}
-
 		ResetBounds();
 
 	} else if (m_lDisplayedDims[0] == (-1)) {

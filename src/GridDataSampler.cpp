@@ -124,6 +124,11 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 
 	_ASSERT(dLon.size() == dLat.size());
 
+	for (int i = 0; i < m_vecquadtree.size(); i++) {
+		m_vecquadtree[i].clear();
+	}
+	m_vecquadtree.clear();
+
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
 	m_vecquadtree.resize(6, QuadTreeNode(-0.5*M_PI, 0.5*M_PI, -0.5*M_PI, 0.5*M_PI));
@@ -195,6 +200,8 @@ void GridDataSamplerUsingQuadTree::Initialize(
 
 	_ASSERT(dLon.size() == dLat.size());
 
+	m_quadtree.clear();
+
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
@@ -251,11 +258,23 @@ void GridDataSamplerUsingQuadTree::Sample(
 // GridDataSamplerUsingKDTree
 ///////////////////////////////////////////////////////////////////////////////
 
+GridDataSamplerUsingKDTree::~GridDataSamplerUsingKDTree() {
+	if (m_kdtree != NULL) {
+		kd_free(m_kdtree);
+	}
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void GridDataSamplerUsingKDTree::Initialize(
 	const std::vector<double> & dLon,
 	const std::vector<double> & dLat
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
+
+	if (m_kdtree != NULL) {
+		kd_free(m_kdtree);
+	}
 
 	AnnounceStartBlock("Generating kdtree from from lat/lon arrays");
 

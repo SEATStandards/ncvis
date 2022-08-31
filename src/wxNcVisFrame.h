@@ -531,6 +531,16 @@ private:
 	std::string m_strLatVarName;
 
 	///	<summary>
+	///		A map of alternate longitude variables.
+	///	</summary>
+	std::map<std::string, std::string> m_mapMultidimLonVars;
+
+	///	<summary>
+	///		A map of alternate latitude variables.
+	///	</summary>
+	std::map<std::string, std::string> m_mapMultidimLatVars;
+
+	///	<summary>
 	///		Color map library.
 	///	</summary>
 	ColorMapLibrary m_colormaplib;
@@ -561,9 +571,14 @@ private:
 	DimDataMap m_mapDimData;
 
 	///	<summary>
-	///		Unstructured index dimension name.
+	///		(Current) unstructured index dimension name.
 	///	</summary>
 	std::string m_strUnstructDimName;
+
+	///	<summary>
+	///		Default (1D) unstructured index dimension name.
+	///	</summary>
+	std::string m_strDefaultUnstructDimName;
 
 	///	<summary>
 	///		NetCDF variable currently loaded.
@@ -579,6 +594,16 @@ private:
 	///		Active variable units.
 	///	</summary>
 	std::string m_strVarActiveUnits;
+
+	///	<summary>
+	///		Multidimensional longitude name for active variable.
+	///	</summary>
+	std::string m_strVarActiveMultidimLon;
+
+	///	<summary>
+	///		Multidimensional longitude name for active variable.
+	///	</summary>
+	std::string m_strVarActiveMultidimLat;
 
 	///	<summary>
 	///		Bookmarked dimensions.

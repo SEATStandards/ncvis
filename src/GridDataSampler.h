@@ -129,6 +129,18 @@ public:
 class GridDataSamplerUsingKDTree : public GridDataSampler {
 public:
 	///	<summary>
+	///		Constructor.
+	///	</summary>
+	GridDataSamplerUsingKDTree() :
+		m_kdtree(NULL)
+	{ }
+
+	///	<summary>
+	///		Destructor.
+	///	</summary>
+	~GridDataSamplerUsingKDTree();
+
+	///	<summary>
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(

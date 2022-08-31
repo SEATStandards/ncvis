@@ -629,7 +629,7 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 
 		// Generate tickmark positions
 		double dMajorDeltaX = m_dXrange[1] - m_dXrange[0];
-		if (dMajorDeltaX >= 90.0) {
+		if ((dMajorDeltaX >= 90.0) && (dMajorDeltaX <= 640.0)) {
 			dMajorDeltaX = 30.0;
 		} else {
 			_ASSERT(dMajorDeltaX > 0.0);
@@ -1252,13 +1252,13 @@ void wxImagePanel::SetGridLinesOn(
 void wxImagePanel::CalculateStringMinImageBufferSize(
 	SFT & sft,
 	const std::string & str,
-	size_t & sMinWidth,
-	size_t & sMinHeight,
-	size_t & sBaseline
+	int & nMinWidth,
+	int & nMinHeight,
+	int & nBaseline
 ) {
-	sMinWidth = 0;
-	sMinHeight = 0;
-	sBaseline = 0;
+	nMinWidth = 0;
+	nMinHeight = 0;
+	nBaseline = 0;
 
 	for (int i = 0; i < str.length(); i++) {
 		SFT_Glyph gid;
@@ -1273,19 +1273,19 @@ void wxImagePanel::CalculateStringMinImageBufferSize(
 			return;
 		}
 
-		if (-mtx.yOffset > sBaseline) {
-			sBaseline = -mtx.yOffset;
+		if (-mtx.yOffset > nBaseline) {
+			nBaseline = -mtx.yOffset;
 		}
-		if (mtx.minHeight > sMinHeight) {
-			sMinHeight = mtx.minHeight;
+		if (mtx.minHeight > nMinHeight) {
+			nMinHeight = mtx.minHeight;
 		}
-		if (mtx.minHeight + sBaseline > sMinHeight) {
-			sMinHeight = mtx.minHeight + sBaseline;
+		if (mtx.minHeight + nBaseline > nMinHeight) {
+			nMinHeight = mtx.minHeight + nBaseline;
 		}
 		if (i != str.length()-1) {
-			sMinWidth += mtx.advanceWidth;
+			nMinWidth += mtx.advanceWidth;
 		} else {
-			sMinWidth += mtx.minWidth;
+			nMinWidth += mtx.minWidth;
 		}
 	}
 }
@@ -1296,10 +1296,10 @@ template <int NDIM>
 void wxImagePanel::DrawCharacter(
 	SFT & sft,
 	unsigned char c,
-	size_t sX,
-	size_t sY,
-	size_t sCanvasWidth,
-	size_t sCanvasHeight,
+	int nX,
+	int nY,
+	int nCanvasWidth,
+	int nCanvasHeight,
 	unsigned char * imagedata,
 	int * pwidth,
 	int * pheight
@@ -1335,13 +1335,13 @@ void wxImagePanel::DrawCharacter(
 
 	int s = 0;
 	for (int j = 0; j < img.height; j++) {
-		size_t jx = sY + static_cast<size_t>(j) + mtx.yOffset;
+		int jx = nY + static_cast<size_t>(j) + mtx.yOffset;
 		for (int i = 0; i < img.width; i++) {
-			size_t ix = sX + static_cast<size_t>(i) + mtx.leftSideBearing;
+			int ix = nX + static_cast<size_t>(i) + mtx.leftSideBearing;
 			float dShadingFrac = static_cast<float>(255 - pixels[s]) / 255.0;
-			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] *= dShadingFrac;
-			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] *= dShadingFrac;
-			imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] *= dShadingFrac;
+			imagedata[NDIM * nCanvasWidth * jx + NDIM * ix + 0] *= dShadingFrac;
+			imagedata[NDIM * nCanvasWidth * jx + NDIM * ix + 1] *= dShadingFrac;
+			imagedata[NDIM * nCanvasWidth * jx + NDIM * ix + 2] *= dShadingFrac;
 			s++;
 		}
 	}
@@ -1355,11 +1355,11 @@ template <int NDIM>
 void wxImagePanel::DrawString(
 	SFT & sft,
 	const std::string & str,
-	size_t sX,
-	size_t sY,
+	int nX,
+	int nY,
 	TextAlignment eAlign,
-	size_t sCanvasWidth,
-	size_t sCanvasHeight,
+	int nCanvasWidth,
+	int nCanvasHeight,
 	unsigned char * imagedata,
 	int * pwidth,
 	int * pheight
@@ -1372,8 +1372,19 @@ void wxImagePanel::DrawString(
 	// Render left-aligned text
 	if (eAlign == TextAlignment_Left) {
 		for (int i = 0; i < str.length(); i++) {
-			DrawCharacter<NDIM>(sft, str[i], sX, sY, sCanvasWidth, sCanvasHeight, imagedata, &width, &height);
-			sX += static_cast<size_t>(width);
+
+			DrawCharacter<NDIM>(
+				sft,
+				str[i],
+				nX,
+				nY,
+				nCanvasWidth,
+				nCanvasHeight,
+				imagedata,
+				&width,
+				&height);
+
+			nX += width;
 			cumulative_width += width;
 			if (height > cumulative_height) {
 				cumulative_height = height;
@@ -1382,13 +1393,13 @@ void wxImagePanel::DrawString(
 
 	// Render right-aligned and center-aligned text using an image buffer
 	} else if ((eAlign == TextAlignment_Right) || (eAlign == TextAlignment_Center)) {
-		size_t sMinBufferWidth;
-		size_t sMinBufferHeight;
-		size_t sBaseline;
+		int nMinBufferWidth;
+		int nMinBufferHeight;
+		int nBaseline;
 
-		CalculateStringMinImageBufferSize(sft, str, sMinBufferWidth, sMinBufferHeight, sBaseline);
+		CalculateStringMinImageBufferSize(sft, str, nMinBufferWidth, nMinBufferHeight, nBaseline);
 
-		if (sMinBufferWidth == 0) {
+		if (nMinBufferWidth == 0) {
 			if (pwidth != NULL) {
 				(*pwidth) = 0;
 			}
@@ -1398,41 +1409,51 @@ void wxImagePanel::DrawString(
 			return;
 		}
 
-		cumulative_height = sMinBufferHeight;
+		cumulative_height = nMinBufferHeight;
 
-		unsigned char * stringbuf = new unsigned char[NDIM * sMinBufferWidth * sMinBufferHeight];
-		memset(stringbuf, 255, NDIM * sMinBufferWidth * sMinBufferHeight * sizeof(unsigned char));
+		unsigned char * stringbuf = new unsigned char[NDIM * nMinBufferWidth * nMinBufferHeight];
+		memset(stringbuf, 255, NDIM * nMinBufferWidth * nMinBufferHeight * sizeof(unsigned char));
 
-		size_t sPenX = 0;
+		int nPenX = 0;
 
 		for (int i = 0; i < str.length(); i++) {
-			DrawCharacter<NDIM>(sft, str[i], sPenX, sBaseline, sMinBufferWidth, sMinBufferHeight, stringbuf, &width, &height);
-			sPenX += static_cast<size_t>(width);
+			DrawCharacter<NDIM>(
+				sft,
+				str[i],
+				nPenX,
+				nBaseline,
+				nMinBufferWidth,
+				nMinBufferHeight,
+				stringbuf,
+				&width,
+				&height);
+
+			nPenX += width;
 			cumulative_width += width;
 		}
 
-		size_t sPenBeginX = 0;
+		int nPenBeginX = 0;
 		if (eAlign == TextAlignment_Right) {
-			sPenBeginX = sX - sPenX;
+			nPenBeginX = nX - nPenX;
 		} else if (eAlign == TextAlignment_Center) {
-			sPenBeginX = sX - sPenX / 2;
+			nPenBeginX = nX - nPenX / 2;
 		}
 
-		for (int i = 0; i < sMinBufferWidth; i++) {
-			int ix = sPenBeginX + i;
-			for (int j = 0; j < sMinBufferHeight; j++) {
-				int jx = sY - sBaseline + j;
+		for (int i = 0; i < nMinBufferWidth; i++) {
+			int ix = nPenBeginX + i;
+			for (int j = 0; j < nMinBufferHeight; j++) {
+				int jx = nY - nBaseline + j;
 
-				if (sCanvasWidth * jx + ix >= sCanvasWidth * sCanvasHeight) {
+				if (nCanvasWidth * jx + ix >= nCanvasWidth * nCanvasHeight) {
 					continue;
 				}
-				if (j * sMinBufferWidth + i >= sMinBufferWidth * sMinBufferHeight) {
+				if (j * nMinBufferWidth + i >= nMinBufferWidth * nMinBufferHeight) {
 					continue;
 				}
-				float dShadingFrac = static_cast<float>(stringbuf[NDIM * (j * sMinBufferWidth + i) + 0]) / 255.0; 
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 0] *= dShadingFrac;
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 1] *= dShadingFrac;
-				imagedata[NDIM * sCanvasWidth * jx + NDIM * ix + 2] *= dShadingFrac;
+				float dShadingFrac = static_cast<float>(stringbuf[NDIM * (j * nMinBufferWidth + i) + 0]) / 255.0; 
+				imagedata[NDIM * nCanvasWidth * jx + NDIM * ix + 0] *= dShadingFrac;
+				imagedata[NDIM * nCanvasWidth * jx + NDIM * ix + 1] *= dShadingFrac;
+				imagedata[NDIM * nCanvasWidth * jx + NDIM * ix + 2] *= dShadingFrac;
 			}
 		}
 
