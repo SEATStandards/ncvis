@@ -557,6 +557,9 @@ void wxNcVisFrame::OpenFiles(
 	}
 
 	// Assuming a default unstructured dim name has been identified, set it as the unstructured dim
+	if ((m_strLonVarName == "") || (m_strLatVarName == "")) {
+		m_strDefaultUnstructDimName = "-";
+	}
 	if ((m_strDefaultUnstructDimName == "-") || (m_strDefaultUnstructDimName == "")) {
 		return;
 	} else {
@@ -1260,7 +1263,8 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 				dDataMax = m_data[i];
 			}
 		}
-	} else {
+
+	} else if (!std::isnan(m_dMissingValueFloat)) {
 		int i;
 		for (i = 0; i < m_data.size(); i++) {
 			if (m_data[i] != m_dMissingValueFloat) {
@@ -1279,6 +1283,43 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 			if (m_data[i] > dDataMax) {
 				dDataMax = m_data[i];
 			}
+		}
+		if ((dDataMin == m_dMissingValueFloat) && (dDataMax == m_dMissingValueFloat)) {
+			dDataMin = 0.0;
+			dDataMax = 0.0;
+		} else if (dDataMin == m_dMissingValueFloat) {
+			dDataMin = dDataMax;
+		} else if (dDataMax == m_dMissingValueFloat) {
+			dDataMax = dDataMin;
+		}
+
+	} else {
+		int i;
+		for (i = 0; i < m_data.size(); i++) {
+			if (!std::isnan(m_data[i])) {
+				dDataMin = m_data[i];
+				dDataMax = m_data[i];
+				break;
+			}
+		}
+		for (; i < m_data.size(); i++) {
+			if (std::isnan(m_data[i])) {
+				continue;
+			}
+			if (m_data[i] < dDataMin) {
+				dDataMin = m_data[i];
+			}
+			if (m_data[i] > dDataMax) {
+				dDataMax = m_data[i];
+			}
+		}
+		if (std::isnan(dDataMin) && std::isnan(dDataMax)) {
+			dDataMin = 0.0;
+			dDataMax = 0.0;
+		} else if (std::isnan(dDataMin)) {
+			dDataMin = dDataMax;
+		} else if (std::isnan(dDataMax)) {
+			dDataMax = dDataMin;
 		}
 	}
 
