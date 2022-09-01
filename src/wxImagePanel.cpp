@@ -637,6 +637,15 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 			dMajorDeltaX = pow(10.0, static_cast<double>(iDeltaXMag10));
 		}
 
+		double dMajorDeltaY = m_dYrange[1] - m_dYrange[0];
+		if ((dMajorDeltaY >= 90.0) && (dMajorDeltaY <= 640.0)) {
+			dMajorDeltaY = 30.0;
+		} else {
+			_ASSERT(dMajorDeltaY > 0.0);
+			int iDeltaYMag10 = static_cast<int>(std::log10(dMajorDeltaY));
+			dMajorDeltaY = pow(10.0, static_cast<double>(iDeltaYMag10));
+		}
+
 		std::map<int,double> mapTickmarkMajorX;
 		std::map<int,double> mapTickmarkMajorY;
 
@@ -657,13 +666,13 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 		mapTickmarkMajorY.insert(std::pair<int,double>(static_cast<int>(sMapHeight), m_dYrange[0]));
 
 		for (int j = 0, s = 0; j < m_dSampleY.size()-1; j++) {
-			if (std::floor(m_dSampleY[j] / dMajorDeltaX) !=
-			    std::floor(m_dSampleY[j+1] / dMajorDeltaX)
+			if (std::floor(m_dSampleY[j] / dMajorDeltaY) !=
+			    std::floor(m_dSampleY[j+1] / dMajorDeltaY)
 			) {
 				mapTickmarkMajorY.insert(
 					std::pair<int,double>(
 						static_cast<int>(sMapHeight) - j - 1,
-						std::floor(m_dSampleY[j+1] / dMajorDeltaX) * dMajorDeltaX));
+						std::floor(m_dSampleY[j+1] / dMajorDeltaY) * dMajorDeltaY));
 			}
 		}
 
