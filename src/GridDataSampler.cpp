@@ -118,7 +118,8 @@ void GridDataSamplerUsingCubedSphereQuadTree::ABPFromRLL(
 
 void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 	const std::vector<double> & dLon,
-	const std::vector<double> & dLat
+	const std::vector<double> & dLat,
+	double dFillValue
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
@@ -133,22 +134,40 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 
 	m_vecquadtree.resize(6, QuadTreeNode(-0.5*M_PI, 0.5*M_PI, -0.5*M_PI, 0.5*M_PI));
 
+	m_fDistanceFilter = false;
+	int iMaxLevel = 0;
+
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
 	for (long i = 0; i < dLon.size(); i++) {
 
-		double dA;
-		double dB;
-		int nP;
+		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
 
-		ABPFromRLL(dLon[i], dLat[i], dA, dB, nP);
+			double dA;
+			double dB;
+			int nP;
 
-		_ASSERT((nP >= 0) && (nP <= 5));
+			ABPFromRLL(dLon[i], dLat[i], dA, dB, nP);
 
-		m_vecquadtree[nP].insert(dA, dB, i);
+			_ASSERT((nP >= 0) && (nP <= 5));
+
+			int iLevel = m_vecquadtree[nP].insert(dA, dB, i);
+			if (iLevel > iMaxLevel) {
+				iMaxLevel = iLevel;
+			}
+
+		} else {
+			m_fDistanceFilter = true;
+		}
 
 		if ((i+1) % iReportSize == 0) {
 			Announce("%li%% complete", i / iReportSize);
 		}
+	}
+
+	m_dMaxDist = M_PI * pow(0.5, static_cast<double>(iMaxLevel));
+
+	if (m_fDistanceFilter) {
+		Announce("Maximum render distance: %1.5e (%i)", m_dMaxDist, iMaxLevel);
 	}
 
 	AnnounceEndBlock("Done");
@@ -171,11 +190,23 @@ void GridDataSamplerUsingCubedSphereQuadTree::Sample(
 		double dB;
 		int nP;
 
+		double dAref;
+		double dBref;
+
 		ABPFromRLL(dSampleLon[i], dSampleLat[j], dA, dB, nP);
 
 		_ASSERT((nP >= 0) && (nP <= 5));
 
-		size_t sI = m_vecquadtree[nP].find_inexact(dA, dB);
+		size_t sI = m_vecquadtree[nP].find_inexact(dA, dB, dAref, dBref);
+
+		if (m_fDistanceFilter) {
+			if (fabs(dA - dAref) > m_dMaxDist) {
+				sI = static_cast<size_t>(-1);
+			}
+			if (fabs(dB - dBref) > m_dMaxDist) {
+				sI = static_cast<size_t>(-1);
+			}
+		}
 
 		if (sI == static_cast<size_t>(-1)) {
 			dImageMap[s] = 0;
@@ -194,7 +225,8 @@ void GridDataSamplerUsingCubedSphereQuadTree::Sample(
 
 void GridDataSamplerUsingQuadTree::Initialize(
 	const std::vector<double> & dLon,
-	const std::vector<double> & dLat
+	const std::vector<double> & dLat,
+	double dFillValue
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
@@ -204,16 +236,34 @@ void GridDataSamplerUsingQuadTree::Initialize(
 
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
+	m_fDistanceFilter = false;
+	int iMaxLevel = 0;
+
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
 	for (long i = 0; i < dLon.size(); i++) {
 
-		double dLonStandard = LonDegToStandardRange(dLon[i]);
+		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
 
-		m_quadtree.insert(dLonStandard, dLat[i], i);
+			double dLonStandard = LonDegToStandardRange(dLon[i]);
+
+			int iLevel = m_quadtree.insert(dLonStandard, dLat[i], i);
+			if (iLevel > iMaxLevel) {
+				iMaxLevel = iLevel;
+			}
+
+		} else {
+			m_fDistanceFilter = true;
+		}
 
 		if ((i+1) % iReportSize == 0) {
 			Announce("%li%% complete", i / iReportSize);
 		}
+	}
+
+	m_dMaxDist = 2.0 * 360.0 * pow(0.5, static_cast<double>(iMaxLevel));
+
+	if (m_fDistanceFilter) {
+		Announce("Maximum render distance: %1.5e (%i)", m_dMaxDist, iMaxLevel);
 	}
 
 	AnnounceEndBlock("Done");
@@ -228,17 +278,42 @@ void GridDataSamplerUsingQuadTree::Sample(
 ) const {
 	//long lTotal = 0;
 	//long lReportSize = static_cast<long>(dSampleLat.size()) * static_cast<long>(dSampleLon.size()) / 100;
-	//AnnounceStartBlock("Querying data points within the quadtree");
+	AnnounceStartBlock("Querying data points within the quadtree");
 
 	dImageMap.resize(dSampleLon.size() * dSampleLat.size());
+
+	double dLonRef;
+	double dLatRef;
+
+	double dMaxDeltaLon = 2.0 * fabs(dSampleLon[1] - dSampleLon[0]);
+	double dMaxDeltaLat = 2.0 * fabs(dSampleLat[1] - dSampleLat[0]);
 
 	int s = 0;
 	for (int j = 0; j < dSampleLat.size(); j++) {
 	for (int i = 0; i < dSampleLon.size(); i++) {
-		size_t sI = m_quadtree.find_inexact(LonDegToStandardRange(dSampleLon[i]), dSampleLat[j]);
+		size_t sI =
+			m_quadtree.find_inexact(
+				LonDegToStandardRange(dSampleLon[i]),
+				dSampleLat[j],
+				dLonRef,
+				dLatRef);
+
+		if (m_fDistanceFilter) {
+			double dDeltaLon = LonDegToStandardRange(dSampleLon[i] - dLonRef);
+			if (dDeltaLon > 180.0) {
+				dDeltaLon -= 360.0;
+			}
+
+			if (fabs(dDeltaLon * cos(dSampleLat[j] / 180.0 * M_PI)) > m_dMaxDist) {
+				sI = static_cast<size_t>(-1);
+			}
+			if (fabs(dSampleLat[j] - dLatRef) > m_dMaxDist) {
+				sI = static_cast<size_t>(-1);
+			}
+		}
 
 		if (sI == static_cast<size_t>(-1)) {
-			dImageMap[s] = 0;//_EXCEPTION();
+			dImageMap[s] = 0;
 		} else {
 			dImageMap[s] = sI;
 		}
@@ -251,7 +326,7 @@ void GridDataSamplerUsingQuadTree::Sample(
 		s++;
 	}
 	}
-	//AnnounceEndBlock("Done");
+	AnnounceEndBlock("Done");
 }
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -268,7 +343,8 @@ GridDataSamplerUsingKDTree::~GridDataSamplerUsingKDTree() {
 
 void GridDataSamplerUsingKDTree::Initialize(
 	const std::vector<double> & dLon,
-	const std::vector<double> & dLat
+	const std::vector<double> & dLat,
+	double dFillValue
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
@@ -286,13 +362,16 @@ void GridDataSamplerUsingKDTree::Initialize(
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
 	for (long i = 0; i < static_cast<long>(dLon.size()); i++) {
 
-		double dX;
-		double dY;
-		double dZ;
+		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
 
-		RLLtoXYZ_Deg(dLon[i], dLat[i], dX, dY, dZ);
+			double dX;
+			double dY;
+			double dZ;
 
-		kd_insert3(m_kdtree, dX, dY, dZ, (void*)(&m_iRef + i));
+			RLLtoXYZ_Deg(dLon[i], dLat[i], dX, dY, dZ);
+
+			kd_insert3(m_kdtree, dX, dY, dZ, (void*)(&m_iRef + i));
+		}
 
 		if ((i+1) % iReportSize == 0) {
 			Announce("%li%% complete", i / iReportSize);

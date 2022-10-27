@@ -70,7 +70,7 @@ public:
 	///	<summary>
 	///		Insert a point into the quadtree.
 	///	</summary>
-	bool insert(
+	int insert(
 		double dX,
 		double dY,
 		size_t sI
@@ -98,12 +98,13 @@ public:
 		const size_t sIx = 2 * sYi + sXi;
 
 		if (m_pChildren[sIx] != NULL) {
-			m_pChildren[sIx]->insert(dX, dY, sI);
+			return (m_pChildren[sIx]->insert(dX, dY, sI) + 1);
 
 		} else if (m_sIndex[sIx] == static_cast<size_t>(-1)) {
 			m_dXcoord[sIx] = dX;
 			m_dYcoord[sIx] = dY;
 			m_sIndex[sIx] = sI;
+			return 0;
 
 		} else if (m_iLevel != QUADTREE_MAX_LEVELS) {
 			m_pChildren[sIx] =
@@ -115,10 +116,11 @@ public:
 					m_iLevel + 1);
 
 			m_pChildren[sIx]->insert(m_dXcoord[sIx], m_dYcoord[sIx], m_sIndex[sIx]);
-			m_pChildren[sIx]->insert(dX, dY, sI);
+
+			return (m_pChildren[sIx]->insert(dX, dY, sI) + 1);
 		}
 
-		return true;
+		return 0;
 	}
 
 	///	<summary>
@@ -126,7 +128,9 @@ public:
 	///	</summary>
 	size_t find_inexact(
 		double dX,
-		double dY
+		double dY,
+		double & dXref,
+		double & dYref
 	) const {
 		static const int s_iLookup[4][3] = {{2,1,3}, {0,3,2}, {3,0,1}, {1,2,0}};
 
@@ -149,18 +153,22 @@ public:
 		_ASSERT(sIx < 4);
 
 		if (m_pChildren[sIx] != NULL) {
-			return m_pChildren[sIx]->find_inexact(dX, dY);
+			return m_pChildren[sIx]->find_inexact(dX, dY, dXref, dYref);
 
 		} else if (m_sIndex[sIx] != static_cast<size_t>(-1)) {
+			dXref = m_dXcoord[sIx];
+			dYref = m_dYcoord[sIx];
 			return m_sIndex[sIx];
 
 		} else {
 			for (int k = 0; k < 3; k++) {
 				int ixNeighbor = s_iLookup[sIx][k];
 				if (m_pChildren[ixNeighbor] != NULL) {
-					return m_pChildren[ixNeighbor]->find_inexact(dX, dY);
+					return m_pChildren[ixNeighbor]->find_inexact(dX, dY, dXref, dYref);
 
 				} else if (m_sIndex[ixNeighbor] != static_cast<size_t>(-1)) {
+					dXref = m_dXcoord[ixNeighbor];
+					dYref = m_dYcoord[ixNeighbor];
 					return m_sIndex[ixNeighbor];
 				}
 			}

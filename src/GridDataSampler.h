@@ -77,7 +77,8 @@ public:
 	///	</summary>
 	virtual void Initialize(
 		const std::vector<double> & dLon,
-		const std::vector<double> & dLat
+		const std::vector<double> & dLat,
+		double dFillValue
 	);
 
 	///	<summary>
@@ -94,6 +95,16 @@ public:
 	///		QuadTree root node.
 	///	</summary>
 	std::vector<QuadTreeNode> m_vecquadtree;
+
+	///	<summary>
+	///		Apply distance criteria for filtering sample points.
+	///	</summary>
+	bool m_fDistanceFilter;
+
+	///	<summary>
+	///		Distance criteria for filtering sample points.
+	///	</summary>
+	double m_dMaxDist;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -105,7 +116,8 @@ public:
 	///	</summary>
 	virtual void Initialize(
 		const std::vector<double> & dLon,
-		const std::vector<double> & dLat
+		const std::vector<double> & dLat,
+		double dFillValue
 	);
 
 	///	<summary>
@@ -122,6 +134,16 @@ public:
 	///		QuadTree root node.
 	///	</summary>
 	QuadTreeNode m_quadtree;
+
+	///	<summary>
+	///		Apply distance criteria for filtering sample points.
+	///	</summary>
+	bool m_fDistanceFilter;
+
+	///	<summary>
+	///		Distance criteria for filtering sample points.
+	///	</summary>
+	double m_dMaxDist;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -145,7 +167,8 @@ public:
 	///	</summary>
 	virtual void Initialize(
 		const std::vector<double> & dLon,
-		const std::vector<double> & dLat
+		const std::vector<double> & dLat,
+		double dFillValue
 	);
 
 	///	<summary>

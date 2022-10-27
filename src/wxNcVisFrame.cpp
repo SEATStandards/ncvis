@@ -15,10 +15,11 @@
 #include "ShpFile.h"
 #include "TimeObj.h"
 #include <set>
+#include <limits>
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.09.01";
+static const char * szVersion = "NcVis 2022.10.26";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -172,8 +173,12 @@ bool wxNcVisFrame::GetLonLatDimDataIter(
 
 void wxNcVisFrame::InitializeGridDataSampler() {
 
+	NcError error(NcError::silent_nonfatal);
+
 	std::vector<double> dLon;
 	std::vector<double> dLat;
+
+	double dFillValue = std::numeric_limits<double>::max();
 
 	// Get the latitude and longitude variables
 	if (m_strVarActiveMultidimLon == "") {
@@ -204,6 +209,11 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
 		varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
+		NcAtt * attFillValue = varLon->get_att("_FillValue");
+		if (attFillValue != NULL) {
+			dFillValue = attFillValue->as_double(0);
+		}
+
 	// Multidimensional latitude and longitude already specified
 	} else {
 		_ASSERT(m_strVarActiveMultidimLat != "");
@@ -222,6 +232,11 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		_ASSERT(varLon != NULL);
 		NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(m_strVarActiveMultidimLat.c_str());
 		_ASSERT(varLat != NULL);
+
+		NcAtt * attFillValue = varLon->get_att("_FillValue");
+		if (attFillValue != NULL) {
+			dFillValue = attFillValue->as_double(0);
+		}
 
 		_ASSERT(varLon->num_dims() == m_varActive->num_dims());
 		_ASSERT(varLat->num_dims() == m_varActive->num_dims());
@@ -256,11 +271,18 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 	{
 		wxStopWatch sw;
 
-		m_dgdsLonBounds[0] = dLon[0];
-		m_dgdsLonBounds[1] = dLon[0];
-		m_dgdsLatBounds[0] = dLat[0];
-		m_dgdsLatBounds[1] = dLat[0];
-		for (size_t i = 1; i < dLon.size(); i++) {
+		m_dgdsLonBounds[0] = std::numeric_limits<double>::max();
+		m_dgdsLonBounds[1] = -std::numeric_limits<double>::max();
+		m_dgdsLatBounds[0] = std::numeric_limits<double>::max();
+		m_dgdsLatBounds[1] = -std::numeric_limits<double>::max();
+		for (size_t i = 0; i < dLon.size(); i++) {
+			if ((dLon[i] == dFillValue) || (std::isnan(dLon[i]))) {
+				continue;
+			}
+			if ((dLat[i] == dFillValue) || (std::isnan(dLat[i]))) {
+				continue;
+			}
+
 			if (dLon[i] < m_dgdsLonBounds[0]) {
 				m_dgdsLonBounds[0] = dLon[i];
 			}
@@ -302,13 +324,13 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		}
 
 		if (m_egdsoption == GridDataSamplerOption_QuadTree) {
-			m_gdsqt.Initialize(dLon, dLat);
+			m_gdsqt.Initialize(dLon, dLat, dFillValue);
 		}
 		if (m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) {
-			m_gdscsqt.Initialize(dLon, dLat);
+			m_gdscsqt.Initialize(dLon, dLat, dFillValue);
 		}
 		if (m_egdsoption == GridDataSamplerOption_KDTree) {
-			m_gdskd.Initialize(dLon, dLat);
+			m_gdskd.Initialize(dLon, dLat, dFillValue);
 		}
 		Announce("Initializing the GridDataSampler took %ldms", sw.Time());
 	}
@@ -758,6 +780,9 @@ void wxNcVisFrame::InitializeWindow() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxNcVisFrame::LoadData() {
+	if (m_fVerbose) {
+		std::cout << "LOAD DATA" << std::endl;
+	}
 
 	// Assume data is not unstructured
 	m_fIsVarActiveUnstructured = false;
@@ -1961,6 +1986,7 @@ void wxNcVisFrame::OnVariableSelected(
 		for (long d = 0; d < m_varActive->num_dims(); d++) {
 			if (m_strUnstructDimName == m_varActive->get_dim(d)->name()) {
 				m_lDisplayedDims[0] = d;
+				m_fIsVarActiveUnstructured = true;
 			}
 		}
 
