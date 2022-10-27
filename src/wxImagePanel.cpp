@@ -348,8 +348,12 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 
 	wxPoint pos = evt.GetPosition();
 
-	pos.x -= DISPLAY_BORDER;
-	pos.y -= DISPLAY_BORDER;
+	wxSize wxsMap;
+	wxPosition wxpMap;
+	GetMapPositionSize(wxsMap, wxpMap);
+
+	pos.x -= wxpMap.GetCol();
+	pos.y -= wxpMap.GetRow();
 
 	if ((pos.x < 0) || (pos.x >= m_dSampleX.size())) {
 		return;
