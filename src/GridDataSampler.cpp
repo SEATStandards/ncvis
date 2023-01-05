@@ -223,6 +223,19 @@ void GridDataSamplerUsingCubedSphereQuadTree::Sample(
 // GridDataSamplerUsingQuadTree
 ///////////////////////////////////////////////////////////////////////////////
 
+void GridDataSamplerUsingQuadTree::SetRegionalBounds(
+	double dLonBounds0,
+	double dLonBounds1,
+	double dLatBounds0,
+	double dLatBounds1
+) {
+	m_quadtree.clear();
+	m_quadtree = QuadTreeNode(dLonBounds0, dLonBounds1, dLatBounds0, dLatBounds1);
+	m_fRegional = true;
+}
+
+///////////////////////////////////////////////////////////////////////////////
+
 void GridDataSamplerUsingQuadTree::Initialize(
 	const std::vector<double> & dLon,
 	const std::vector<double> & dLat,
@@ -243,10 +256,14 @@ void GridDataSamplerUsingQuadTree::Initialize(
 	for (long i = 0; i < dLon.size(); i++) {
 
 		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
+			double dStandardLonDeg;
+			if (!m_fRegional) {
+				dStandardLonDeg = LonDegToStandardRange(dLon[i]);
+			} else {
+				dStandardLonDeg = dLon[i];
+			}
 
-			double dLonStandard = LonDegToStandardRange(dLon[i]);
-
-			int iLevel = m_quadtree.insert(dLonStandard, dLat[i], i);
+			int iLevel = m_quadtree.insert(dStandardLonDeg, dLat[i], i);
 			if (iLevel > iMaxLevel) {
 				iMaxLevel = iLevel;
 			}
@@ -263,6 +280,9 @@ void GridDataSamplerUsingQuadTree::Initialize(
 	m_dMaxDist = 2.0 * 360.0 * pow(0.5, static_cast<double>(iMaxLevel));
 
 	if (m_fDistanceFilter) {
+		if (m_fRegional) {
+			_EXCEPTIONT("DistanceFilter cannot be combined with regional bounds");
+		}
 		Announce("Maximum render distance: %1.5e (%i)", m_dMaxDist, iMaxLevel);
 	}
 
@@ -291,9 +311,16 @@ void GridDataSamplerUsingQuadTree::Sample(
 	int s = 0;
 	for (int j = 0; j < dSampleLat.size(); j++) {
 	for (int i = 0; i < dSampleLon.size(); i++) {
+		double dSampleStandardLonDeg;
+		if (!m_fRegional) {
+			dSampleStandardLonDeg = LonDegToStandardRange(dSampleLon[i]);
+		} else {
+			dSampleStandardLonDeg = dSampleLon[i];
+		}
+
 		size_t sI =
 			m_quadtree.find_inexact(
-				LonDegToStandardRange(dSampleLon[i]),
+				dSampleStandardLonDeg,
 				dSampleLat[j],
 				dLonRef,
 				dLatRef);

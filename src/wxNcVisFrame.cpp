@@ -19,7 +19,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2022.10.26";
+static const char * szVersion = "NcVis 2023.01.05";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -84,6 +84,7 @@ wxNcVisFrame::wxNcVisFrame(
 	m_fVerbose(false),
 	m_wxstrNcVisResourceDir(wxstrNcVisResourceDir),
 	m_mapOptions(mapOptions),
+	m_fRegional(false),
 	m_colormaplib(wxstrNcVisResourceDir),
 	m_egdsoption(GridDataSamplerOption_QuadTree),
 	m_wxDataTransButton(NULL),
@@ -124,6 +125,19 @@ wxNcVisFrame::wxNcVisFrame(
 
 	if (mapOptions.find("-v") != mapOptions.end()) {
 		m_fVerbose = true;
+	}
+	if (mapOptions.find("-r") != mapOptions.end()) {
+		m_fRegional = true;
+	}
+	
+	auto itUXC = mapOptions.find("-uxc");
+	auto itUYC = mapOptions.find("-uyc");
+
+	if (itUXC != mapOptions.end()) {
+		m_strLonVarNameOverride = itUXC->second.ToStdString();
+	}
+	if (itUYC != mapOptions.end()) {
+		m_strLatVarNameOverride = itUYC->second.ToStdString();
 	}
 
 	OpenFiles(vecFilenames);
@@ -296,34 +310,46 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 				m_dgdsLatBounds[1] = dLat[i];
 			}
 		}
-		if (fabs(m_dgdsLonBounds[1] - m_dgdsLonBounds[0] - 360.0) < 1.0) {
-			if (fabs(m_dgdsLonBounds[0]) < 1.0) {
-				m_dgdsLonBounds[0] = 0.0;
+
+		if (!m_fRegional) {
+			if (fabs(m_dgdsLonBounds[1] - m_dgdsLonBounds[0] - 360.0) < 1.0) {
+				if (fabs(m_dgdsLonBounds[0]) < 1.0) {
+					m_dgdsLonBounds[0] = 0.0;
+				}
+				if (fabs(m_dgdsLonBounds[0] + 180.0) < 1.0) {
+					m_dgdsLonBounds[0] = -180.0;
+				}
+				m_dgdsLonBounds[1] = m_dgdsLonBounds[0] + 360.0;
 			}
-			if (fabs(m_dgdsLonBounds[0] + 180.0) < 1.0) {
-				m_dgdsLonBounds[0] = -180.0;
+			if ((fabs(m_dgdsLatBounds[0] + 90.0) < 1.0) && (fabs(m_dgdsLatBounds[1] - 90.0) < 1.0)) {
+				m_dgdsLatBounds[0] = -90.0;
+				m_dgdsLatBounds[1] = 90.0;
 			}
-			m_dgdsLonBounds[1] = m_dgdsLonBounds[0] + 360.0;
-		}
-		if ((fabs(m_dgdsLatBounds[0] + 90.0) < 1.0) && (fabs(m_dgdsLatBounds[1] - 90.0) < 1.0)) {
-			m_dgdsLatBounds[0] = -90.0;
-			m_dgdsLatBounds[1] = 90.0;
-		}
-		if (fabs(m_dgdsLonBounds[1] - m_dgdsLonBounds[0] - 2.0 * M_PI) < 0.1) {
-			if (fabs(m_dgdsLonBounds[0]) < 0.1) {
-				m_dgdsLonBounds[0] = 0.0;
+			if (fabs(m_dgdsLonBounds[1] - m_dgdsLonBounds[0] - 2.0 * M_PI) < 0.1) {
+				if (fabs(m_dgdsLonBounds[0]) < 0.1) {
+					m_dgdsLonBounds[0] = 0.0;
+				}
+				if (fabs(m_dgdsLonBounds[0] + M_PI) < 0.1) {
+					m_dgdsLonBounds[0] = - M_PI;
+				}
+				m_dgdsLonBounds[1] = m_dgdsLonBounds[0] + 2.0 * M_PI;
 			}
-			if (fabs(m_dgdsLonBounds[0] + M_PI) < 0.1) {
-				m_dgdsLonBounds[0] = - M_PI;
+			if ((fabs(m_dgdsLatBounds[0] + 0.5 * M_PI) < 0.1) && (fabs(m_dgdsLatBounds[1] - 0.5 * M_PI) < 0.1)) {
+				m_dgdsLatBounds[0] = - 0.5 * M_PI;
+				m_dgdsLatBounds[1] = 0.5 * M_PI;
 			}
-			m_dgdsLonBounds[1] = m_dgdsLonBounds[0] + 2.0 * M_PI;
-		}
-		if ((fabs(m_dgdsLatBounds[0] + 0.5 * M_PI) < 0.1) && (fabs(m_dgdsLatBounds[1] - 0.5 * M_PI) < 0.1)) {
-			m_dgdsLatBounds[0] = - 0.5 * M_PI;
-			m_dgdsLatBounds[1] = 0.5 * M_PI;
 		}
 
 		if (m_egdsoption == GridDataSamplerOption_QuadTree) {
+			if (m_fRegional) {
+				//std::cout << m_dgdsLonBounds[0] << " " << m_dgdsLonBounds[1] << " " << m_dgdsLatBounds[0] << " " << m_dgdsLatBounds[1] << std::endl;
+				m_gdsqt.SetRegionalBounds(
+					m_dgdsLonBounds[0],
+					m_dgdsLonBounds[1],
+					m_dgdsLatBounds[0],
+					m_dgdsLatBounds[1]);
+			}
+
 			m_gdsqt.Initialize(dLon, dLat, dFillValue);
 		}
 		if (m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) {
@@ -399,6 +425,9 @@ void wxNcVisFrame::OpenFiles(
 
 			// Check if this variable is longitude or latitude
 			if (sVarDims == 1) {
+				if (m_strLonVarNameOverride == var->name()) {
+					m_strLonVarName = m_strLonVarNameOverride;
+				}
 				if (m_strLonVarName == "") {
 					for (int i = 0; i < vecCommonLonVarNames.size(); i++) {
 						if (vecCommonLonVarNames[i] == var->name()) {
@@ -419,6 +448,9 @@ void wxNcVisFrame::OpenFiles(
 							}
 						}
 					}
+				}
+				if (m_strLatVarNameOverride == var->name()) {
+					m_strLatVarName = m_strLatVarNameOverride;
 				}
 				if (m_strLatVarName == "") {
 					for (int i = 0; i < vecCommonLatVarNames.size(); i++) {
@@ -454,6 +486,13 @@ void wxNcVisFrame::OpenFiles(
 			} else {
 				bool fMultidimLon = false;
 				bool fMultidimLat = false;
+				if (m_strLonVarNameOverride == var->name()) {
+					fMultidimLon = true;
+				}
+				if (m_strLatVarNameOverride == var->name()) {
+					fMultidimLat = true;
+				}
+
 				if (attStandardName != NULL) {
 					if (strStandardLonName == attStandardName->as_string(0)) {
 						fMultidimLon = true;
@@ -480,12 +519,13 @@ void wxNcVisFrame::OpenFiles(
 					}
 				}
 				if (fMultidimLon) {
-					std::cout << strDims << " " << var->name() << std::endl;
+					std::cout << "Multidim lon: (" << strDims << ") " << var->name() << std::endl;
 					m_mapMultidimLonVars.insert(
 						std::pair<std::string, std::string>(
 							strDims, var->name()));
 				}
 				if (fMultidimLat) {
+					std::cout << "Multidim lat: (" << strDims << ") " << var->name() << std::endl;
 					m_mapMultidimLatVars.insert(
 						std::pair<std::string, std::string>(
 							strDims, var->name()));
@@ -509,9 +549,9 @@ void wxNcVisFrame::OpenFiles(
 			NcVar * varDim = pfile->get_var(itVarDim->first.c_str());
 			if (varDim != NULL) {
 				if (varDim->num_dims() != 1) {
-					std::cout << "ERROR: NetCDF fileset contains a dimension variable \"" << itVarDim->first
+					std::cout << "WARNING: NetCDF fileset contains a dimension variable \"" << itVarDim->first
 						<< "\" which has dimension different than 1" << std::endl;
-					exit(-1);
+					continue;
 				}
 
 				if (m_fVerbose) {
@@ -564,9 +604,8 @@ void wxNcVisFrame::OpenFiles(
 						}
 					}
 					if (!fMonotone) {
-						std::cout << "ERROR: NetCDF fileset contains a dimension variable \""
+						std::cout << "WARNING: NetCDF fileset contains a dimension variable \""
 							<< itVarDim->first << "\" that is non-monotone" << std::endl;
-						exit(-1);
 					}
 				}
 			}

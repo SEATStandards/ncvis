@@ -521,6 +521,21 @@ private:
 	std::map<wxString, wxString> m_mapOptions;
 
 	///	<summary>
+	///		Regional.
+	///	</summary>
+	bool m_fRegional;
+
+	///	<summary>
+	///		Name of the longitude variable via command-line override.
+	///	</summary>
+	std::string m_strLonVarNameOverride;
+
+	///	<summary>
+	///		Name of the latitude variable via command-line override.
+	///	</summary>
+	std::string m_strLatVarNameOverride;
+
+	///	<summary>
 	///		Name of the longitude variable.
 	///	</summary>
 	std::string m_strLonVarName;

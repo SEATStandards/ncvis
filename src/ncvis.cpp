@@ -57,13 +57,23 @@ bool wxNcVisApp::OnInit() {
 	std::map<wxString, wxString> mapOptions;
 	for (; iarg < argc; iarg++) {
 		if (argv[iarg][0] == '-') {
-			if (iarg+1 < argc) {
-				if (argv[iarg+1][0] != '-') {
-					mapOptions.insert(
-						std::pair<wxString, wxString>(
-							argv[iarg], argv[iarg+1]));
-					iarg++;
+			if ((wxString("-g") == argv[iarg]) ||
+			    (wxString("-uxc") == argv[iarg]) ||
+			    (wxString("-uyc") == argv[iarg])
+			) {
+				if (iarg+1 == argc) {
+					std::cout << "Option " << argv[iarg] << " missing required parameter" << std::endl;
+					exit(-1);
 				}
+				mapOptions.insert(
+					std::pair<wxString, wxString>(
+						argv[iarg], argv[iarg+1]));
+				iarg++;
+
+			} else {
+				mapOptions.insert(
+					std::pair<wxString, wxString>(
+						wxString(argv[iarg]), wxString("")));
 			}
 		} else {
 			break;

@@ -636,7 +636,9 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 		if ((dMajorDeltaX >= 90.0) && (dMajorDeltaX <= 640.0)) {
 			dMajorDeltaX = 30.0;
 		} else {
-			_ASSERT(dMajorDeltaX > 0.0);
+			if (dMajorDeltaX <= 0.0) {
+				_EXCEPTION2("X (longitude) dimension has nonpositive range [%f,%f]", m_dXrange[0], m_dXrange[1]);
+			}
 			int iDeltaXMag10 = static_cast<int>(std::log10(dMajorDeltaX));
 			dMajorDeltaX = pow(10.0, static_cast<double>(iDeltaXMag10));
 		}
@@ -645,7 +647,10 @@ void wxImagePanel::GenerateImageDataFromImageMap(
 		if ((dMajorDeltaY >= 90.0) && (dMajorDeltaY <= 640.0)) {
 			dMajorDeltaY = 30.0;
 		} else {
-			_ASSERT(dMajorDeltaY > 0.0);
+			if (dMajorDeltaY <= 0.0) {
+				_EXCEPTION2("Y (latitude) dimension has nonpositive range [%f,%f]", m_dYrange[0], m_dYrange[1]);
+			}
+
 			int iDeltaYMag10 = static_cast<int>(std::log10(dMajorDeltaY));
 			dMajorDeltaY = pow(10.0, static_cast<double>(iDeltaYMag10));
 		}

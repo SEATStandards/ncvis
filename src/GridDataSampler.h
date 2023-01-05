@@ -112,6 +112,25 @@ public:
 class GridDataSamplerUsingQuadTree : public GridDataSampler {
 public:
 	///	<summary>
+	///		Constructor.
+	///	</summary>
+	GridDataSamplerUsingQuadTree() :
+		m_fRegional(false),
+		m_fDistanceFilter(false),
+		m_dMaxDist(0.0)
+	{ }
+
+	///	<summary>
+	///		Set regional bounds on QuadTree root.
+	///	</summary>
+	void SetRegionalBounds(
+		double dLonBounds0,
+		double dLonBounds1,
+		double dLatBounds0,
+		double dLatBounds1
+	);
+
+	///	<summary>
 	///		Initialize.
 	///	</summary>
 	virtual void Initialize(
@@ -134,6 +153,11 @@ public:
 	///		QuadTree root node.
 	///	</summary>
 	QuadTreeNode m_quadtree;
+
+	///	<summary>
+	///		Do not wrap longitudes (unstructured regional data).
+	///	</summary>
+	bool m_fRegional;
 
 	///	<summary>
 	///		Apply distance criteria for filtering sample points.
