@@ -794,6 +794,13 @@ void wxNcVisFrame::InitializeWindow() {
 		varsizer->Add(m_vecwxVarSelector[vc], 0, wxEXPAND | wxBOTTOM, 8);
 	}
 
+	// Custom variable selector
+	//wxBoxSizer *customvarsizer = new wxBoxSizer(wxHORIZONTAL);
+
+	//customvarsizer->Add(new wxStaticText(this, (-1), _T("Custom: "), wxDefaultPosition, wxSize(20,m_wxDataTransButton->GetSize().GetHeight()+4), wxST_ELLIPSIZE_END | wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxEXPAND | wxALL, 4);
+	//customvarsizer->Add(new wxTextCtrl(this, (-1), _T(""), wxDefaultPosition, wxSize(240,m_wxDataTransButton->GetSize().GetHeight()+4), wxTE_PROCESS_ENTER), 2, wxEXPAND | wxALL, 4);
+
+
 	// Dimensions
 	m_vardimsizer = new wxFlexGridSizer(NcVarMaximumDimensions+1, 4, 0, 0);
 
@@ -803,6 +810,7 @@ void wxNcVisFrame::InitializeWindow() {
 	m_imagepanel->SetColorMap(m_colormaplib.GetColorMapName(0));
 
 	m_rightsizer->Add(varsizer, 0, wxALIGN_CENTER, 0);
+	//m_rightsizer->Add(customvarsizer, 0, wxALIGN_CENTER, 0);
 	m_rightsizer->Add(m_vardimsizer, 0, wxALIGN_CENTER, 0);
 
 	m_panelsizer->Add(m_imagepanel, 1, wxALIGN_TOP | wxALIGN_CENTER | wxSHAPED);
@@ -1197,15 +1205,14 @@ void wxNcVisFrame::ResetBounds(
 
 			auto itDimCoord = itDim->second.begin();
 			const std::vector<double> & coord = itDimCoord->second;
+			int nc = coord.size();
 			if (coord.size() == 1) {
-				m_dDisplayedDimBounds[d][0] = coord[0];
-				m_dDisplayedDimBounds[d][1] = coord[0];
+				m_dDisplayedDimBounds[d][0] = coord[0] - 0.5;
+				m_dDisplayedDimBounds[d][1] = coord[0] + 0.5;
 			} else if (coord[1] > coord[0]) {
-				int nc = coord.size();
 				m_dDisplayedDimBounds[d][0] = coord[0] - 0.5 * (coord[1] - coord[0]);
 				m_dDisplayedDimBounds[d][1] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
 			} else {
-				int nc = coord.size();
 				m_dDisplayedDimBounds[d][0] = coord[nc-1] + 0.5 * (coord[nc-1] - coord[nc-2]);
 				m_dDisplayedDimBounds[d][1] = coord[0] - 0.5 * (coord[1] - coord[0]);
 			}
@@ -1236,13 +1243,17 @@ void wxNcVisFrame::ResetBounds(
 			) {
 				//TODO: Implement periodic longitudes for 2D variables
 				//m_fDisplayedDimPeriodic[d] = true;
-				if (fabs(dXmax[d] - dXmin[d] - 360.0) < 1.0e-5) {
-					if (coord[1] > coord[0]) {
-						m_dDisplayedDimBounds[d][0] = coord[0];
-						m_dDisplayedDimBounds[d][1] = coord[0] + 360.0;
-					} else {
-						m_dDisplayedDimBounds[d][0] = coord[coord.size()-1];
-						m_dDisplayedDimBounds[d][1] = coord[coord.size()-1] + 360.0;
+				if (nc != 1) {
+					double dXleft = 1.5 * coord[0] - 0.5 * coord[1];
+					double dXright = 1.5 * coord[nc-1] - 0.5 * coord[nc-2];
+					if (fabs(dXright - dXleft - 360.0) < 1.0e-5) {
+						if (coord[1] > coord[0]) {
+							m_dDisplayedDimBounds[d][0] = coord[0];
+							m_dDisplayedDimBounds[d][1] = coord[0] + 360.0;
+						} else {
+							m_dDisplayedDimBounds[d][0] = coord[nc-1];
+							m_dDisplayedDimBounds[d][1] = coord[nc-1] + 360.0;
+						}
 					}
 				}
 			}
