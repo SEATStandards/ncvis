@@ -19,7 +19,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2023.01.05";
+static const char * szVersion = "NcVis 2023.04.30";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -822,6 +822,26 @@ void wxNcVisFrame::InitializeWindow() {
 	SetStatusMessage(_T(""), true);
 
 	SetSizerAndFit(m_panelsizer);
+
+	// Set selection
+	size_t sTotalVariables = 0;
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+		sTotalVariables += m_mapVarNames[vc].size();
+	}
+
+	if (sTotalVariables == 1) {
+		for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+			if (m_mapVarNames[vc].size() == 1) {
+				m_vecwxVarSelector[vc]->SetSelection(0);
+
+				wxCommandEvent event(wxEVT_NULL, ID_VARSELECTOR + vc);
+				event.SetString(wxString(m_mapVarNames[vc].begin()->first));
+
+				OnVariableSelected(event);
+				break;
+			}
+		}
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
