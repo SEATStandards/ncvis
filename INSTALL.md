@@ -21,6 +21,20 @@ not seem to suffer from this issue.  To ensure a modern version of the GNU
 compiler is used, you may wish to add `cxx-compiler` to the `conda`
 environment.
 
+## Missing libraries
+
+Some have reported issues with missing libraries in their build environment
+during build (e.g., https://github.com/SEATStandards/ncvis/issues/14).  This
+may mean additional libraries need to be added via conda:
+
+```
+conda install -c anaconda libxxf86vm-cos6-x86_64
+```
+
+Often Googling for the name of the warning message will provide instructions
+on the name of the package needed to address the issue.  At this point no
+general solution is known.
+
 # Install with cmake
 
 A cmake based build infrastructure has been included to assist with
