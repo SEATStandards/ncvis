@@ -142,6 +142,18 @@ public:
 	);
 
 	///	<summary>
+	///		Toggle invert color map.
+	///	</summary>
+	void ToggleInvertColorMap(bool fRedraw = false);
+
+	///	<summary>
+	///		Toggle invert color map.
+	///	</summary>
+	bool IsInvertColorMap() {
+		return m_colormap.GetInvert();
+	}
+
+	///	<summary>
 	///		Set the color map.
 	///	</summary>
 	void SetColorMap(

@@ -399,6 +399,11 @@ private:
 	void OnAxesButtonClicked(wxCommandEvent & event);
 
 	///	<summary>
+	///		Callback triggered when the colormap invert button is clicked.
+	///	</summary>
+	void OnColorMapInvertClicked(wxCommandEvent & event);
+
+	///	<summary>
 	///		Callback triggered when the colormap combo is changed.
 	///	</summary>
 	void OnColorMapCombo(wxCommandEvent & event);
@@ -419,6 +424,11 @@ private:
 	void OnSamplerCombo(wxCommandEvent & event);
 
 private:
+	///	<summary>
+	///		Button for inverting color map.
+	///	</summary>
+	wxButton * m_wxInvertColorMapButton;
+
 	///	<summary>
 	///		Button for changing data range.
 	///	</summary>

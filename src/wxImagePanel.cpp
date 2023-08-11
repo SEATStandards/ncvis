@@ -1082,6 +1082,18 @@ void wxImagePanel::GenerateImageFromImageMap(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxImagePanel::ToggleInvertColorMap(
+	bool fRedraw
+) {
+	m_colormap.SetInvert(!m_colormap.GetInvert());
+
+	if (fRedraw) {
+		GenerateImageFromImageMap(true);
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxImagePanel::SetColorMap(
 	const wxString & strColorMap,
 	bool fRedraw
@@ -1337,7 +1349,7 @@ void wxImagePanel::DrawCharacter(
 	SFT_Image img;
 	img.width = (mtx.minWidth + 3) & ~3;
 	img.height = mtx.minHeight;
-	char * pixels = new char[img.width * img.height];
+	unsigned char * pixels = new unsigned char[img.width * img.height];
 	img.pixels = pixels;
 	if (sft_render(&sft, gid, img) < 0) {
 		std::cout << "FATAL ERROR IN SFT: " << c << " not rendered" << std::endl;

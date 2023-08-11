@@ -30,6 +30,14 @@ class ColorMap : public std::vector< std::vector<unsigned char> > {
 
 public:
 	///	<summary>
+	///		Constructor.
+	///	</summary>
+	ColorMap() :
+		m_fInvert(false)
+	{ }
+
+public:
+	///	<summary>
 	///		Sample the colormap.
 	///	</summary>
 	inline void Sample(
@@ -46,6 +54,10 @@ public:
 			ixColor = 0;
 		} else if (ixColor >= size()) {
 			ixColor = size()-1;
+		}
+
+		if (m_fInvert) {
+			ixColor = size()-1-ixColor;
 		}
 
 		cR = (*this)[ixColor][0];
@@ -81,11 +93,35 @@ public:
 			ixColor = size()-1;
 		}
 
+		if (m_fInvert) {
+			ixColor = size()-1-ixColor;
+		}
+
 		cR = (*this)[ixColor][0];
 		cG = (*this)[ixColor][1];
 		cB = (*this)[ixColor][2];
 	}
 
+public:
+	///	<summary>
+	///		Get the invert flag.
+	///	</summary>
+	bool GetInvert() const {
+		return m_fInvert;
+	}
+
+	///	<summary>
+	///		Set the invert flag.
+	///	</summary>
+	void SetInvert(bool fInvert) {
+		m_fInvert = fInvert;
+	}
+
+private:
+	///	<summary>
+	///		A flag indicating the color map is inverted.
+	///	</summary>
+	bool m_fInvert;
 };
 
 ////////////////////////////////////////////////////////////////////////////////

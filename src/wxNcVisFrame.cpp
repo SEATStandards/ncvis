@@ -19,7 +19,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2023.04.30";
+static const char * szVersion = "NcVis 2023.08.10";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -37,6 +37,7 @@ enum {
 	ID_OVERLAYS = 11,
 	ID_SAMPLER = 12,
 	ID_EXPORT = 13,
+	ID_COLORMAPINVERT = 14,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
@@ -63,6 +64,7 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
 	EVT_BUTTON(ID_RANGERESETMINMAX, wxNcVisFrame::OnRangeResetMinMax)
+	EVT_BUTTON(ID_COLORMAPINVERT, wxNcVisFrame::OnColorMapInvertClicked)
 	EVT_COMBOBOX(ID_COLORMAP, wxNcVisFrame::OnColorMapCombo)
 	EVT_COMBOBOX(ID_GRIDLINES, wxNcVisFrame::OnGridLinesCombo)
 	EVT_COMBOBOX(ID_OVERLAYS, wxNcVisFrame::OnOverlaysCombo)
@@ -722,13 +724,21 @@ void wxNcVisFrame::InitializeWindow() {
 	// Data transform button (also reference widget height)
 	m_wxDataTransButton = new wxButton(this, ID_DATATRANS, _T("Linear"));
 
+	// Color map combobox and invert button
+	wxBoxSizer * wxColorMapSizer = new wxBoxSizer(wxHORIZONTAL);
+
+	// Color map invert button
+	m_wxInvertColorMapButton = new wxButton(this, ID_COLORMAPINVERT, wxString::Format("%lc",(0x25B2)), wxDefaultPosition, wxSize(20,m_wxDataTransButton->GetSize().GetHeight()));
+	wxColorMapSizer->Add(m_wxInvertColorMapButton);
+
 	// Color map combobox
-	wxComboBox * wxColorMapCombo = new wxComboBox(this, ID_COLORMAP, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
+	wxComboBox * wxColorMapCombo = new wxComboBox(this, ID_COLORMAP, _T(""), wxDefaultPosition, wxSize(120,m_wxDataTransButton->GetSize().GetHeight()));
 	for (size_t c = 0; c < m_colormaplib.GetColorMapCount(); c++) {
 		wxColorMapCombo->Append(wxString(m_colormaplib.GetColorMapName(c)));
 	}
 	wxColorMapCombo->SetSelection(0);
 	wxColorMapCombo->SetEditable(false);
+	wxColorMapSizer->Add(wxColorMapCombo);
 /*
 	// Grid lines combobox
 	wxComboBox * wxGridLinesCombo = new wxComboBox(this, ID_GRIDLINES, _T(""), wxDefaultPosition, wxSize(140,m_wxDataTransButton->GetSize().GetHeight()));
@@ -762,7 +772,7 @@ void wxNcVisFrame::InitializeWindow() {
 	m_wxExportButton->Enable(false);
 
 	// Add controls to the manusizer
-	menusizer->Add(wxColorMapCombo, 0, wxEXPAND | wxALL, 2);
+	menusizer->Add(wxColorMapSizer, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(m_wxDataTransButton, 0, wxEXPAND | wxALL, 2);
 	//menusizer->Add(wxGridLinesCombo, 0, wxEXPAND | wxALL, 2);
 	menusizer->Add(wxOverlaysCombo, 0, wxEXPAND | wxALL, 2);
@@ -2484,6 +2494,26 @@ void wxNcVisFrame::OnAxesButtonClicked(wxCommandEvent & event) {
 	LoadData();
 
 	GenerateDimensionControls();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnColorMapInvertClicked(wxCommandEvent & event) {
+	if (m_fVerbose) {
+		std::cout << "COLORMAP INVERT" << std::endl;
+	}
+
+	if (m_imagepanel == NULL) {
+		return;
+	}
+
+	m_imagepanel->ToggleInvertColorMap(true);
+
+	if (m_imagepanel->IsInvertColorMap()) {
+		m_wxInvertColorMapButton->SetLabel(wxString::Format("%lc",(0x25BC))); // Down
+	} else {
+		m_wxInvertColorMapButton->SetLabel(wxString::Format("%lc",(0x25B2))); // Up
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
