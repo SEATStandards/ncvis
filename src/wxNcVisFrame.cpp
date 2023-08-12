@@ -1357,57 +1357,22 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 		return;
 	}
 
-	float dDataMin = m_data[0];
-	float dDataMax = m_data[0];
-	if (!m_fDataHasMissingValue) {
-		for (int i = 1; i < m_data.size(); i++) {
-			if (m_data[i] < dDataMin) {
-				dDataMin = m_data[i];
-			}
-			if (m_data[i] > dDataMax) {
-				dDataMax = m_data[i];
-			}
-		}
+	float dDataMin = 0.0;
+	float dDataMax = 0.0;
 
-	} else if (!std::isnan(m_dMissingValueFloat)) {
-		int i;
-		for (i = 0; i < m_data.size(); i++) {
-			if (m_data[i] != m_dMissingValueFloat) {
-				dDataMin = m_data[i];
-				dDataMax = m_data[i];
-				break;
-			}
-		}
-		for (; i < m_data.size(); i++) {
-			if (m_data[i] == m_dMissingValueFloat) {
-				continue;
-			}
-			if (m_data[i] < dDataMin) {
-				dDataMin = m_data[i];
-			}
-			if (m_data[i] > dDataMax) {
-				dDataMax = m_data[i];
-			}
-		}
-		if ((dDataMin == m_dMissingValueFloat) && (dDataMax == m_dMissingValueFloat)) {
-			dDataMin = 0.0;
-			dDataMax = 0.0;
-		} else if (dDataMin == m_dMissingValueFloat) {
-			dDataMin = dDataMax;
-		} else if (dDataMax == m_dMissingValueFloat) {
-			dDataMax = dDataMin;
-		}
+	int i;
 
-	} else {
-		int i;
+	if ((!m_fDataHasMissingValue) || (std::isnan(m_dMissingValueFloat))) {
 		for (i = 0; i < m_data.size(); i++) {
 			if (!std::isnan(m_data[i])) {
-				dDataMin = m_data[i];
-				dDataMax = m_data[i];
 				break;
 			}
 		}
-		for (; i < m_data.size(); i++) {
+		if (i != m_data.size()) {
+			dDataMin = m_data[i];
+			dDataMax = m_data[i];
+		}
+		for (i++; i < m_data.size(); i++) {
 			if (std::isnan(m_data[i])) {
 				continue;
 			}
@@ -1418,13 +1383,27 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 				dDataMax = m_data[i];
 			}
 		}
-		if (std::isnan(dDataMin) && std::isnan(dDataMax)) {
-			dDataMin = 0.0;
-			dDataMax = 0.0;
-		} else if (std::isnan(dDataMin)) {
-			dDataMin = dDataMax;
-		} else if (std::isnan(dDataMax)) {
-			dDataMax = dDataMin;
+
+	} else {
+		for (i = 0; i < m_data.size(); i++) {
+			if ((m_data[i] != m_dMissingValueFloat) && (!std::isnan(m_data[i]))) {
+				break;
+			}
+		}
+		if (i != m_data.size()) {
+			dDataMin = m_data[i];
+			dDataMax = m_data[i];
+		}
+		for (i++; i < m_data.size(); i++) {
+			if ((m_data[i] == m_dMissingValueFloat) || (std::isnan(m_data[i]))) {
+				continue;
+			}
+			if (m_data[i] < dDataMin) {
+				dDataMin = m_data[i];
+			}
+			if (m_data[i] > dDataMax) {
+				dDataMax = m_data[i];
+			}
 		}
 	}
 
