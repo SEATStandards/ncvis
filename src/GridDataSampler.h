@@ -78,7 +78,8 @@ public:
 	virtual void Initialize(
 		const std::vector<double> & dLon,
 		const std::vector<double> & dLat,
-		double dFillValue
+		double dFillValue,
+		bool fDistanceFilter = false
 	);
 
 	///	<summary>
@@ -136,7 +137,8 @@ public:
 	virtual void Initialize(
 		const std::vector<double> & dLon,
 		const std::vector<double> & dLat,
-		double dFillValue
+		double dFillValue,
+		bool fDistanceFilter = false
 	);
 
 	///	<summary>

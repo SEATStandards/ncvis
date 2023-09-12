@@ -536,6 +536,11 @@ private:
 	bool m_fRegional;
 
 	///	<summary>
+	///		Apply a distance filter.
+	///	</summary>
+	bool m_fDistanceFilter;
+
+	///	<summary>
 	///		Name of the longitude variable via command-line override.
 	///	</summary>
 	std::string m_strLonVarNameOverride;

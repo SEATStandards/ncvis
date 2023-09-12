@@ -87,6 +87,7 @@ wxNcVisFrame::wxNcVisFrame(
 	m_wxstrNcVisResourceDir(wxstrNcVisResourceDir),
 	m_mapOptions(mapOptions),
 	m_fRegional(false),
+	m_fDistanceFilter(false),
 	m_colormaplib(wxstrNcVisResourceDir),
 	m_egdsoption(GridDataSamplerOption_QuadTree),
 	m_wxDataTransButton(NULL),
@@ -130,6 +131,9 @@ wxNcVisFrame::wxNcVisFrame(
 	}
 	if (mapOptions.find("-r") != mapOptions.end()) {
 		m_fRegional = true;
+	}
+	if (mapOptions.find("-df") != mapOptions.end()) {
+		m_fDistanceFilter = true;
 	}
 	
 	auto itUXC = mapOptions.find("-uxc");
@@ -352,10 +356,10 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 					m_dgdsLatBounds[1]);
 			}
 
-			m_gdsqt.Initialize(dLon, dLat, dFillValue);
+			m_gdsqt.Initialize(dLon, dLat, dFillValue, m_fDistanceFilter);
 		}
 		if (m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) {
-			m_gdscsqt.Initialize(dLon, dLat, dFillValue);
+			m_gdscsqt.Initialize(dLon, dLat, dFillValue, m_fDistanceFilter);
 		}
 		if (m_egdsoption == GridDataSamplerOption_KDTree) {
 			m_gdskd.Initialize(dLon, dLat, dFillValue);
@@ -1198,7 +1202,7 @@ void wxNcVisFrame::ResetBounds(
 	if (m_lDisplayedDims[0] != (-1)) {
 		if (m_strUnstructDimName == m_varActive->get_dim(m_lDisplayedDims[0])->name()) {
 			_ASSERT(m_lDisplayedDims[1] == (-1));
-			
+
 			m_dDisplayedDimBounds[0][0] = m_dgdsLatBounds[0];
 			m_dDisplayedDimBounds[0][1] = m_dgdsLatBounds[1];
 			m_dDisplayedDimBounds[1][0] = m_dgdsLonBounds[0];

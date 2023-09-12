@@ -119,7 +119,8 @@ void GridDataSamplerUsingCubedSphereQuadTree::ABPFromRLL(
 void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 	const std::vector<double> & dLon,
 	const std::vector<double> & dLat,
-	double dFillValue
+	double dFillValue,
+	bool fDistanceFilter
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
@@ -134,7 +135,7 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 
 	m_vecquadtree.resize(6, QuadTreeNode(-0.5*M_PI, 0.5*M_PI, -0.5*M_PI, 0.5*M_PI));
 
-	m_fDistanceFilter = false;
+	m_fDistanceFilter = fDistanceFilter;
 	int iMaxLevel = 0;
 
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
@@ -239,7 +240,8 @@ void GridDataSamplerUsingQuadTree::SetRegionalBounds(
 void GridDataSamplerUsingQuadTree::Initialize(
 	const std::vector<double> & dLon,
 	const std::vector<double> & dLat,
-	double dFillValue
+	double dFillValue,
+	bool fDistanceFilter
 ) {
 	GridDataSampler::Initialize(dLon, dLat);
 
@@ -249,7 +251,7 @@ void GridDataSamplerUsingQuadTree::Initialize(
 
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
-	m_fDistanceFilter = false;
+	m_fDistanceFilter = fDistanceFilter;
 	int iMaxLevel = 0;
 
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
