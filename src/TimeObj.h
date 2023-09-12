@@ -134,6 +134,8 @@ public:
 			return CalendarNoLeap;
 		} else if (strCalendarTemp == "365_day"){
 			return CalendarNoLeap;
+		} else if (strCalendarTemp == "365-day"){
+			return CalendarNoLeap;
 		} else if (strCalendarTemp == "standard") {
 			return CalendarStandard;
 		} else if (strCalendarTemp == "gregorian") {
@@ -141,6 +143,8 @@ public:
 		} else if (strCalendarTemp == "proleptic_gregorian") {
 			return CalendarGregorian;
 		} else if (strCalendarTemp == "360_day") {
+			return Calendar360Day;
+		} else if (strCalendarTemp == "360-day") {
 			return Calendar360Day;
 		} else {
 			return CalendarUnknown;
