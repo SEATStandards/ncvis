@@ -120,8 +120,10 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 	const std::vector<double> & dLon,
 	const std::vector<double> & dLat,
 	double dFillValue,
-	bool fDistanceFilter
+	double dMaxCellRadius
 ) {
+	_ASSERT(dMaxCellRadius >= 0.0);
+
 	GridDataSampler::Initialize(dLon, dLat);
 
 	_ASSERT(dLon.size() == dLat.size());
@@ -135,14 +137,21 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 
 	m_vecquadtree.resize(6, QuadTreeNode(-0.5*M_PI, 0.5*M_PI, -0.5*M_PI, 0.5*M_PI));
 
-	m_fDistanceFilter = fDistanceFilter;
+	m_fDistanceFilter = false;
+	if (dMaxCellRadius > 0.0) {
+		m_fDistanceFilter = true;
+	}
+
 	int iMaxLevel = 0;
 
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
 	for (long i = 0; i < dLon.size(); i++) {
 
-		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
-
+		if (std::isnan(dLon[i]) || std::isnan(dLat[i])) {
+			m_fDistanceFilter = true;
+		} else if ((dLon[i] == dFillValue) || (dLat[i] == dFillValue)) {
+			m_fDistanceFilter = true;
+		} else {	
 			double dA;
 			double dB;
 			int nP;
@@ -155,9 +164,6 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 			if (iLevel > iMaxLevel) {
 				iMaxLevel = iLevel;
 			}
-
-		} else {
-			m_fDistanceFilter = true;
 		}
 
 		if ((i+1) % iReportSize == 0) {
@@ -165,10 +171,14 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 		}
 	}
 
-	m_dMaxDist = M_PI * pow(0.5, static_cast<double>(iMaxLevel));
+	// Try to generate max cell radius dynamically
+	if (dMaxCellRadius == 0.0) {
+		dMaxCellRadius = M_PI * pow(0.5, static_cast<double>(iMaxLevel));
+	}
 
 	if (m_fDistanceFilter) {
-		Announce("Maximum render distance: %1.5e (%i)", m_dMaxDist, iMaxLevel);
+		m_dMaxCellRadius = dMaxCellRadius;
+		Announce("Maximum render distance: %1.5e (%i)", m_dMaxCellRadius, iMaxLevel);
 	}
 
 	AnnounceEndBlock("Done");
@@ -201,10 +211,10 @@ void GridDataSamplerUsingCubedSphereQuadTree::Sample(
 		size_t sI = m_vecquadtree[nP].find_inexact(dA, dB, dAref, dBref);
 
 		if (m_fDistanceFilter) {
-			if (fabs(dA - dAref) > m_dMaxDist) {
+			if (fabs(dA - dAref) > m_dMaxCellRadius) {
 				sI = static_cast<size_t>(-1);
 			}
-			if (fabs(dB - dBref) > m_dMaxDist) {
+			if (fabs(dB - dBref) > m_dMaxCellRadius) {
 				sI = static_cast<size_t>(-1);
 			}
 		}
@@ -241,8 +251,10 @@ void GridDataSamplerUsingQuadTree::Initialize(
 	const std::vector<double> & dLon,
 	const std::vector<double> & dLat,
 	double dFillValue,
-	bool fDistanceFilter
+	double dMaxCellRadius
 ) {
+	_ASSERT(dMaxCellRadius >= 0.0);
+
 	GridDataSampler::Initialize(dLon, dLat);
 
 	_ASSERT(dLon.size() == dLat.size());
@@ -251,13 +263,21 @@ void GridDataSamplerUsingQuadTree::Initialize(
 
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
-	m_fDistanceFilter = fDistanceFilter;
+	m_fDistanceFilter = false;
+	if (dMaxCellRadius >= 0.0) {
+		m_fDistanceFilter = true;
+	}
+
 	int iMaxLevel = 0;
 
 	long iReportSize = static_cast<long>(dLon.size()) / 100;
 	for (long i = 0; i < dLon.size(); i++) {
 
-		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
+		if (std::isnan(dLon[i]) || std::isnan(dLat[i])) {
+			m_fDistanceFilter = true;
+		} else if ((dLon[i] == dFillValue) || (dLat[i] == dFillValue)) {
+			m_fDistanceFilter = true;
+		} else {
 			double dStandardLonDeg;
 			if (!m_fRegional) {
 				dStandardLonDeg = LonDegToStandardRange(dLon[i]);
@@ -269,9 +289,6 @@ void GridDataSamplerUsingQuadTree::Initialize(
 			if (iLevel > iMaxLevel) {
 				iMaxLevel = iLevel;
 			}
-
-		} else {
-			m_fDistanceFilter = true;
 		}
 
 		if ((i+1) % iReportSize == 0) {
@@ -279,13 +296,17 @@ void GridDataSamplerUsingQuadTree::Initialize(
 		}
 	}
 
-	m_dMaxDist = 2.0 * 360.0 * pow(0.5, static_cast<double>(iMaxLevel));
+	// Try to generate max cell radius dynamically
+	if (dMaxCellRadius == 0.0) {
+		dMaxCellRadius = 2.0 * 360.0 * pow(0.5, static_cast<double>(iMaxLevel));
+	}
 
 	if (m_fDistanceFilter) {
 		if (m_fRegional) {
 			_EXCEPTIONT("DistanceFilter cannot be combined with regional bounds");
 		}
-		Announce("Maximum render distance: %1.5e (%i)", m_dMaxDist, iMaxLevel);
+		m_dMaxCellRadius = dMaxCellRadius;
+		Announce("Maximum render distance: %1.5e (%i)", m_dMaxCellRadius, iMaxLevel);
 	}
 
 	AnnounceEndBlock("Done");
@@ -333,10 +354,10 @@ void GridDataSamplerUsingQuadTree::Sample(
 				dDeltaLon -= 360.0;
 			}
 
-			if (fabs(dDeltaLon * cos(dSampleLat[j] / 180.0 * M_PI)) > m_dMaxDist) {
+			if (fabs(dDeltaLon * cos(dSampleLat[j] / 180.0 * M_PI)) > m_dMaxCellRadius) {
 				sI = static_cast<size_t>(-1);
 			}
-			if (fabs(dSampleLat[j] - dLatRef) > m_dMaxDist) {
+			if (fabs(dSampleLat[j] - dLatRef) > m_dMaxCellRadius) {
 				sI = static_cast<size_t>(-1);
 			}
 		}

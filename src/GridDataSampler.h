@@ -79,7 +79,7 @@ public:
 		const std::vector<double> & dLon,
 		const std::vector<double> & dLat,
 		double dFillValue,
-		bool fDistanceFilter = false
+		double dMaxCellRadius
 	);
 
 	///	<summary>
@@ -105,7 +105,7 @@ public:
 	///	<summary>
 	///		Distance criteria for filtering sample points.
 	///	</summary>
-	double m_dMaxDist;
+	double m_dMaxCellRadius;
 };
 
 ///////////////////////////////////////////////////////////////////////////////
@@ -118,7 +118,7 @@ public:
 	GridDataSamplerUsingQuadTree() :
 		m_fRegional(false),
 		m_fDistanceFilter(false),
-		m_dMaxDist(0.0)
+		m_dMaxCellRadius(0.0)
 	{ }
 
 	///	<summary>
@@ -138,7 +138,7 @@ public:
 		const std::vector<double> & dLon,
 		const std::vector<double> & dLat,
 		double dFillValue,
-		bool fDistanceFilter = false
+		double dMaxCellRadius
 	);
 
 	///	<summary>
@@ -169,7 +169,7 @@ public:
 	///	<summary>
 	///		Distance criteria for filtering sample points.
 	///	</summary>
-	double m_dMaxDist;
+	double m_dMaxCellRadius;
 };
 
 ///////////////////////////////////////////////////////////////////////////////

@@ -536,9 +536,9 @@ private:
 	bool m_fRegional;
 
 	///	<summary>
-	///		Apply a distance filter.
+	///		Maximum size of a pixel.
 	///	</summary>
-	bool m_fDistanceFilter;
+	double m_dMaxCellRadius;
 
 	///	<summary>
 	///		Name of the longitude variable via command-line override.

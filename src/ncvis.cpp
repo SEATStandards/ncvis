@@ -59,7 +59,8 @@ bool wxNcVisApp::OnInit() {
 		if (argv[iarg][0] == '-') {
 			if ((wxString("-g") == argv[iarg]) ||
 			    (wxString("-uxc") == argv[iarg]) ||
-			    (wxString("-uyc") == argv[iarg])
+			    (wxString("-uyc") == argv[iarg]) ||
+				(wxString("-mcr") == argv[iarg])
 			) {
 				if (iarg+1 == argc) {
 					std::cout << "Option " << argv[iarg] << " missing required parameter" << std::endl;

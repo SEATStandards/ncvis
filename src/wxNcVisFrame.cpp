@@ -87,7 +87,7 @@ wxNcVisFrame::wxNcVisFrame(
 	m_wxstrNcVisResourceDir(wxstrNcVisResourceDir),
 	m_mapOptions(mapOptions),
 	m_fRegional(false),
-	m_fDistanceFilter(false),
+	m_dMaxCellRadius(0.0),
 	m_colormaplib(wxstrNcVisResourceDir),
 	m_egdsoption(GridDataSamplerOption_QuadTree),
 	m_wxDataTransButton(NULL),
@@ -132,10 +132,15 @@ wxNcVisFrame::wxNcVisFrame(
 	if (mapOptions.find("-r") != mapOptions.end()) {
 		m_fRegional = true;
 	}
-	if (mapOptions.find("-df") != mapOptions.end()) {
-		m_fDistanceFilter = true;
+
+	auto itMCS = mapOptions.find("-mcr");
+	if (itMCS != mapOptions.end()) {
+		m_dMaxCellRadius = stof(itMCS->second.ToStdString());
+		if (m_dMaxCellRadius < 0.0) {
+			_EXCEPTIONT("Maximum cell radius (-mcr) must be nonnegative");
+		}
 	}
-	
+
 	auto itUXC = mapOptions.find("-uxc");
 	auto itUYC = mapOptions.find("-uyc");
 
@@ -356,10 +361,10 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 					m_dgdsLatBounds[1]);
 			}
 
-			m_gdsqt.Initialize(dLon, dLat, dFillValue, m_fDistanceFilter);
+			m_gdsqt.Initialize(dLon, dLat, dFillValue, m_dMaxCellRadius);
 		}
 		if (m_egdsoption == GridDataSamplerOption_CubedSphereQuadTree) {
-			m_gdscsqt.Initialize(dLon, dLat, dFillValue, m_fDistanceFilter);
+			m_gdscsqt.Initialize(dLon, dLat, dFillValue, m_dMaxCellRadius);
 		}
 		if (m_egdsoption == GridDataSamplerOption_KDTree) {
 			m_gdskd.Initialize(dLon, dLat, dFillValue);
