@@ -264,7 +264,7 @@ void GridDataSamplerUsingQuadTree::Initialize(
 	AnnounceStartBlock("Generating quadtree from lat/lon arrays");
 
 	m_fDistanceFilter = false;
-	if (dMaxCellRadius >= 0.0) {
+	if (dMaxCellRadius > 0.0) {
 		m_fDistanceFilter = true;
 	}
 
