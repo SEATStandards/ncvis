@@ -19,7 +19,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2023.08.10";
+static const char * szVersion = "NcVis 2024.01.26";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
@@ -434,8 +434,28 @@ void wxNcVisFrame::OpenFiles(
 			NcAtt * attStandardName = var->get_att("standard_name");
 			NcAtt * attLongName = var->get_att("long_name");
 
+			// Check for override of both lon and lat
+			if ((sVarDims == 1) && (m_strLonVarNameOverride != "") && (m_strLatVarNameOverride != "")) {
+				bool fIsDimOverrideVar = false;
+				if (m_strLonVarNameOverride == var->name()) {
+					m_strLonVarName = m_strLonVarNameOverride;
+					fIsDimOverrideVar = true;
+				}
+				if (m_strLatVarNameOverride == var->name()) {
+					m_strLatVarName = m_strLatVarNameOverride;
+					fIsDimOverrideVar = true;
+				}
+				if (fIsDimOverrideVar) {
+					if (m_strDefaultUnstructDimName == "") {
+						m_strDefaultUnstructDimName = var->get_dim(0)->name();
+					} else if (m_strDefaultUnstructDimName != var->get_dim(0)->name()) {
+						_EXCEPTIONT("When using -uxc and -uyc, both variables must have same dimensions");
+					}
+				}
+
 			// Check if this variable is longitude or latitude
-			if (sVarDims == 1) {
+			} else if (sVarDims == 1) {
+
 				if (m_strLonVarNameOverride == var->name()) {
 					m_strLonVarName = m_strLonVarNameOverride;
 				}
