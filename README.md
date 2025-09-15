@@ -9,6 +9,10 @@ Funding for the development of ncvis is provided by the United States Department
 
 ncvis is inspired by David Pierce's most excellent ncview utility (http://meteora.ucsd.edu/~pierce/ncview_home_page.html)
 
+## Installation
+
+Refer to INSTALL.md for specific instructions.
+
 ## Configuration
 
 In order for ncvis to run the `resources` directory must be in the same folder as `ncvis` or the `NCVIS_RESOURCE_DIR` environment variable must be set to the path of the ncvis resources folder. This directory is where ncvis stores fonts, colormaps and shapefiles.
