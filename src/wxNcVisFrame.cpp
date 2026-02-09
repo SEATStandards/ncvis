@@ -167,6 +167,8 @@ bool wxNcVisFrame::GetLonLatVariableNameIter(
 		itLon = m_mapVarNames[1].find(m_strLonVarName);
 		itLat = m_mapVarNames[1].find(m_strLatVarName);
 		if ((itLon == m_mapVarNames[1].end()) || (itLat == m_mapVarNames[1].end())) {
+			itLon = m_mapVarNames[1].end();
+			itLat = m_mapVarNames[1].end();
 			return false;
 		}
 		return true;
