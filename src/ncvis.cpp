@@ -105,11 +105,12 @@ bool wxNcVisApp::OnInit() {
 		}
 	}
 
+	// Create main frame
 	wxNcVisFrame * frame =
 		new wxNcVisFrame(
 			"NcVis",
 			wxPoint(50, 50),
-			wxSize(842, 462),
+			wxSize(1050, 605),
 			wxstrNcVisResourceDir,
 			mapOptions,
 			vecFilenames);
