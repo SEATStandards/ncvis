@@ -25,8 +25,9 @@
  * Workaround for XQuartz display refresh bug on macOS Tahoe (26.x).
  * See: https://github.com/XQuartz/XQuartz/issues/438
  * wxWidgets applications fail to refresh properly on window resize because
- * expose events are not generated correctly. Enable via NCVIS_FORCE_EXPOSE_FIX=1
- * to force redraws on resize events.
+ * expose events are not generated correctly. Set NCVIS_FORCE_EXPOSE_FIX to a
+ * nonzero value (for example, NCVIS_FORCE_EXPOSE_FIX=1) to force redraws on
+ * resize events; leave it unset or set it to 0 to disable this workaround.
  */
 static int expose_fix_checked = 0;
 static int expose_fix_enabled = 0;
