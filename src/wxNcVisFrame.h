@@ -273,6 +273,13 @@ public:
 		bool fRedraw = false
 	);
 
+	///     <summary>
+	///             Set the data range centered on zero.
+	///     </summary>
+	void SetDataRangeCenteredOnZero(
+		bool fRedraw = false
+	);
+
 	///	<summary>
 	///		Set the dimension value displayed.
 	///	</summary>
@@ -372,6 +379,11 @@ private:
 	///		Callback triggered when the range reset min/max button is pressed.
 	///	</summary>
 	void OnRangeResetMinMax(wxCommandEvent & event);
+
+	///     <summary>
+	///             Callback triggered when the range center min/max button is pressed.
+	///     </summary>
+	void OnRangeCenterMinMax(wxCommandEvent & event);
 
 	///	<summary>
 	///		Callback triggered when the dimension timer is triggered.
