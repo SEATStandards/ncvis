@@ -38,6 +38,7 @@ enum {
 	ID_SAMPLER = 12,
 	ID_EXPORT = 13,
 	ID_COLORMAPINVERT = 14,
+	ID_RANGECENTERMINMAX = 15,
 	ID_VARSELECTOR = 100,
 	ID_DIMEDIT = 200,
 	ID_DIMDOWN = 300,
@@ -64,6 +65,7 @@ wxBEGIN_EVENT_TABLE(wxNcVisFrame, wxFrame)
 	EVT_TEXT_ENTER(ID_RANGEMIN, wxNcVisFrame::OnRangeChanged)
 	EVT_TEXT_ENTER(ID_RANGEMAX, wxNcVisFrame::OnRangeChanged)
 	EVT_BUTTON(ID_RANGERESETMINMAX, wxNcVisFrame::OnRangeResetMinMax)
+	EVT_BUTTON(ID_RANGECENTERMINMAX, wxNcVisFrame::OnRangeCenterMinMax)
 	EVT_BUTTON(ID_COLORMAPINVERT, wxNcVisFrame::OnColorMapInvertClicked)
 	EVT_COMBOBOX(ID_COLORMAP, wxNcVisFrame::OnColorMapCombo)
 	EVT_COMBOBOX(ID_GRIDLINES, wxNcVisFrame::OnGridLinesCombo)
@@ -1441,6 +1443,70 @@ void wxNcVisFrame::SetDataRangeByMinMax(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void wxNcVisFrame::SetDataRangeCenteredOnZero(bool fRedraw) {
+    if (m_data.size() == 0) {
+        return;
+    }
+
+    float dDataMin = 0.0f;
+    float dDataMax = 0.0f;
+
+    int i;
+
+    if ((!m_fDataHasMissingValue) || (std::isnan(m_dMissingValueFloat))) {
+        for (i = 0; i < (int)m_data.size(); i++) {
+            if (!std::isnan(m_data[i])) {
+                break;
+            }
+        }
+        if (i == (int)m_data.size()) {
+            return; // no valid data
+        }
+
+        dDataMin = m_data[i];
+        dDataMax = m_data[i];
+
+        for (i++; i < (int)m_data.size(); i++) {
+            if (std::isnan(m_data[i])) {
+                continue;
+            }
+            if (m_data[i] < dDataMin) dDataMin = m_data[i];
+            if (m_data[i] > dDataMax) dDataMax = m_data[i];
+        }
+
+    } else {
+        for (i = 0; i < (int)m_data.size(); i++) {
+            if ((m_data[i] != m_dMissingValueFloat) && (!std::isnan(m_data[i]))) {
+                break;
+            }
+        }
+        if (i == (int)m_data.size()) {
+            return; // no valid data
+        }
+
+        dDataMin = m_data[i];
+        dDataMax = m_data[i];
+
+        for (i++; i < (int)m_data.size(); i++) {
+            if ((m_data[i] == m_dMissingValueFloat) || (std::isnan(m_data[i]))) {
+                continue;
+            }
+            if (m_data[i] < dDataMin) dDataMin = m_data[i];
+            if (m_data[i] > dDataMax) dDataMax = m_data[i];
+        }
+    }
+
+    // Center on 0: make range symmetric around zero
+    const float M = std::max(std::fabs(dDataMin), std::fabs(dDataMax));
+    if (!(M > 0.0f) || std::isnan(M)) {
+        return;
+    }
+
+    m_imagepanel->SetDataRange(-M, M, fRedraw);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::SetDisplayedDimensionValue(
 	long lDim,
 	long lValue
@@ -1887,7 +1953,7 @@ void wxNcVisFrame::GenerateDimensionControls() {
 	varboundsminmax->Add(m_vecwxRange[0], 1, wxEXPAND | wxALL, 0);
 	varboundsminmax->Add(m_vecwxRange[1], 1, wxEXPAND | wxALL, 0);
 
-	m_vardimsizer->Add(new wxStaticText(this, -1, _T("")), 0, wxEXPAND | wxALL, 0);
+	m_vardimsizer->Add(new wxButton(this, ID_RANGECENTERMINMAX, _T("Center")), 0, wxEXPAND | wxALL, 0);
 	m_vardimsizer->Add(new wxStaticText(this, -1, _T("range"), wxDefaultPosition, wxDefaultSize, wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxALIGN_CENTER_VERTICAL | wxEXPAND | wxALL, 4);
 	m_vardimsizer->Add(varboundsminmax, 0, wxEXPAND | wxALL, 2);
 	m_vardimsizer->Add(new wxButton(this, ID_RANGERESETMINMAX, _T("Reset"), wxDefaultPosition, wxSize(3*nCtrlHeight,nCtrlHeight)), 0, wxEXPAND | wxALL, 0);
@@ -1895,6 +1961,7 @@ void wxNcVisFrame::GenerateDimensionControls() {
 	m_vecwxRange[0]->Enable(true);
 	m_vecwxRange[1]->Enable(true);
 
+	SetDataRangeCenteredOnZero(false);
 	SetDataRangeByMinMax(false);
 
 	// Resize window if needed
@@ -2258,6 +2325,16 @@ void wxNcVisFrame::OnRangeResetMinMax(
 ) {
 	SetDataRangeByMinMax(true);
 }
+
+////////////////////////////////////////////////////////////////////////////////
+
+////////////////////////////////////////////////////////////////////////////////
+        
+void wxNcVisFrame::OnRangeCenterMinMax(
+        wxCommandEvent & event
+) {     
+        SetDataRangeCenteredOnZero(true);
+} 
 
 ////////////////////////////////////////////////////////////////////////////////
 
