@@ -750,7 +750,7 @@ void wxNcVisFrame::InitializeWindow() {
 
 	// Variable controls
 	m_rightsizer = new wxStaticBoxSizer(wxVERTICAL, this);
-	m_rightsizer->SetMinSize(660,220);
+	m_rightsizer->SetMinSize(790,265);
 
 	m_ctrlsizer->Add(menusizer, 0);
 	m_ctrlsizer->Add(m_rightsizer, 0, wxEXPAND);
