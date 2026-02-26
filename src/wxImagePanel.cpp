@@ -15,6 +15,39 @@
 #include <wx/kbdstate.h>
 
 #include <map>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+
+////////////////////////////////////////////////////////////////////////////////
+
+/*
+ * Workaround for XQuartz display refresh bug on macOS Tahoe (26.x).
+ * See: https://github.com/XQuartz/XQuartz/issues/438
+ * wxWidgets applications fail to refresh properly on window resize because
+ * expose events are not generated correctly. Set NCVIS_FORCE_EXPOSE_FIX to a
+ * nonzero value (for example, NCVIS_FORCE_EXPOSE_FIX=1) to force redraws on
+ * resize events; leave it unset or set it to 0 to disable this workaround.
+ */
+static int expose_fix_checked = 0;
+static int expose_fix_enabled = 0;
+
+static int check_expose_fix(void)
+{
+	if (expose_fix_checked)
+		return expose_fix_enabled;
+
+	expose_fix_checked = 1;
+	expose_fix_enabled = 0;
+
+	const char *env = std::getenv("NCVIS_FORCE_EXPOSE_FIX");
+	if (env != NULL && std::strcmp(env, "0") != 0) {
+		expose_fix_enabled = 1;
+		std::fprintf(stderr, "ncvis: NCVIS_FORCE_EXPOSE_FIX set, enabling XQuartz refresh workaround\n");
+	}
+
+	return expose_fix_enabled;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -129,6 +162,10 @@ wxImagePanel::wxImagePanel(
 	SetSize(wxSize(wxs.GetWidth(), wxs.GetHeight()));
 	SetMinSize(wxSize(wxs.GetWidth(), wxs.GetHeight()));
 	SetCoordinateRange(0.0, 1.0, 0.0, 1.0);
+
+	// XQuartz workaround: Check if expose fix is needed (NCVIS_FORCE_EXPOSE_FIX=1)
+	// See: https://github.com/XQuartz/XQuartz/issues/438
+	check_expose_fix();
 
 	// Initialize font information
 	m_sftTitleBar.xScale = TITLE_FONTHEIGHT;
@@ -277,6 +314,11 @@ void wxImagePanel::OnSize(wxSizeEvent & evt) {
 		std::cout << "RESIZE " << wxs.GetWidth() << " " << wxs.GetHeight() << std::endl;
 	}
 	m_fResize = true;
+
+	// XQuartz workaround: Force refresh on resize to work around expose event bug
+	if (expose_fix_enabled) {
+		this->Refresh();
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1544,6 +1586,11 @@ void wxImagePanel::PaintNow() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::Render(wxDC & dc) {
+	// XQuartz workaround: Clear background before drawing to prevent black windows
+	if (expose_fix_enabled) {
+		dc.SetBackground(wxBrush(GetBackgroundColour()));
+		dc.Clear();
+	}
 	dc.DrawBitmap(m_image, 0, 0, false);
 }
 
