@@ -34,8 +34,13 @@ set_target_properties(ncvis
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS NO
-        LINK_FLAGS "${NCVIS_LINKER_FLAGS}"
 )
+
+# Link libraries after object files (required for GNU ld)
+target_link_options(ncvis PRIVATE -Wl,-rpath,${WXCONFIG_RPATH}/lib)
+separate_arguments(WX_LINK_LIBS UNIX_COMMAND "${WX_LINK_FLAGS}")
+separate_arguments(NC_LINK_LIBS UNIX_COMMAND "-L${NC_LIB_DIR} -lnetcdf ${NC_LINK_FLAGS}")
+target_link_libraries(ncvis PRIVATE ${WX_LINK_LIBS} ${NC_LINK_LIBS})
 
 # Install target
 INSTALL(TARGETS ncvis
