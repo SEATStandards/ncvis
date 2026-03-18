@@ -23,6 +23,7 @@ EVT_PAINT(wxImagePanel::OnPaint)
 EVT_SIZE(wxImagePanel::OnSize)
 EVT_IDLE(wxImagePanel::OnIdle)
 EVT_LEFT_DCLICK(wxImagePanel::OnMouseLeftDoubleClick)
+EVT_LEFT_DOWN(wxImagePanel::OnMouseLeftDown)
 EVT_MOTION(wxImagePanel::OnMouseMotion)
 EVT_LEAVE_WINDOW(wxImagePanel::OnMouseLeaveWindow)
 END_EVENT_TABLE()
@@ -438,6 +439,36 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 
 	// Set coordinate range
 	SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1], true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxImagePanel::OnMouseLeftDown(wxMouseEvent & evt) {
+
+    if (!evt.ShiftDown()) {
+        evt.Skip();
+        return;
+    }
+
+    wxPoint pos = evt.GetPosition();
+
+    wxSize wxsMap;
+    wxPosition wxpMap;
+    GetMapPositionSize(wxsMap, wxpMap);
+
+    pos.x -= wxpMap.GetCol();
+    pos.y -= wxpMap.GetRow();
+
+    if ((pos.x < 0) || (pos.x >= (int)m_dSampleX.size())) return;
+    if ((pos.y < 0) || (pos.y >= (int)m_dSampleY.size())) return;
+
+    const double dLon = m_dSampleX[pos.x];
+    const double dLat = m_dSampleY[m_dSampleY.size() - pos.y - 1];
+
+    _ASSERT(m_pncvisparent != NULL);
+
+    // Open/update the time series plot
+    m_pncvisparent->OnShiftClickTimeSeries(dLat, dLon);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
