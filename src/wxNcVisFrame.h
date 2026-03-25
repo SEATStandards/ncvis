@@ -28,6 +28,21 @@ class wxNcVisExportDialog;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Multi-file metadata for virtual time navigation
+struct NcVisFileInfo {
+        wxString filename;
+        int timeCount = 0;
+        int latCount = 0;
+        int lonCount = 0;
+};
+
+struct NcVisTimeRef {
+        int fileIndex = -1;
+        int localTimeIndex = -1;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
 ///	<summary>
 ///		A class that manages the NcVis app frame.
 ///	</summary>
@@ -315,7 +330,14 @@ public:
 	///	</summary>
 	const std::string & GetVarActiveUnits() const {
 		return m_strVarActiveUnits;
-	}
+	}	
+
+	///	<summary>
+        ///             multi file helper functions
+	///	</summary>
+	int GetCurrentFileIndex() const;
+	int GetCurrentLocalTimeIndex() const;
+	void UpdateActiveVariableFromGlobalTime();
 
 private:
 	///	<summary>
@@ -560,6 +582,11 @@ private:
 	///	</summary>
 	std::string m_strLatVarName;
 
+        ///     <summary>
+        ///             Name of the active variable.
+        ///     </summary>
+	std::string m_strVarActiveName;
+
 	///	<summary>
 	///		A map of alternate longitude variables.
 	///	</summary>
@@ -675,6 +702,13 @@ private:
 	///		found.  Variables are further indexed by number of dimensions.
 	///	</summary>
 	VariableNameFileIxMap m_mapVarNames[10];
+
+	///	<summary>
+        ///              Multi-file virtual time navigation
+	///	</summary>
+	std::vector<NcVisFileInfo> m_vecInputFileInfo;
+	std::vector<NcVisTimeRef> m_vecGlobalTime;
+	int m_iCurrentGlobalTimeIndex = 0;
 
 private:
 	///	<summary>

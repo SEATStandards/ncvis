@@ -114,6 +114,77 @@ wxNcVisFrame::wxNcVisFrame(
 	m_vecwxImageBounds[2] = NULL;
 	m_vecwxImageBounds[3] = NULL;
 
+        for (size_t i = 0; i < vecFilenames.size(); i++) {
+                NcVisFileInfo info;
+                info.filename = vecFilenames[i];
+                m_vecInputFileInfo.push_back(info);
+        }
+
+        std::cout << "Multi-file input count: " << m_vecInputFileInfo.size() << std::endl;
+        for (size_t i = 0; i < m_vecInputFileInfo.size(); i++) {
+                std::cout << "  [" << i << "] "
+                          << m_vecInputFileInfo[i].filename.ToStdString()
+                          << std::endl;
+        }
+
+
+        for (size_t i = 0; i < m_vecInputFileInfo.size(); i++) {
+ 
+                NcFile ncfile(m_vecInputFileInfo[i].filename.mb_str());
+
+                if (!ncfile.is_valid()) {
+                        _EXCEPTION1("Unable to open file \"%s\"",
+                                m_vecInputFileInfo[i].filename.ToStdString().c_str());
+                }
+
+                NcDim * dimTime = ncfile.get_dim("time");
+                NcDim * dimLat  = ncfile.get_dim("lat");
+                NcDim * dimLon  = ncfile.get_dim("lon");
+
+                if (dimTime != NULL) {
+                        m_vecInputFileInfo[i].timeCount = dimTime->size();
+                } else {
+                        m_vecInputFileInfo[i].timeCount = 1;
+                }
+
+                if (dimLat != NULL) {
+                        m_vecInputFileInfo[i].latCount = dimLat->size();
+                }
+
+                if (dimLon != NULL) {
+                        m_vecInputFileInfo[i].lonCount = dimLon->size();
+                }
+        }
+
+        if (m_vecInputFileInfo.size() > 1) {
+                for (size_t i = 1; i < m_vecInputFileInfo.size(); i++) {
+                        if (m_vecInputFileInfo[i].latCount != m_vecInputFileInfo[0].latCount) {
+                                _EXCEPTION1(
+                                        "Latitude dimension mismatch at file %i",
+                                        i);
+                        }
+
+                        if (m_vecInputFileInfo[i].lonCount != m_vecInputFileInfo[0].lonCount) {
+                                _EXCEPTION1(
+                                        "Longitude dimension mismatch at file %i",
+                                        i);
+                        }
+                }
+        }
+
+        m_vecGlobalTime.clear();
+
+        for (size_t i = 0; i < m_vecInputFileInfo.size(); i++) {
+                for (int t = 0; t < m_vecInputFileInfo[i].timeCount; t++) {
+                        NcVisTimeRef ref;
+                        ref.fileIndex = i;
+                        ref.localTimeIndex = t;
+                        m_vecGlobalTime.push_back(ref);
+                }
+        }
+
+        m_iCurrentGlobalTimeIndex = 0;
+
 	for (size_t d = 0; d < NcVarMaximumDimensions; d++) {
 		m_vecwxDimIndex[d] = NULL;
 		m_vecwxPlayButton[d] = NULL;
@@ -705,6 +776,45 @@ void wxNcVisFrame::OpenFiles(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+int wxNcVisFrame::GetCurrentFileIndex() const {
+        if (m_vecGlobalTime.size() == 0) {
+                return -1;
+        }
+        return m_vecGlobalTime[m_iCurrentGlobalTimeIndex].fileIndex;
+}
+
+int wxNcVisFrame::GetCurrentLocalTimeIndex() const {
+        if (m_vecGlobalTime.size() == 0) {
+                return -1;
+        }
+        return m_vecGlobalTime[m_iCurrentGlobalTimeIndex].localTimeIndex;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::UpdateActiveVariableFromGlobalTime() {
+        if (m_strVarActiveName == "") {
+                return;
+        }
+
+        if (m_vecGlobalTime.size() == 0) {
+                return;
+        }
+
+        int iFile = GetCurrentFileIndex();
+        if (iFile < 0) {
+                return;
+        }
+
+        _ASSERT(iFile < static_cast<int>(m_vecpncfiles.size()));
+        _ASSERT(m_vecpncfiles[iFile] != NULL);
+
+        m_varActive = m_vecpncfiles[iFile]->get_var(m_strVarActiveName.c_str());
+        _ASSERT(m_varActive != NULL);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::InitializeWindow() {
 
 	// Get the list of shapefiles in the resource dir
@@ -894,6 +1004,8 @@ void wxNcVisFrame::LoadData() {
 	if (m_fVerbose) {
 		std::cout << "LOAD DATA" << std::endl;
 	}
+
+        UpdateActiveVariableFromGlobalTime();
 
 	// Assume data is not unstructured
 	m_fIsVarActiveUnstructured = false;
@@ -1453,10 +1565,83 @@ void wxNcVisFrame::SetDisplayedDimensionValue(
 	_ASSERT(m_varActive != NULL);
 	_ASSERT(m_vecwxDimIndex[lDim] != NULL);
 
-	m_vecwxDimIndex[lDim]->ChangeValue(wxString::Format("%li", lValue));
+	//m_vecwxDimIndex[lDim]->ChangeValue(wxString::Format("%li", lValue));
+
+        std::string strDimName(m_varActive->get_dim(lDim)->name());
+
+        if ((strDimName == "time") && (m_vecGlobalTime.size() > 0)) {
+                m_vecwxDimIndex[lDim]->ChangeValue(
+                        wxString::Format("%i", m_iCurrentGlobalTimeIndex));
+        } else {
+                m_vecwxDimIndex[lDim]->ChangeValue(wxString::Format("%li", lValue));
+        }
 
 	if (m_vecwxDimValue[lDim] != NULL) {
-		std::string strDimName(m_varActive->get_dim(lDim)->name());
+		//std::string strDimName(m_varActive->get_dim(lDim)->name());
+
+                if (strDimName == "time") {
+                        int iFile = GetCurrentFileIndex();
+                        if ((iFile >= 0) && (iFile < static_cast<int>(m_vecpncfiles.size()))) {
+                                NcVar * varTime = m_vecpncfiles[iFile]->get_var("time");
+                                if (varTime != NULL) {
+                                        NcAtt * attUnits = varTime->get_att("units");
+                                        NcAtt * attCalendar = varTime->get_att("calendar");
+
+                                        std::string strUnits;
+                                        std::string strCalendar = "standard";
+
+                                        if (attUnits != NULL) {
+                                                NcValues * pValues = attUnits->values();
+                                                if (pValues != NULL) {
+                                                        const char * szUnits = pValues->as_string(0);
+                                                        if (szUnits != NULL) {
+                                                                strUnits = szUnits;
+                                                        }
+                                                        delete pValues;
+                                                }
+                                                delete attUnits;
+                                        }
+
+                                        if (attCalendar != NULL) {
+                                                NcValues * pValues = attCalendar->values();
+                                                if (pValues != NULL) {
+                                                        const char * szCalendar = pValues->as_string(0);
+                                                        if (szCalendar != NULL) {
+                                                                strCalendar = szCalendar;
+                                                        }
+                                                        delete pValues;
+                                                }
+                                                delete attCalendar;
+                                        }
+
+                                        double dTimeValue = 0.0;
+                                        long lLocalTime = GetCurrentLocalTimeIndex();
+                                        varTime->set_cur(lLocalTime);
+                                        varTime->get(&dTimeValue, 1);
+
+                                        if (strUnits != "") {
+                                                Time time(Time::CalendarTypeFromString(strCalendar));
+                                                if (time.FromCFCompliantUnitsOffsetDouble(strUnits, dTimeValue)) {
+                                                        m_vecwxDimValue[lDim]->ChangeValue(time.ToString());
+                                                } else {
+                                                        m_vecwxDimValue[lDim]->ChangeValue(
+                                                                wxString::Format("%g %s", dTimeValue, strUnits));
+                                                }
+                                        } else {
+                                                m_vecwxDimValue[lDim]->ChangeValue(wxString::Format("%g", dTimeValue));
+                                        }
+                                        return;
+                                }
+                        }
+                }
+
+                std::cout
+                        << "SetDisplayedDimensionValue: dim=" << strDimName
+                        << ", file=" << GetCurrentFileIndex()
+                        << ", local=" << GetCurrentLocalTimeIndex()
+                        << ", shown index=" << lValue
+                        << std::endl;
+
 		auto it = m_mapDimData.find(strDimName);
 		if (it != m_mapDimData.end()) {
 			std::string strDimUnits(it->second.units());
@@ -1954,6 +2139,7 @@ void wxNcVisFrame::OnVariableSelected(
 
 	// Change the active variable
 	std::string strValue = event.GetString().ToStdString();
+        m_strVarActiveName = strValue;
 
 	int vc = static_cast<int>(event.GetId() - ID_VARSELECTOR);
 	_ASSERT((vc >= 0) && (vc < NcVarMaximumDimensions));
@@ -2336,28 +2522,68 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 		eDimCommand = DIMCOMMAND_DECREMENT;
 		d -= ID_DIMDOWN;
 
-		long lDimSize = m_varActive->get_dim(d)->size();
-		if (m_lVarActiveDims[d] == 0) {
-			m_lVarActiveDims[d] = lDimSize-1;
-		} else {
-			m_lVarActiveDims[d]--;
-		}
+        if ((std::string(m_varActive->get_dim(d)->name()) == "time") && (m_vecGlobalTime.size() > 0)) {
+                if (m_iCurrentGlobalTimeIndex == 0) {
+                        m_iCurrentGlobalTimeIndex = m_vecGlobalTime.size() - 1;
+                } else {
+                        m_iCurrentGlobalTimeIndex--;
+                }
 
-		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
+                m_lVarActiveDims[d] = GetCurrentLocalTimeIndex();
+
+        } else {
+                long lDimSize = m_varActive->get_dim(d)->size();
+                if (m_lVarActiveDims[d] == 0) {
+                        m_lVarActiveDims[d] = lDimSize-1;
+                } else {
+                        m_lVarActiveDims[d]--;
+                }
+        }
+
+        SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
+
+//		long lDimSize = m_varActive->get_dim(d)->size();
+//		if (m_lVarActiveDims[d] == 0) {
+//			m_lVarActiveDims[d] = lDimSize-1;
+//		} else {
+//			m_lVarActiveDims[d]--;
+//		}
+//
+//		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
 
 	// Increment dimension
 	} else if ((d >= ID_DIMUP) && (d < ID_DIMUP + 100)) {
 		eDimCommand = DIMCOMMAND_INCREMENT;
 		d -= ID_DIMUP;
 
-		long lDimSize = m_varActive->get_dim(d)->size();
-		if (m_lVarActiveDims[d] == lDimSize-1) {
-			m_lVarActiveDims[d] = 0;
-		} else {
-			m_lVarActiveDims[d]++;
-		}
+        if ((std::string(m_varActive->get_dim(d)->name()) == "time") && (m_vecGlobalTime.size() > 0)) {
+                if (m_iCurrentGlobalTimeIndex == static_cast<int>(m_vecGlobalTime.size()) - 1) {
+                        m_iCurrentGlobalTimeIndex = 0;
+                } else {
+                        m_iCurrentGlobalTimeIndex++;
+                }
 
-		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
+                m_lVarActiveDims[d] = GetCurrentLocalTimeIndex();
+
+        } else {
+                long lDimSize = m_varActive->get_dim(d)->size();
+                if (m_lVarActiveDims[d] == lDimSize-1) {
+                         m_lVarActiveDims[d] = 0;
+                } else {
+                         m_lVarActiveDims[d]++;
+                }
+        }
+
+        SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
+
+//		long lDimSize = m_varActive->get_dim(d)->size();
+//		if (m_lVarActiveDims[d] == lDimSize-1) {
+//			m_lVarActiveDims[d] = 0;
+//		} else {
+//			m_lVarActiveDims[d]++;
+//		}
+//
+//		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
 
 	// Reset dimension
 	} else if ((d >= ID_DIMRESET) && (d < ID_DIMRESET + 100)) {
