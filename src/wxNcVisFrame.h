@@ -676,6 +676,11 @@ private:
 	///	</summary>
 	VariableNameFileIxMap m_mapVarNames[10];
 
+        ///     <summary>
+        ///             Startup variable name.
+        ///     </summary>
+	wxString m_strStartupVariable;
+
 private:
 	///	<summary>
 	///		ColorMap index.

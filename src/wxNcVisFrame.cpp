@@ -133,6 +133,11 @@ wxNcVisFrame::wxNcVisFrame(
 		m_fRegional = true;
 	}
 
+        auto itVar = mapOptions.find("-var");
+        if (itVar != mapOptions.end()) {
+            m_strStartupVariable = itVar->second;
+        }
+
 	auto itMCS = mapOptions.find("-mcr");
 	if (itMCS != mapOptions.end()) {
 		m_dMaxCellRadius = stof(itMCS->second.ToStdString());
@@ -844,6 +849,37 @@ void wxNcVisFrame::InitializeWindow() {
 	//customvarsizer->Add(new wxStaticText(this, (-1), _T("Custom: "), wxDefaultPosition, wxSize(20,m_wxDataTransButton->GetSize().GetHeight()+4), wxST_ELLIPSIZE_END | wxALIGN_CENTRE_HORIZONTAL | wxALIGN_CENTER_VERTICAL), 1, wxEXPAND | wxALL, 4);
 	//customvarsizer->Add(new wxTextCtrl(this, (-1), _T(""), wxDefaultPosition, wxSize(240,m_wxDataTransButton->GetSize().GetHeight()+4), wxTE_PROCESS_ENTER), 2, wxEXPAND | wxALL, 4);
 
+
+        if (!m_strStartupVariable.IsEmpty()) {
+            bool fFound = false;
+
+            for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+                if (m_vecwxVarSelector[vc] == NULL) {
+                    continue;
+                }
+
+                int ix = m_vecwxVarSelector[vc]->FindString(m_strStartupVariable);
+                if (ix != wxNOT_FOUND) {
+                    m_vecwxVarSelector[vc]->SetSelection(ix);
+
+                    wxCommandEvent evt(wxEVT_COMBOBOX, ID_VARSELECTOR + vc);
+                    evt.SetEventObject(m_vecwxVarSelector[vc]);
+                    evt.SetInt(ix);
+                    wxPostEvent(this, evt);
+
+                    fFound = true;
+                    break;
+                }
+            }
+
+            if (!fFound) {
+                wxMessageBox(
+                    wxString::Format("Startup variable \"%s\" not found.", m_strStartupVariable),
+                    "Variable not found",
+                    wxOK | wxICON_WARNING
+                );
+            }
+        }
 
 	// Dimensions
 	m_vardimsizer = new wxFlexGridSizer(NcVarMaximumDimensions+1, 4, 0, 0);
