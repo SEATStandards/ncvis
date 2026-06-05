@@ -164,7 +164,7 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 	// from radians to degrees in place.  Coordinate variables that declare
 	// degrees, or that have no "units" attribute, are left unchanged.
 	auto convertRadiansToDegreesIfNeeded =
-		[dFillValue](NcVar * varCoord, std::vector<double> & vecCoord) {
+		[&dFillValue](NcVar * varCoord, std::vector<double> & vecCoord) {
 			if (varCoord == NULL) {
 				return;
 			}
