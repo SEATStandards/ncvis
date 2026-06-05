@@ -998,6 +998,51 @@ void wxNcVisFrame::LoadData() {
 			m_varActive->gets(&(m_data[0]), &(vecSize[0]), &(vecStride[0]));
 		}
 
+		// SCRIP grid_imask post-process.  When the active variable is on the
+		// unstructured cell-center dimension and a sibling 1D variable named
+		// "grid_imask" exists on the same dimension, treat cells with
+		// imask == 0 as missing data (SCRIP convention: cell active iff
+		// imask != 0).
+		if (m_fIsVarActiveUnstructured) {
+			auto itImask = m_mapVarNames[1].find("grid_imask");
+			if (itImask != m_mapVarNames[1].end()) {
+				NcVar * varImask = NULL;
+				for (size_t f = 0; f < itImask->second.size(); f++) {
+					NcVar * varCandidate =
+						m_vecpncfiles[itImask->second[f]]->get_var("grid_imask");
+					if (varCandidate == NULL) {
+						continue;
+					}
+					if (varCandidate->num_dims() != 1) {
+						continue;
+					}
+					if (varCandidate->get_dim(0)->name() != m_strUnstructDimName) {
+						continue;
+					}
+					if (static_cast<size_t>(varCandidate->get_dim(0)->size())
+					    != m_data.size()) {
+						continue;
+					}
+					varImask = varCandidate;
+					break;
+				}
+				if (varImask != NULL) {
+					std::vector<int> vecImask(m_data.size());
+					varImask->get(&(vecImask[0]), varImask->get_dim(0)->size());
+					if (!m_fDataHasMissingValue) {
+						m_dMissingValueFloat =
+							std::numeric_limits<float>::quiet_NaN();
+						m_fDataHasMissingValue = true;
+					}
+					for (size_t i = 0; i < m_data.size(); i++) {
+						if (vecImask[i] == 0) {
+							m_data[i] = m_dMissingValueFloat;
+						}
+					}
+				}
+			}
+		}
+
 	// 2D data
 	} else {
 		_ASSERT(m_lDisplayedDims[0] != m_lDisplayedDims[1]);
