@@ -403,12 +403,14 @@ void wxNcVisFrame::OpenFiles(
 	vecCommonLonVarNames.push_back("longitude");
 	vecCommonLonVarNames.push_back("lonCell");
 	vecCommonLonVarNames.push_back("mesh_node_x");
+	vecCommonLonVarNames.push_back("grid_center_lon");
 
 	std::vector<std::string> vecCommonLatVarNames;
 	vecCommonLatVarNames.push_back("lat");
 	vecCommonLatVarNames.push_back("latitude");
 	vecCommonLatVarNames.push_back("latCell");
 	vecCommonLatVarNames.push_back("mesh_node_y");
+	vecCommonLatVarNames.push_back("grid_center_lat");
 
 	// Enumerate all variables, recording dimension variables
 	for (size_t f = 0; f < vecFilenames.size(); f++) {
