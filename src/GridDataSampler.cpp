@@ -144,7 +144,7 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 
 	int iMaxLevel = 0;
 
-	long iReportSize = static_cast<long>(dLon.size()) / 100;
+	long iReportSize = static_cast<long>(dLon.size()) / 5;
 	for (long i = 0; i < dLon.size(); i++) {
 
 		if (std::isnan(dLon[i]) || std::isnan(dLat[i])) {
@@ -167,7 +167,7 @@ void GridDataSamplerUsingCubedSphereQuadTree::Initialize(
 		}
 
 		if ((i+1) % iReportSize == 0) {
-			Announce("%li%% complete", i / iReportSize);
+			Announce("%2.1f%% complete", std::ceil(i * 100.0 / dLon.size()));
 		}
 	}
 
@@ -270,7 +270,7 @@ void GridDataSamplerUsingQuadTree::Initialize(
 
 	int iMaxLevel = 0;
 
-	long iReportSize = static_cast<long>(dLon.size()) / 100;
+	long iReportSize = static_cast<long>(dLon.size()) / 5;
 	for (long i = 0; i < dLon.size(); i++) {
 
 		if (std::isnan(dLon[i]) || std::isnan(dLat[i])) {
@@ -292,7 +292,7 @@ void GridDataSamplerUsingQuadTree::Initialize(
 		}
 
 		if ((i+1) % iReportSize == 0) {
-			Announce("%li%% complete", i / iReportSize);
+			Announce("%2.1f%% complete", std::ceil(i * 100.0 / dLon.size()));
 		}
 	}
 
@@ -409,7 +409,7 @@ void GridDataSamplerUsingKDTree::Initialize(
 		_EXCEPTIONT("kd_create(3) failed");
 	}
 
-	long iReportSize = static_cast<long>(dLon.size()) / 100;
+	long iReportSize = static_cast<long>(dLon.size()) / 5;
 	for (long i = 0; i < static_cast<long>(dLon.size()); i++) {
 
 		if ((dLon[i] != dFillValue) && (dLat[i] != dFillValue)) {
@@ -424,7 +424,7 @@ void GridDataSamplerUsingKDTree::Initialize(
 		}
 
 		if ((i+1) % iReportSize == 0) {
-			Announce("%li%% complete", i / iReportSize);
+			Announce("%2.1f%% complete", std::ceil(i * 100.0 / dLon.size()));
 		}
 	}
 
