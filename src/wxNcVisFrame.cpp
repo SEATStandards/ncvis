@@ -210,6 +210,60 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 
 	double dFillValue = std::numeric_limits<double>::max();
 
+	// Local helper: if varCoord declares units of "radian"/"radians"/"rad"
+	// (case-insensitive), convert every non-fill, non-NaN entry of vecCoord
+	// from radians to degrees in place.  Coordinate variables that declare
+	// degrees, or that have no "units" attribute, are left unchanged.
+	// dFillValue is captured by reference so the helper sees whichever value
+	// has been read from the file by the time the helper is called.
+	auto convertRadiansToDegreesIfNeeded =
+		[&dFillValue](NcVar * varCoord, std::vector<double> & vecCoord) {
+			if (varCoord == NULL) {
+				return;
+			}
+			NcAtt * attUnits = varCoord->get_att("units");
+			if (attUnits == NULL) {
+				return;
+			}
+			std::string strUnits = attUnits->as_string(0);
+			std::string strLower;
+			strLower.reserve(strUnits.size());
+			for (size_t k = 0; k < strUnits.size(); k++) {
+				char c = strUnits[k];
+				if ((c >= 'A') && (c <= 'Z')) {
+					c = static_cast<char>(c - 'A' + 'a');
+				}
+				strLower.push_back(c);
+			}
+			// Trim ASCII whitespace from both ends.
+			size_t sBegin = 0;
+			while ((sBegin < strLower.size()) &&
+			       ((strLower[sBegin] == ' ') || (strLower[sBegin] == '\t'))) {
+				sBegin++;
+			}
+			size_t sEnd = strLower.size();
+			while ((sEnd > sBegin) &&
+			       ((strLower[sEnd-1] == ' ') || (strLower[sEnd-1] == '\t'))) {
+				sEnd--;
+			}
+			strLower = strLower.substr(sBegin, sEnd - sBegin);
+			if ((strLower != "radian") &&
+			    (strLower != "radians") &&
+			    (strLower != "rad")) {
+				return;
+			}
+			const double dRadToDeg = 180.0 / M_PI;
+			for (size_t i = 0; i < vecCoord.size(); i++) {
+				if (std::isnan(vecCoord[i])) {
+					continue;
+				}
+				if (vecCoord[i] == dFillValue) {
+					continue;
+				}
+				vecCoord[i] *= dRadToDeg;
+			}
+		};
+
 	// Get the latitude and longitude variables
 	if (m_strVarActiveMultidimLon == "") {
 		VariableNameFileIxMap::const_iterator itLon;
@@ -243,6 +297,9 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		if (attFillValue != NULL) {
 			dFillValue = attFillValue->as_double(0);
 		}
+
+		convertRadiansToDegreesIfNeeded(varLon, dLon);
+		convertRadiansToDegreesIfNeeded(varLat, dLat);
 
 	// Multidimensional latitude and longitude already specified
 	} else {
@@ -295,6 +352,9 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 			varLon->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
 			varLat->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
 		}
+
+		convertRadiansToDegreesIfNeeded(varLon, dLon);
+		convertRadiansToDegreesIfNeeded(varLat, dLat);
 	}
 
 	// Initialize the GridDataSampler
