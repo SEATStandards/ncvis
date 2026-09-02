@@ -43,6 +43,10 @@ wxIMPLEMENT_APP(wxNcVisApp);
 
 bool wxNcVisApp::OnInit() {
 
+        // PNG handler
+        wxInitAllImageHandlers();
+        wxImage::AddHandler(new wxPNGHandler);
+
 	// Turn off fatal errors in NetCDF
 	NcError error(NcError::silent_nonfatal);
 

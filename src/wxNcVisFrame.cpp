@@ -11,11 +11,17 @@
 
 #include "wxNcVisOptionsDialog.h"
 #include "wxNcVisExportDialog.h"
+#include "wxNcVisLinePlot.h"
 #include "STLStringHelper.h"
 #include "ShpFile.h"
 #include "TimeObj.h"
 #include <set>
+#include <algorithm>
+#include <cmath>
 #include <limits>
+#include <cstdio>
+#include <cstring>
+#include <ctime>
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -96,6 +102,7 @@ wxNcVisFrame::wxNcVisFrame(
 	m_rightsizer(NULL),
 	m_vardimsizer(NULL),
 	m_imagepanel(NULL),
+	m_pLinePlot(NULL),
 	m_wxNcVisExportDialog(NULL),
 	m_wxDimTimer(this,ID_DIMTIMER),
 	m_varActive(NULL),
@@ -1080,6 +1087,297 @@ void wxNcVisFrame::MapSampleCoords1DFromActiveVar(
 			}
 		}
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxNcVisFrame::GetTimeDimensionForActiveVar(long & lTimeDim) const {
+
+    lTimeDim = -1;
+    if (m_varActive == NULL) {
+        return false;
+    }
+
+    const int nDims = m_varActive->num_dims();
+    if (nDims <= 0) {
+        return false;
+    }
+
+    for (int d = 0; d < nDims; ++d) {
+        NcDim * pDim = m_varActive->get_dim(d);
+        if (pDim == NULL) continue;
+
+        std::string name = pDim->name();
+        std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+        if ((name == "time") ||
+            (name == "times") ||
+            (name == "t") ||
+            (name.find("time") != std::string::npos))
+        {
+            lTimeDim = d;
+            return true;
+        }
+    }
+
+    // Fallback assumption (common): first dimension is time
+    lTimeDim = 0;
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxNcVisFrame::BuildTimeSeriesAtLatLon(
+    double dLat, double dLon,
+    std::vector<double> & vecTime,
+    std::vector<float>  & vecValue,
+    double & dLatNearest,
+    double & dLonNearest,
+    wxString & outTimeUnits,
+    time_t & outBaseEpoch
+) {
+    vecTime.clear();
+    vecValue.clear();
+    dLatNearest = dLat;
+    dLonNearest = dLon;
+
+    if (m_varActive == NULL) return false;
+
+    // ------------------------------------------------------------
+    // Find which NcFile contains the active variable (ncvis style)
+    // ------------------------------------------------------------
+    NcFile * pFile = NULL;
+    const std::string strVarName = m_varActive->name();
+
+    for (int vc = 0; vc < NcVarMaximumDimensions; ++vc) {
+        auto itVar = m_mapVarNames[vc].find(strVarName);
+        if (itVar != m_mapVarNames[vc].end()) {
+            const long ixFile = itVar->second[0];
+            if ((ixFile < 0) || (ixFile >= (long)m_vecpncfiles.size())) return false;
+            pFile = m_vecpncfiles[ixFile];
+            break;
+        }
+    }
+    if (pFile == NULL) return false;
+
+    // ------------------------------------------------------------
+    // Identify time / lat / lon dimensions of the active variable
+    // ------------------------------------------------------------
+    long lTimeDim = -1;
+    if (!GetTimeDimensionForActiveVar(lTimeDim)) return false;
+
+    const int nDims = m_varActive->num_dims();
+    if (nDims < 3) return false; // expecting (time,lat,lon) style
+
+    long lLatDim = -1;
+    long lLonDim = -1;
+
+    for (int d = 0; d < nDims; ++d) {
+        NcDim * pDim = m_varActive->get_dim(d);
+        if (pDim == NULL) continue;
+
+        std::string name = pDim->name();
+        std::transform(name.begin(), name.end(), name.begin(), ::tolower);
+
+        if (name == "lat" || name == "latitude" || name.find("lat") != std::string::npos) {
+            lLatDim = d;
+        }
+        if (name == "lon" || name == "longitude" || name.find("lon") != std::string::npos) {
+            lLonDim = d;
+        }
+    }
+
+    // Fallback for typical ordering if names weren't found
+    if (lLatDim < 0 || lLonDim < 0) {
+        if (lTimeDim == 0 && nDims >= 3) {
+            lLatDim = 1;
+            lLonDim = 2;
+        } else {
+            return false;
+        }
+    }
+
+    const long nT   = m_varActive->get_dim((int)lTimeDim)->size();
+    const long nLat = m_varActive->get_dim((int)lLatDim)->size();
+    const long nLon = m_varActive->get_dim((int)lLonDim)->size();
+
+    if (nT <= 0 || nLat <= 0 || nLon <= 0) return false;
+
+    // ------------------------------------------------------------
+    // Read 1D coordinate variables for lat/lon from this file
+    // ------------------------------------------------------------
+    NcVar * varLat = pFile->get_var("lat");
+    if (varLat == NULL) varLat = pFile->get_var("latitude");
+    if (varLat == NULL) varLat = pFile->get_var(m_varActive->get_dim((int)lLatDim)->name());
+
+    NcVar * varLon = pFile->get_var("lon");
+    if (varLon == NULL) varLon = pFile->get_var("longitude");
+    if (varLon == NULL) varLon = pFile->get_var(m_varActive->get_dim((int)lLonDim)->name());
+
+    if (varLat == NULL || varLon == NULL) return false;
+
+    std::vector<double> lat(nLat), lon(nLon);
+    if (!varLat->get(&lat[0], (long)nLat)) return false;
+    if (!varLon->get(&lon[0], (long)nLon)) return false;
+
+    auto nearestIndex = [](const std::vector<double> & a, double x) -> long {
+        long best = 0;
+        double bestd = std::numeric_limits<double>::infinity();
+        for (long i = 0; i < (long)a.size(); ++i) {
+            double d = std::fabs(a[i] - x);
+            if (d < bestd) { bestd = d; best = i; }
+        }
+        return best;
+    };
+
+    const long iLat = nearestIndex(lat, dLat);
+    const long iLon = nearestIndex(lon, dLon);
+
+    dLatNearest = lat[iLat];
+    dLonNearest = lon[iLon];
+
+   // ------------------------------------------------------------
+   // Time coordinate: try "time" variable
+   // ------------------------------------------------------------
+   vecTime.resize(nT);
+
+   for (long it = 0; it < nT; ++it) {
+       vecTime[it] = (double)it;
+   }
+
+   NcVar * varTime = pFile->get_var("time");
+
+   outTimeUnits = "time";
+   outBaseEpoch = 0;
+
+   if (varTime != NULL) {
+
+       // ---- Read time coordinate values robustly (works with netcdfcpp.h types) ----
+       NcValues * pTimeVals = varTime->values();
+       if (pTimeVals != NULL) {
+           long n = pTimeVals->num();
+           if (n > nT) n = nT;
+           for (long it = 0; it < n; ++it) {
+               vecTime[it] = pTimeVals->as_double(it);
+           }
+           delete pTimeVals;
+       }
+
+       // ---- Read units attribute and parse base date ----
+       NcAtt * attUnits = varTime->get_att("units");
+       if (attUnits != NULL) {
+           char buf[256];
+           buf[0] = '\0';
+
+           NcValues * pVals = attUnits->values();
+           if (pVals != NULL) {
+               const char * psz = pVals->as_string(0);
+               if (psz != NULL) {
+                   std::strncpy(buf, psz, sizeof(buf)-1);
+                   buf[sizeof(buf)-1] = '\0';
+               }
+               delete pVals;
+           }
+           delete attUnits;
+
+           outTimeUnits = wxString::Format("time (%s)", buf);
+
+           // Parse "days since YYYY-MM-DD HH:MM:SS" (time optional)
+           std::string s(buf);
+           size_t p = s.find("since");
+           if (p != std::string::npos) {
+               std::string rest = s.substr(p + 5);
+               while (!rest.empty() && (rest[0] == ' ' || rest[0] == '\t')) rest.erase(rest.begin());
+
+               int Y=0,M=0,D=0,h=0,m=0,sec=0;
+               int nn = std::sscanf(rest.c_str(), "%d-%d-%d %d:%d:%d", &Y,&M,&D,&h,&m,&sec);
+               if (nn >= 3) {
+                   std::tm tmv;
+                   std::memset(&tmv, 0, sizeof(tmv));
+                   tmv.tm_year = Y - 1900;
+                   tmv.tm_mon  = M - 1;
+                   tmv.tm_mday = D;
+                   tmv.tm_hour = (nn >= 4) ? h : 0;
+                   tmv.tm_min  = (nn >= 5) ? m : 0;
+                   tmv.tm_sec  = (nn >= 6) ? sec : 0;
+
+                   outBaseEpoch = std::mktime(&tmv);
+               }
+           }
+       }
+   }
+
+    // ------------------------------------------------------------
+    // Extract scalar value at (time,it) & fixed (lat,lon)
+    // ------------------------------------------------------------
+    vecValue.resize(nT);
+
+    std::vector<long> cur(nDims, 0);
+    cur[(int)lLatDim] = iLat;
+    cur[(int)lLonDim] = iLon;
+
+    for (long it = 0; it < nT; ++it) {
+        cur[(int)lTimeDim] = it;
+
+        bool ok = false;
+        if (nDims == 3) {
+            ok = m_varActive->set_cur(cur[0], cur[1], cur[2]);
+        } else if (nDims == 4) {
+            ok = m_varActive->set_cur(cur[0], cur[1], cur[2], cur[3]);
+        } else if (nDims == 5) {
+            ok = m_varActive->set_cur(cur[0], cur[1], cur[2], cur[3], cur[4]);
+        } else {
+            return false;
+        }
+        if (!ok) return false;
+
+        float val = std::numeric_limits<float>::quiet_NaN();
+
+        if (nDims == 3) {
+            if (!m_varActive->get(&val, 1, 1, 1)) return false;
+        } else if (nDims == 4) {
+            if (!m_varActive->get(&val, 1, 1, 1, 1)) return false;
+        } else if (nDims == 5) {
+            if (!m_varActive->get(&val, 1, 1, 1, 1, 1)) return false;
+        }
+
+        vecValue[it] = val;
+    }
+
+    return true;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::OnShiftClickTimeSeries(double dLat, double dLon) {
+
+    std::vector<double> vecTime;
+    std::vector<float>  vecValue;
+    double dLatNearest = dLat;
+    double dLonNearest = dLon;
+    
+    wxString timeUnits("time");
+    time_t baseEpoch = 0;
+
+    if (!BuildTimeSeriesAtLatLon(dLat, dLon, vecTime, vecValue, dLatNearest, dLonNearest, timeUnits, baseEpoch)) {
+        SetStatusMessage("Shift+click: failed to extract time series", false);
+        return;
+    }
+
+    wxString title = wxString::Format(
+        "%s time series (lat,lon)=(%.4f, %.4f)",
+        GetVarActiveTitle().c_str(), dLatNearest, dLonNearest);
+
+    wxString yLabel = wxString::Format("%s (%s)",
+        GetVarActiveTitle().c_str(), GetVarActiveUnits().c_str());
+
+    if (m_pLinePlot == NULL) {
+        m_pLinePlot = new wxNcVisLinePlotFrame(this, title, vecTime, vecValue, timeUnits, baseEpoch, yLabel);
+        m_pLinePlot->Show();
+    } else {
+        m_pLinePlot->UpdatePlot(title, vecTime, vecValue, timeUnits, baseEpoch, yLabel);
+        if (!m_pLinePlot->IsShown()) m_pLinePlot->Show();
+    }
 }
 
 ////////////////////////////////////////////////////////////////////////////////

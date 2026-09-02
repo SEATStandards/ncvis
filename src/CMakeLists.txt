@@ -7,6 +7,7 @@ set(NCVIS_SOURCE_FILES
   wxNcVisFrame.cpp 
   wxNcVisOptionsDialog.cpp
   wxNcVisExportDialog.cpp
+  wxNcVisLinePlot.cpp
   wxImagePanel.cpp 
   GridDataSampler.cpp 
   ColorMap.cpp 

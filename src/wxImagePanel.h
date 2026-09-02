@@ -91,6 +91,11 @@ public:
 	///	</summary>
 	void OnMouseLeftDoubleClick(wxMouseEvent & evt);
 
+	///     <summary>
+	///             Callback for when Shift + mouse left-clicked.
+	///     </summary>
+	void OnMouseLeftDown(wxMouseEvent & evt);
+
 public:
 	///	<summary>
 	///		Format a label bar label from a value.

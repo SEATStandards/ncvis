@@ -20,11 +20,13 @@
 
 #include <map>
 #include <vector>
+#include <ctime>
 
 ////////////////////////////////////////////////////////////////////////////////
 
 class wxNcVisOptionsDialog;
 class wxNcVisExportDialog;
+class wxNcVisLinePlotFrame;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -317,6 +319,11 @@ public:
 		return m_strVarActiveUnits;
 	}
 
+	///     <summary>
+	///             Callback triggered when Shift+mouse left click for 1D plot
+	///     </summary>
+	void OnShiftClickTimeSeries(double dLat, double dLon);
+
 private:
 	///	<summary>
 	///		Callback triggered when Exit is selected in the menu.
@@ -514,6 +521,11 @@ private:
 	///	</summary>
 	wxTimer m_wxDimTimer;
 
+	///     <summary>
+	///             1D line plot.
+	///     </summary>
+        wxNcVisLinePlotFrame * m_pLinePlot;
+
 private:
 	///	<summary>
 	///		Flag indicating verbose output is desired.
@@ -675,6 +687,21 @@ private:
 	///		found.  Variables are further indexed by number of dimensions.
 	///	</summary>
 	VariableNameFileIxMap m_mapVarNames[10];
+
+	///     <summary>
+	///             Extracting 1D series for 1D plot.
+	///     </summary>
+	bool BuildTimeSeriesAtLatLon(
+       	    double dLat, double dLon,
+            std::vector<double> & vecTime,
+            std::vector<float>  & vecValue,
+            double & dLatNearest,
+            double & dLonNearest,
+            wxString & outTimeUnits,
+            time_t & outBaseEpoch
+        );
+
+	bool GetTimeDimensionForActiveVar(long & lTimeDim) const;
 
 private:
 	///	<summary>
