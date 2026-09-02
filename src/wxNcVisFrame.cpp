@@ -1961,7 +1961,6 @@ void wxNcVisFrame::GenerateDimensionControls() {
 	m_vecwxRange[0]->Enable(true);
 	m_vecwxRange[1]->Enable(true);
 
-	SetDataRangeCenteredOnZero(false);
 	SetDataRangeByMinMax(false);
 
 	// Resize window if needed
