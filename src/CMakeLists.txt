@@ -35,8 +35,15 @@ set_target_properties(ncvis
         CXX_STANDARD 11
         CXX_STANDARD_REQUIRED YES
         CXX_EXTENSIONS NO
-        LINK_FLAGS "${NCVIS_LINKER_FLAGS}"
+        BUILD_RPATH "${WXCONFIG_RPATH}/lib"
+        INSTALL_RPATH "${WXCONFIG_RPATH}/lib"
 )
+
+# Link libraries after object files (required for GNU ld).
+# Use the results of find_package rather than parsing wx-config/nc-config
+# output: those are already correct lists and preserve multi-token items such
+# as "-framework Cocoa", which token-by-token filtering breaks on macOS.
+target_link_libraries(ncvis PRIVATE ${wxWidgets_LIBRARIES} ${NETCDF_LIBRARIES})
 
 # Install target
 INSTALL(TARGETS ncvis
