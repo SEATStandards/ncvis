@@ -41,6 +41,14 @@ wxIMPLEMENT_APP(wxNcVisApp);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void PrintUsage(const char * szProgram) {
+	std::cout << "Usage: " << szProgram << " [options] <filename> [filename] ... " << std::endl;
+	std::cout << "Options:" << std::endl;
+	std::cout << "  -var <name>   Load variable on startup" << std::endl;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 bool wxNcVisApp::OnInit() {
 
         // PNG handler
@@ -52,9 +60,7 @@ bool wxNcVisApp::OnInit() {
 
 	// Process command line arguments
 	if (argc < 2) {
-		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
-                std::cout << "Options:" << std::endl;
-                std::cout << "  -var <name>   Load variable on startup" << std::endl;
+		PrintUsage(argv[0]);
 		exit(-1);
 	}
 
@@ -66,8 +72,8 @@ bool wxNcVisApp::OnInit() {
 			if ((wxString("-g") == argv[iarg]) ||
 			    (wxString("-uxc") == argv[iarg]) ||
 			    (wxString("-uyc") == argv[iarg]) ||
-		   	    (wxString("-mcr") == argv[iarg]) ||
-				(wxString("-var") == argv[iarg])
+			    (wxString("-mcr") == argv[iarg]) ||
+			    (wxString("-var") == argv[iarg])
 			) {
 				if (iarg+1 == argc) {
 					std::cout << "Option " << argv[iarg] << " missing required parameter" << std::endl;
@@ -95,9 +101,7 @@ bool wxNcVisApp::OnInit() {
 
 	if (vecFilenames.size() == 0) {
 		std::cout << "ERROR: No filenames specified" << std::endl;
-		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
-                std::cout << "Options:" << std::endl;
-                std::cout << "  -var <name>   Load variable on startup" << std::endl;
+		PrintUsage(argv[0]);
 		exit(-1);
 	}
 

@@ -859,37 +859,6 @@ void wxNcVisFrame::InitializeWindow() {
 	//customvarsizer->Add(new wxTextCtrl(this, (-1), _T(""), wxDefaultPosition, wxSize(240,m_wxDataTransButton->GetSize().GetHeight()+4), wxTE_PROCESS_ENTER), 2, wxEXPAND | wxALL, 4);
 
 
-        if (!m_strStartupVariable.IsEmpty()) {
-            bool fFound = false;
-
-            for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
-                if (m_vecwxVarSelector[vc] == NULL) {
-                    continue;
-                }
-
-                int ix = m_vecwxVarSelector[vc]->FindString(m_strStartupVariable);
-                if (ix != wxNOT_FOUND) {
-                    m_vecwxVarSelector[vc]->SetSelection(ix);
-
-                    wxCommandEvent evt(wxEVT_COMBOBOX, ID_VARSELECTOR + vc);
-                    evt.SetEventObject(m_vecwxVarSelector[vc]);
-                    evt.SetInt(ix);
-                    wxPostEvent(this, evt);
-
-                    fFound = true;
-                    break;
-                }
-            }
-
-            if (!fFound) {
-                wxMessageBox(
-                    wxString::Format("Startup variable \"%s\" not found.", m_strStartupVariable),
-                    "Variable not found",
-                    wxOK | wxICON_WARNING
-                );
-            }
-        }
-
 	// Dimensions
 	m_vardimsizer = new wxFlexGridSizer(NcVarMaximumDimensions+1, 4, 0, 0);
 
@@ -912,6 +881,18 @@ void wxNcVisFrame::InitializeWindow() {
 
 	SetSizerAndFit(m_panelsizer);
 
+	// Select the variable requested on the command line with -var
+	if (!m_strStartupVariable.IsEmpty()) {
+		if (!SelectVariableByName(m_strStartupVariable)) {
+			SetStatusMessage(
+				wxString::Format(
+					_T(" Variable \"%s\" not found"),
+					m_strStartupVariable),
+				false);
+		}
+		return;
+	}
+
 	// Set selection
 	size_t sTotalVariables = 0;
 	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
@@ -931,6 +912,33 @@ void wxNcVisFrame::InitializeWindow() {
 			}
 		}
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxNcVisFrame::SelectVariableByName(
+	const wxString & strVariable
+) {
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+		if (m_vecwxVarSelector[vc] == NULL) {
+			continue;
+		}
+
+		int ix = m_vecwxVarSelector[vc]->FindString(strVariable);
+		if (ix == wxNOT_FOUND) {
+			continue;
+		}
+
+		m_vecwxVarSelector[vc]->SetSelection(ix);
+
+		wxCommandEvent event(wxEVT_NULL, ID_VARSELECTOR + vc);
+		event.SetString(strVariable);
+
+		OnVariableSelected(event);
+		return true;
+	}
+
+	return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

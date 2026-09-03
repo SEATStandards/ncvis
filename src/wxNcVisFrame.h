@@ -171,6 +171,11 @@ public:
 	}
 
 	///	<summary>
+	///		Select the named variable, if present.  Returns true on success.
+	///	</summary>
+	bool SelectVariableByName(const wxString & strVariable);
+
+	///	<summary>
 	///		Load data from the active variable.
 	///	</summary>
 	void LoadData();
