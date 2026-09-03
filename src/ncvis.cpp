@@ -43,6 +43,10 @@ wxIMPLEMENT_APP(wxNcVisApp);
 
 bool wxNcVisApp::OnInit() {
 
+        // PNG handler
+        wxInitAllImageHandlers();
+        wxImage::AddHandler(new wxPNGHandler);
+
 	// Turn off fatal errors in NetCDF
 	NcError error(NcError::silent_nonfatal);
 
@@ -110,11 +114,12 @@ bool wxNcVisApp::OnInit() {
 		}
 	}
 
+	// Create main frame
 	wxNcVisFrame * frame =
 		new wxNcVisFrame(
 			"NcVis",
 			wxPoint(50, 50),
-			wxSize(842, 462),
+			wxSize(1050, 605),
 			wxstrNcVisResourceDir,
 			mapOptions,
 			vecFilenames);
