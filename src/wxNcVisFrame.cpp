@@ -142,6 +142,11 @@ wxNcVisFrame::wxNcVisFrame(
 		m_fRegional = true;
 	}
 
+        auto itVar = mapOptions.find("-var");
+        if (itVar != mapOptions.end()) {
+            m_strStartupVariable = itVar->second;
+        }
+
 	auto itMCS = mapOptions.find("-mcr");
 	if (itMCS != mapOptions.end()) {
 		m_dMaxCellRadius = stof(itMCS->second.ToStdString());
@@ -876,6 +881,18 @@ void wxNcVisFrame::InitializeWindow() {
 
 	SetSizerAndFit(m_panelsizer);
 
+	// Select the variable requested on the command line with -var
+	if (!m_strStartupVariable.IsEmpty()) {
+		if (!SelectVariableByName(m_strStartupVariable)) {
+			SetStatusMessage(
+				wxString::Format(
+					_T(" Variable \"%s\" not found"),
+					m_strStartupVariable),
+				false);
+		}
+		return;
+	}
+
 	// Set selection
 	size_t sTotalVariables = 0;
 	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
@@ -895,6 +912,33 @@ void wxNcVisFrame::InitializeWindow() {
 			}
 		}
 	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxNcVisFrame::SelectVariableByName(
+	const wxString & strVariable
+) {
+	for (int vc = 0; vc < NcVarMaximumDimensions; vc++) {
+		if (m_vecwxVarSelector[vc] == NULL) {
+			continue;
+		}
+
+		int ix = m_vecwxVarSelector[vc]->FindString(strVariable);
+		if (ix == wxNOT_FOUND) {
+			continue;
+		}
+
+		m_vecwxVarSelector[vc]->SetSelection(ix);
+
+		wxCommandEvent event(wxEVT_NULL, ID_VARSELECTOR + vc);
+		event.SetString(strVariable);
+
+		OnVariableSelected(event);
+		return true;
+	}
+
+	return false;
 }
 
 ////////////////////////////////////////////////////////////////////////////////

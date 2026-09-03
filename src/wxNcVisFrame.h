@@ -171,6 +171,11 @@ public:
 	}
 
 	///	<summary>
+	///		Select the named variable, if present.  Returns true on success.
+	///	</summary>
+	bool SelectVariableByName(const wxString & strVariable);
+
+	///	<summary>
 	///		Load data from the active variable.
 	///	</summary>
 	void LoadData();
@@ -699,6 +704,11 @@ private:
 	///		found.  Variables are further indexed by number of dimensions.
 	///	</summary>
 	VariableNameFileIxMap m_mapVarNames[10];
+
+        ///     <summary>
+        ///             Startup variable name.
+        ///     </summary>
+	wxString m_strStartupVariable;
 
 	///     <summary>
 	///             Extracting 1D series for 1D plot.
