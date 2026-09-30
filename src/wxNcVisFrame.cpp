@@ -142,10 +142,10 @@ wxNcVisFrame::wxNcVisFrame(
 		m_fRegional = true;
 	}
 
-        auto itVar = mapOptions.find("-var");
-        if (itVar != mapOptions.end()) {
-            m_strStartupVariable = itVar->second;
-        }
+	auto itVar = mapOptions.find("-var");
+	if (itVar != mapOptions.end()) {
+		m_strStartupVariable = itVar->second;
+	}
 
 	auto itMCS = mapOptions.find("-mcr");
 	if (itMCS != mapOptions.end()) {

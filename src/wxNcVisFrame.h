@@ -705,9 +705,9 @@ private:
 	///	</summary>
 	VariableNameFileIxMap m_mapVarNames[10];
 
-        ///     <summary>
-        ///             Startup variable name.
-        ///     </summary>
+	///	<summary>
+	///		Startup variable name.
+	///	</summary>
 	wxString m_strStartupVariable;
 
 	///     <summary>
