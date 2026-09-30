@@ -20,11 +20,13 @@
 
 #include <map>
 #include <vector>
+#include <ctime>
 
 ////////////////////////////////////////////////////////////////////////////////
 
 class wxNcVisOptionsDialog;
 class wxNcVisExportDialog;
+class wxNcVisLinePlotFrame;
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -184,6 +186,11 @@ public:
 	}
 
 	///	<summary>
+	///		Select the named variable, if present.  Returns true on success.
+	///	</summary>
+	bool SelectVariableByName(const wxString & strVariable);
+
+	///	<summary>
 	///		Load data from the active variable.
 	///	</summary>
 	void LoadData();
@@ -288,6 +295,13 @@ public:
 		bool fRedraw = false
 	);
 
+	///     <summary>
+	///             Set the data range centered on zero.
+	///     </summary>
+	void SetDataRangeCenteredOnZero(
+		bool fRedraw = false
+	);
+
 	///	<summary>
 	///		Set the dimension value displayed.
 	///	</summary>
@@ -338,6 +352,11 @@ public:
 	int GetCurrentFileIndex() const;
 	int GetCurrentLocalTimeIndex() const;
 	void UpdateActiveVariableFromGlobalTime();
+
+	///     <summary>
+	///             Callback triggered when Shift+mouse left click for 1D plot
+	///     </summary>
+	void OnShiftClickTimeSeries(double dLat, double dLon);
 
 private:
 	///	<summary>
@@ -394,6 +413,11 @@ private:
 	///		Callback triggered when the range reset min/max button is pressed.
 	///	</summary>
 	void OnRangeResetMinMax(wxCommandEvent & event);
+
+	///     <summary>
+	///             Callback triggered when the range center min/max button is pressed.
+	///     </summary>
+	void OnRangeCenterMinMax(wxCommandEvent & event);
 
 	///	<summary>
 	///		Callback triggered when the dimension timer is triggered.
@@ -535,6 +559,11 @@ private:
 	///		Dimension timer.
 	///	</summary>
 	wxTimer m_wxDimTimer;
+
+	///     <summary>
+	///             1D line plot.
+	///     </summary>
+        wxNcVisLinePlotFrame * m_pLinePlot;
 
 private:
 	///	<summary>
@@ -704,11 +733,31 @@ private:
 	VariableNameFileIxMap m_mapVarNames[10];
 
 	///	<summary>
-        ///              Multi-file virtual time navigation
+	///		Startup variable name.
+	///	</summary>
+	wxString m_strStartupVariable;
+
+	///	<summary>
+	///		Multi-file virtual time navigation
 	///	</summary>
 	std::vector<NcVisFileInfo> m_vecInputFileInfo;
 	std::vector<NcVisTimeRef> m_vecGlobalTime;
 	int m_iCurrentGlobalTimeIndex = 0;
+
+	///     <summary>
+	///             Extracting 1D series for 1D plot.
+	///     </summary>
+	bool BuildTimeSeriesAtLatLon(
+       	    double dLat, double dLon,
+            std::vector<double> & vecTime,
+            std::vector<float>  & vecValue,
+            double & dLatNearest,
+            double & dLonNearest,
+            wxString & outTimeUnits,
+            time_t & outBaseEpoch
+        );
+
+	bool GetTimeDimensionForActiveVar(long & lTimeDim) const;
 
 private:
 	///	<summary>

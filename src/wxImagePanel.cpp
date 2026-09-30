@@ -15,6 +15,39 @@
 #include <wx/kbdstate.h>
 
 #include <map>
+#include <cstdlib>
+#include <cstring>
+#include <cstdio>
+
+////////////////////////////////////////////////////////////////////////////////
+
+/*
+ * Workaround for XQuartz display refresh bug on macOS Tahoe (26.x).
+ * See: https://github.com/XQuartz/XQuartz/issues/438
+ * wxWidgets applications fail to refresh properly on window resize because
+ * expose events are not generated correctly. Set NCVIS_FORCE_EXPOSE_FIX to a
+ * nonzero value (for example, NCVIS_FORCE_EXPOSE_FIX=1) to force redraws on
+ * resize events; leave it unset or set it to 0 to disable this workaround.
+ */
+static int expose_fix_checked = 0;
+static int expose_fix_enabled = 0;
+
+static int check_expose_fix(void)
+{
+	if (expose_fix_checked)
+		return expose_fix_enabled;
+
+	expose_fix_checked = 1;
+	expose_fix_enabled = 0;
+
+	const char *env = std::getenv("NCVIS_FORCE_EXPOSE_FIX");
+	if (env != NULL && std::strcmp(env, "0") != 0) {
+		expose_fix_enabled = 1;
+		std::fprintf(stderr, "ncvis: NCVIS_FORCE_EXPOSE_FIX set, enabling XQuartz refresh workaround\n");
+	}
+
+	return expose_fix_enabled;
+}
 
 ////////////////////////////////////////////////////////////////////////////////
 
@@ -23,6 +56,7 @@ EVT_PAINT(wxImagePanel::OnPaint)
 EVT_SIZE(wxImagePanel::OnSize)
 EVT_IDLE(wxImagePanel::OnIdle)
 EVT_LEFT_DCLICK(wxImagePanel::OnMouseLeftDoubleClick)
+EVT_LEFT_DOWN(wxImagePanel::OnMouseLeftDown)
 EVT_MOTION(wxImagePanel::OnMouseMotion)
 EVT_LEAVE_WINDOW(wxImagePanel::OnMouseLeaveWindow)
 END_EVENT_TABLE()
@@ -129,6 +163,10 @@ wxImagePanel::wxImagePanel(
 	SetSize(wxSize(wxs.GetWidth(), wxs.GetHeight()));
 	SetMinSize(wxSize(wxs.GetWidth(), wxs.GetHeight()));
 	SetCoordinateRange(0.0, 1.0, 0.0, 1.0);
+
+	// XQuartz workaround: Check if expose fix is needed (NCVIS_FORCE_EXPOSE_FIX=1)
+	// See: https://github.com/XQuartz/XQuartz/issues/438
+	check_expose_fix();
 
 	// Initialize font information
 	m_sftTitleBar.xScale = TITLE_FONTHEIGHT;
@@ -277,6 +315,11 @@ void wxImagePanel::OnSize(wxSizeEvent & evt) {
 		std::cout << "RESIZE " << wxs.GetWidth() << " " << wxs.GetHeight() << std::endl;
 	}
 	m_fResize = true;
+
+	// XQuartz workaround: Force refresh on resize to work around expose event bug
+	if (expose_fix_enabled) {
+		this->Refresh();
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -438,6 +481,36 @@ void wxImagePanel::OnMouseLeftDoubleClick(wxMouseEvent & evt) {
 
 	// Set coordinate range
 	SetCoordinateRange(m_dXrange[0], m_dXrange[1], m_dYrange[0], m_dYrange[1], true);
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxImagePanel::OnMouseLeftDown(wxMouseEvent & evt) {
+
+    if (!evt.ShiftDown()) {
+        evt.Skip();
+        return;
+    }
+
+    wxPoint pos = evt.GetPosition();
+
+    wxSize wxsMap;
+    wxPosition wxpMap;
+    GetMapPositionSize(wxsMap, wxpMap);
+
+    pos.x -= wxpMap.GetCol();
+    pos.y -= wxpMap.GetRow();
+
+    if ((pos.x < 0) || (pos.x >= (int)m_dSampleX.size())) return;
+    if ((pos.y < 0) || (pos.y >= (int)m_dSampleY.size())) return;
+
+    const double dLon = m_dSampleX[pos.x];
+    const double dLat = m_dSampleY[m_dSampleY.size() - pos.y - 1];
+
+    _ASSERT(m_pncvisparent != NULL);
+
+    // Open/update the time series plot
+    m_pncvisparent->OnShiftClickTimeSeries(dLat, dLon);
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -1544,6 +1617,11 @@ void wxImagePanel::PaintNow() {
 ////////////////////////////////////////////////////////////////////////////////
 
 void wxImagePanel::Render(wxDC & dc) {
+	// XQuartz workaround: Clear background before drawing to prevent black windows
+	if (expose_fix_enabled) {
+		dc.SetBackground(wxBrush(GetBackgroundColour()));
+		dc.Clear();
+	}
 	dc.DrawBitmap(m_image, 0, 0, false);
 }
 

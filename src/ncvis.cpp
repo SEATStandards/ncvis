@@ -41,14 +41,26 @@ wxIMPLEMENT_APP(wxNcVisApp);
 
 ////////////////////////////////////////////////////////////////////////////////
 
+void PrintUsage(const char * szProgram) {
+	std::cout << "Usage: " << szProgram << " [options] <filename> [filename] ... " << std::endl;
+	std::cout << "Options:" << std::endl;
+	std::cout << "  -var <name>   Load variable on startup" << std::endl;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 bool wxNcVisApp::OnInit() {
+
+        // PNG handler
+        wxInitAllImageHandlers();
+        wxImage::AddHandler(new wxPNGHandler);
 
 	// Turn off fatal errors in NetCDF
 	NcError error(NcError::silent_nonfatal);
 
 	// Process command line arguments
 	if (argc < 2) {
-		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
+		PrintUsage(argv[0]);
 		exit(-1);
 	}
 
@@ -60,7 +72,8 @@ bool wxNcVisApp::OnInit() {
 			if ((wxString("-g") == argv[iarg]) ||
 			    (wxString("-uxc") == argv[iarg]) ||
 			    (wxString("-uyc") == argv[iarg]) ||
-				(wxString("-mcr") == argv[iarg])
+			    (wxString("-mcr") == argv[iarg]) ||
+			    (wxString("-var") == argv[iarg])
 			) {
 				if (iarg+1 == argc) {
 					std::cout << "Option " << argv[iarg] << " missing required parameter" << std::endl;
@@ -88,7 +101,7 @@ bool wxNcVisApp::OnInit() {
 
 	if (vecFilenames.size() == 0) {
 		std::cout << "ERROR: No filenames specified" << std::endl;
-		std::cout << "Usage: " << argv[0] << " [options] <filename> [filename] ... " << std::endl;
+		PrintUsage(argv[0]);
 		exit(-1);
 	}
 
@@ -105,11 +118,12 @@ bool wxNcVisApp::OnInit() {
 		}
 	}
 
+	// Create main frame
 	wxNcVisFrame * frame =
 		new wxNcVisFrame(
 			"NcVis",
 			wxPoint(50, 50),
-			wxSize(842, 462),
+			wxSize(1050, 605),
 			wxstrNcVisResourceDir,
 			mapOptions,
 			vecFilenames);
