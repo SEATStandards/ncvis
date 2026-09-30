@@ -167,7 +167,129 @@ wxNcVisFrame::wxNcVisFrame(
 
 	OpenFiles(vecFilenames);
 
+	BuildGlobalTimeIndex(vecFilenames);
+
 	InitializeWindow();
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+bool wxNcVisFrame::IsTimeDimensionName(
+	const std::string & strDimName
+) {
+	std::string strLower = strDimName;
+	std::transform(strLower.begin(), strLower.end(), strLower.begin(), ::tolower);
+
+	return ((strLower == "t") || (strLower.find("time") != std::string::npos));
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::BuildGlobalTimeIndex(
+	const std::vector<wxString> & vecFilenames
+) {
+	m_vecInputFileInfo.clear();
+	m_vecGlobalTime.clear();
+	m_iCurrentGlobalTimeIndex = 0;
+
+	// Multi-file navigation only applies when several files are given
+	if (vecFilenames.size() < 2) {
+		return;
+	}
+
+	_ASSERT(m_vecpncfiles.size() == vecFilenames.size());
+
+	for (size_t i = 0; i < vecFilenames.size(); i++) {
+		NcVisFileInfo info;
+		info.filename = vecFilenames[i];
+
+		// Reuse the handle already opened by OpenFiles()
+		NcFile & ncfile = *(m_vecpncfiles[i]);
+
+		// Locate the time dimension by name, whatever it is called, and
+		// record the remaining dimensions so files can be compared
+		for (int d = 0; d < ncfile.num_dims(); d++) {
+			NcDim * pDim = ncfile.get_dim(d);
+			if (pDim == NULL) {
+				continue;
+			}
+			if ((info.strTimeDimName == "") &&
+			    IsTimeDimensionName(pDim->name())
+			) {
+				info.strTimeDimName = pDim->name();
+				info.timeCount = pDim->size();
+			} else {
+				info.mapSpatialDims.insert(
+					std::pair<std::string, long>(
+						pDim->name(), pDim->size()));
+			}
+		}
+
+		// A file with no time dimension contributes a single frame
+		if (info.timeCount == 0) {
+			info.timeCount = 1;
+		}
+
+		m_vecInputFileInfo.push_back(info);
+	}
+
+	// Every file must agree on which dimension is time
+	for (size_t i = 1; i < m_vecInputFileInfo.size(); i++) {
+		if (m_vecInputFileInfo[i].strTimeDimName !=
+		    m_vecInputFileInfo[0].strTimeDimName
+		) {
+			std::cout << "WARNING: Time dimension differs between input files (\""
+				<< m_vecInputFileInfo[0].strTimeDimName << "\" and \""
+				<< m_vecInputFileInfo[i].strTimeDimName
+				<< "\"); multi-file time navigation disabled" << std::endl;
+
+			m_vecInputFileInfo.clear();
+			return;
+		}
+
+		// All other dimensions must match for frames to be comparable
+		if (m_vecInputFileInfo[i].mapSpatialDims !=
+		    m_vecInputFileInfo[0].mapSpatialDims
+		) {
+			std::cout << "WARNING: Dimensions of \""
+				<< m_vecInputFileInfo[i].filename.ToStdString()
+				<< "\" do not match those of \""
+				<< m_vecInputFileInfo[0].filename.ToStdString()
+				<< "\"; multi-file time navigation disabled" << std::endl;
+
+			m_vecInputFileInfo.clear();
+			return;
+		}
+	}
+
+	// Without a time dimension there is nothing to navigate across
+	if (m_vecInputFileInfo[0].strTimeDimName == "") {
+		m_vecInputFileInfo.clear();
+		return;
+	}
+
+	for (size_t i = 0; i < m_vecInputFileInfo.size(); i++) {
+		for (int t = 0; t < m_vecInputFileInfo[i].timeCount; t++) {
+			NcVisTimeRef ref;
+			ref.fileIndex = i;
+			ref.localTimeIndex = t;
+			m_vecGlobalTime.push_back(ref);
+		}
+	}
+
+	if (m_fVerbose) {
+		std::cout << "Multi-file input count: "
+			<< m_vecInputFileInfo.size() << std::endl;
+		for (size_t i = 0; i < m_vecInputFileInfo.size(); i++) {
+			std::cout << "  [" << i << "] "
+				<< m_vecInputFileInfo[i].filename.ToStdString()
+				<< " (" << m_vecInputFileInfo[i].timeCount
+				<< " times)" << std::endl;
+		}
+		std::cout << "Global time axis: " << m_vecGlobalTime.size()
+			<< " steps across dimension \""
+			<< m_vecInputFileInfo[0].strTimeDimName << "\"" << std::endl;
+	}
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -719,6 +841,58 @@ void wxNcVisFrame::OpenFiles(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+int wxNcVisFrame::GetCurrentFileIndex() const {
+	if (m_vecGlobalTime.size() == 0) {
+		return (-1);
+	}
+	return m_vecGlobalTime[m_iCurrentGlobalTimeIndex].fileIndex;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+int wxNcVisFrame::GetCurrentLocalTimeIndex() const {
+	if (m_vecGlobalTime.size() == 0) {
+		return (-1);
+	}
+	return m_vecGlobalTime[m_iCurrentGlobalTimeIndex].localTimeIndex;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
+void wxNcVisFrame::UpdateActiveVariableFromGlobalTime() {
+	if (m_strVarActiveName == "") {
+		return;
+	}
+
+	if (m_vecGlobalTime.size() == 0) {
+		return;
+	}
+
+	int iFile = GetCurrentFileIndex();
+	if (iFile < 0) {
+		return;
+	}
+
+	_ASSERT(iFile < static_cast<int>(m_vecpncfiles.size()));
+	_ASSERT(m_vecpncfiles[iFile] != NULL);
+
+	// The variable may be absent from this file; keep the previous binding
+	NcVar * varInFile =
+		m_vecpncfiles[iFile]->get_var(m_strVarActiveName.c_str());
+
+	if (varInFile == NULL) {
+		std::cout << "WARNING: Variable \"" << m_strVarActiveName
+			<< "\" not present in file \""
+			<< m_vecInputFileInfo[iFile].filename.ToStdString()
+			<< "\"" << std::endl;
+		return;
+	}
+
+	m_varActive = varInFile;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 void wxNcVisFrame::InitializeWindow() {
 
 	// Get the list of shapefiles in the resource dir
@@ -947,6 +1121,8 @@ void wxNcVisFrame::LoadData() {
 	if (m_fVerbose) {
 		std::cout << "LOAD DATA" << std::endl;
 	}
+
+        UpdateActiveVariableFromGlobalTime();
 
 	// Assume data is not unstructured
 	m_fIsVarActiveUnstructured = false;
@@ -1861,10 +2037,85 @@ void wxNcVisFrame::SetDisplayedDimensionValue(
 	_ASSERT(m_varActive != NULL);
 	_ASSERT(m_vecwxDimIndex[lDim] != NULL);
 
-	m_vecwxDimIndex[lDim]->ChangeValue(wxString::Format("%li", lValue));
+	std::string strDimName(m_varActive->get_dim(lDim)->name());
+
+	const bool fMultiFileTime =
+		IsTimeDimensionName(strDimName) && (m_vecGlobalTime.size() > 0);
+
+	if (fMultiFileTime) {
+		m_vecwxDimIndex[lDim]->ChangeValue(
+			wxString::Format("%i", m_iCurrentGlobalTimeIndex));
+	} else {
+		m_vecwxDimIndex[lDim]->ChangeValue(wxString::Format("%li", lValue));
+	}
 
 	if (m_vecwxDimValue[lDim] != NULL) {
-		std::string strDimName(m_varActive->get_dim(lDim)->name());
+
+                if (fMultiFileTime) {
+                        int iFile = GetCurrentFileIndex();
+                        if ((iFile >= 0) && (iFile < static_cast<int>(m_vecpncfiles.size()))) {
+                                NcVar * varTime = m_vecpncfiles[iFile]->get_var(strDimName.c_str());
+                                if (varTime != NULL) {
+                                        NcAtt * attUnits = varTime->get_att("units");
+                                        NcAtt * attCalendar = varTime->get_att("calendar");
+
+                                        std::string strUnits;
+                                        std::string strCalendar = "standard";
+
+                                        if (attUnits != NULL) {
+                                                NcValues * pValues = attUnits->values();
+                                                if (pValues != NULL) {
+                                                        const char * szUnits = pValues->as_string(0);
+                                                        if (szUnits != NULL) {
+                                                                strUnits = szUnits;
+                                                        }
+                                                        delete pValues;
+                                                }
+                                                delete attUnits;
+                                        }
+
+                                        if (attCalendar != NULL) {
+                                                NcValues * pValues = attCalendar->values();
+                                                if (pValues != NULL) {
+                                                        const char * szCalendar = pValues->as_string(0);
+                                                        if (szCalendar != NULL) {
+                                                                strCalendar = szCalendar;
+                                                        }
+                                                        delete pValues;
+                                                }
+                                                delete attCalendar;
+                                        }
+
+                                        double dTimeValue = 0.0;
+                                        long lLocalTime = GetCurrentLocalTimeIndex();
+                                        varTime->set_cur(lLocalTime);
+                                        varTime->get(&dTimeValue, 1);
+
+                                        if (strUnits != "") {
+                                                Time time(Time::CalendarTypeFromString(strCalendar));
+                                                if (time.FromCFCompliantUnitsOffsetDouble(strUnits, dTimeValue)) {
+                                                        m_vecwxDimValue[lDim]->ChangeValue(time.ToString());
+                                                } else {
+                                                        m_vecwxDimValue[lDim]->ChangeValue(
+                                                                wxString::Format("%g %s", dTimeValue, strUnits));
+                                                }
+                                        } else {
+                                                m_vecwxDimValue[lDim]->ChangeValue(wxString::Format("%g", dTimeValue));
+                                        }
+                                        return;
+                                }
+                        }
+                }
+
+		if (m_fVerbose) {
+			std::cout
+				<< "SetDisplayedDimensionValue: dim=" << strDimName
+				<< ", file=" << GetCurrentFileIndex()
+				<< ", local=" << GetCurrentLocalTimeIndex()
+				<< ", shown index=" << lValue
+				<< std::endl;
+		}
+
 		auto it = m_mapDimData.find(strDimName);
 		if (it != m_mapDimData.end()) {
 			std::string strDimUnits(it->second.units());
@@ -2362,6 +2613,7 @@ void wxNcVisFrame::OnVariableSelected(
 
 	// Change the active variable
 	std::string strValue = event.GetString().ToStdString();
+        m_strVarActiveName = strValue;
 
 	int vc = static_cast<int>(event.GetId() - ID_VARSELECTOR);
 	_ASSERT((vc >= 0) && (vc < NcVarMaximumDimensions));
@@ -2754,11 +3006,24 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 		eDimCommand = DIMCOMMAND_DECREMENT;
 		d -= ID_DIMDOWN;
 
-		long lDimSize = m_varActive->get_dim(d)->size();
-		if (m_lVarActiveDims[d] == 0) {
-			m_lVarActiveDims[d] = lDimSize-1;
+		if (IsTimeDimensionName(m_varActive->get_dim(d)->name()) &&
+		    (m_vecGlobalTime.size() > 0)
+		) {
+			if (m_iCurrentGlobalTimeIndex == 0) {
+				m_iCurrentGlobalTimeIndex = m_vecGlobalTime.size() - 1;
+			} else {
+				m_iCurrentGlobalTimeIndex--;
+			}
+
+			m_lVarActiveDims[d] = GetCurrentLocalTimeIndex();
+
 		} else {
-			m_lVarActiveDims[d]--;
+			long lDimSize = m_varActive->get_dim(d)->size();
+			if (m_lVarActiveDims[d] == 0) {
+				m_lVarActiveDims[d] = lDimSize-1;
+			} else {
+				m_lVarActiveDims[d]--;
+			}
 		}
 
 		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);
@@ -2768,11 +3033,26 @@ void wxNcVisFrame::OnDimButtonClicked(wxCommandEvent & event) {
 		eDimCommand = DIMCOMMAND_INCREMENT;
 		d -= ID_DIMUP;
 
-		long lDimSize = m_varActive->get_dim(d)->size();
-		if (m_lVarActiveDims[d] == lDimSize-1) {
-			m_lVarActiveDims[d] = 0;
+		if (IsTimeDimensionName(m_varActive->get_dim(d)->name()) &&
+		    (m_vecGlobalTime.size() > 0)
+		) {
+			if (m_iCurrentGlobalTimeIndex ==
+			    static_cast<int>(m_vecGlobalTime.size()) - 1
+			) {
+				m_iCurrentGlobalTimeIndex = 0;
+			} else {
+				m_iCurrentGlobalTimeIndex++;
+			}
+
+			m_lVarActiveDims[d] = GetCurrentLocalTimeIndex();
+
 		} else {
-			m_lVarActiveDims[d]++;
+			long lDimSize = m_varActive->get_dim(d)->size();
+			if (m_lVarActiveDims[d] == lDimSize-1) {
+				m_lVarActiveDims[d] = 0;
+			} else {
+				m_lVarActiveDims[d]++;
+			}
 		}
 
 		SetDisplayedDimensionValue(d, m_lVarActiveDims[d]);

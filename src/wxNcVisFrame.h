@@ -30,6 +30,44 @@ class wxNcVisLinePlotFrame;
 
 ////////////////////////////////////////////////////////////////////////////////
 
+// Multi-file metadata for virtual time navigation
+///	<summary>
+///		Per-file metadata used to build the virtual global time axis.
+///	</summary>
+struct NcVisFileInfo {
+	///	<summary>
+	///		Name of this input file.
+	///	</summary>
+	wxString filename;
+
+	///	<summary>
+	///		Name of the time dimension, or empty if the file has none.
+	///	</summary>
+	std::string strTimeDimName;
+
+	///	<summary>
+	///		Number of time slices in this file.
+	///	</summary>
+	int timeCount = 0;
+
+	///	<summary>
+	///		Sizes of all non-time dimensions, used to verify that files
+	///		describe the same grid.
+	///	</summary>
+	std::map<std::string, long> mapSpatialDims;
+};
+
+///	<summary>
+///		A single entry on the virtual global time axis, identifying the
+///		file and the time index within that file.
+///	</summary>
+struct NcVisTimeRef {
+	int fileIndex = -1;
+	int localTimeIndex = -1;
+};
+
+////////////////////////////////////////////////////////////////////////////////
+
 ///	<summary>
 ///		A class that manages the NcVis app frame.
 ///	</summary>
@@ -329,7 +367,14 @@ public:
 	///	</summary>
 	const std::string & GetVarActiveUnits() const {
 		return m_strVarActiveUnits;
-	}
+	}	
+
+	///	<summary>
+        ///             multi file helper functions
+	///	</summary>
+	int GetCurrentFileIndex() const;
+	int GetCurrentLocalTimeIndex() const;
+	void UpdateActiveVariableFromGlobalTime();
 
 	///     <summary>
 	///             Callback triggered when Shift+mouse left click for 1D plot
@@ -589,6 +634,11 @@ private:
 	///	</summary>
 	std::string m_strLatVarName;
 
+        ///     <summary>
+        ///             Name of the active variable.
+        ///     </summary>
+	std::string m_strVarActiveName;
+
 	///	<summary>
 	///		A map of alternate longitude variables.
 	///	</summary>
@@ -710,6 +760,21 @@ private:
 	///	</summary>
 	wxString m_strStartupVariable;
 
+	///	<summary>
+	///		Metadata for each input file, in command line order.
+	///	</summary>
+	std::vector<NcVisFileInfo> m_vecInputFileInfo;
+
+	///	<summary>
+	///		Virtual global time axis spanning all input files.
+	///	</summary>
+	std::vector<NcVisTimeRef> m_vecGlobalTime;
+
+	///	<summary>
+	///		Index into m_vecGlobalTime of the time currently displayed.
+	///	</summary>
+	int m_iCurrentGlobalTimeIndex = 0;
+
 	///     <summary>
 	///             Extracting 1D series for 1D plot.
 	///     </summary>
@@ -724,6 +789,18 @@ private:
         );
 
 	bool GetTimeDimensionForActiveVar(long & lTimeDim) const;
+
+	///	<summary>
+	///		Returns true if the given dimension name denotes time.
+	///	</summary>
+	static bool IsTimeDimensionName(const std::string & strDimName);
+
+	///	<summary>
+	///		Build the virtual global time axis spanning all input files.
+	///		Does nothing unless several files are given and they share a
+	///		common time dimension and grid.
+	///	</summary>
+	void BuildGlobalTimeIndex(const std::vector<wxString> & vecFilenames);
 
 private:
 	///	<summary>
