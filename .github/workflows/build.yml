@@ -1,0 +1,82 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.method }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        method: [cmake, build.sh]
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Matches the environment documented in INSTALL.md.
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          channels: conda-forge
+          conda-remove-defaults: true
+          activate-environment: ncvis
+          auto-activate-base: false
+
+      - name: Install dependencies
+        run: conda install -y wxwidgets libnetcdf cxx-compiler cmake make
+
+      - name: Report toolchain
+        run: |
+          wx-config --version
+          nc-config --version
+          cmake --version | head -1
+
+      - name: Build with cmake
+        if: matrix.method == 'cmake'
+        run: |
+          cmake -S . -B bld -DCMAKE_BUILD_TYPE=Release
+          cmake --build bld -j
+
+      # build.sh keeps its own explicit source list, separate from the one in
+      # src/CMakeLists.txt. Building both ways is what catches a new .cpp being
+      # added to one list and not the other.
+      - name: Build with build.sh
+        if: matrix.method == 'build.sh'
+        run: ./build.sh
+
+      # The usage message is printed from wxApp::OnInit, which wxWidgets only
+      # reaches after GTK is initialized, so a Linux runner needs a display
+      # even just to print it.
+      - name: Install xvfb
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+
+      - name: Check the binary runs
+        run: |
+          if [ "${{ matrix.method }}" = "cmake" ]; then
+            NCVIS=bld/ncvis
+          else
+            NCVIS=./ncvis
+          fi
+          test -x "$NCVIS"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            NCVIS="xvfb-run -a $NCVIS"
+          fi
+          # With no file arguments ncvis prints usage and exits non-zero
+          # rather than opening a window.
+          out=$($NCVIS 2>&1 || true)
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" | grep -q "Usage:"
