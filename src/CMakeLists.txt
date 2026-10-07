@@ -44,3 +44,9 @@ target_link_libraries(ncvis PRIVATE ${wxWidgets_LIBRARIES} ${NCVIS_NETCDF_TARGET
 INSTALL(TARGETS ncvis
   RUNTIME DESTINATION bin
 )
+
+# ncvis cannot start without its colormaps, fonts and shapefiles, so install
+# them alongside the binary. ncvis.cpp looks here relative to the executable.
+INSTALL(DIRECTORY "${ncvis_SOURCE_DIR}/resources"
+  DESTINATION share/ncvis
+)
