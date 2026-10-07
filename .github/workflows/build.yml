@@ -65,10 +65,21 @@ jobs:
         run: |
           printf 'int ncvisGlobCanary() { return 42; }\n' > src/zzGlobCanary.cpp
           cmake --build bld -j
-          nm bld/ncvis | grep -q ncvisGlobCanary
+          # Write nm output to a file rather than piping into grep: grep -q
+          # exits at the first match, and the resulting EPIPE fails nm under
+          # the pipefail this shell runs with.
+          nm bld/ncvis > nm-with.txt
+          grep -q ncvisGlobCanary nm-with.txt
           rm src/zzGlobCanary.cpp
           cmake --build bld -j
-          ! nm bld/ncvis | grep -q ncvisGlobCanary
+          nm bld/ncvis > nm-without.txt
+          # Not "! grep ...": a leading ! suppresses errexit, so a regression
+          # here would pass silently.
+          if grep -q ncvisGlobCanary nm-without.txt; then
+            echo "Removed source is still linked into the binary" >&2
+            exit 1
+          fi
+          rm -f nm-with.txt nm-without.txt
 
       # The usage message is printed from wxApp::OnInit, which wxWidgets only
       # reaches after GTK is initialized, so a Linux runner needs a display
