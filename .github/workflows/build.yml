@@ -93,12 +93,10 @@ jobs:
           rm -f nm-with.txt nm-without.txt
 
       # The usage message is printed from wxApp::OnInit, which wxWidgets only
-      # reaches after GTK is initialized, so a Linux runner needs a display
-      # even just to print it.
-      - name: Install xvfb
-        if: runner.os == 'Linux'
-        run: sudo apt-get update && sudo apt-get install -y xvfb
-
+      # reaches after GTK is initialized, so the Linux runs below go through
+      # xvfb. It is preinstalled on the GitHub Ubuntu images, so there is no
+      # apt-get step here: installing it added nothing and was the only part
+      # of this job that needed the network, which hung a run for 25 minutes.
       - name: Check the binary runs
         run: |
           if [ "${{ matrix.method }}" = "cmake" ]; then
@@ -108,10 +106,18 @@ jobs:
           fi
           test -x "$NCVIS"
           if [ "$RUNNER_OS" = "Linux" ]; then
+            # Fail with a clear message if a future image drops xvfb, rather
+            # than reporting it as a build failure.
+            command -v xvfb-run > /dev/null || {
+              echo "xvfb-run not found on this runner image; install it here" >&2
+              exit 1
+            }
             NCVIS="xvfb-run -a $NCVIS"
           fi
           # With no file arguments ncvis prints usage and exits non-zero
           # rather than opening a window.
           out=$($NCVIS 2>&1 || true)
           printf '%s\n' "$out"
-          printf '%s\n' "$out" | grep -q "Usage:"
+          printf '%s\n' "$out" > ncvis-usage.txt
+          grep -q "Usage:" ncvis-usage.txt
+          rm -f ncvis-usage.txt
