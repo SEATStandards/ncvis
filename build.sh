@@ -41,4 +41,4 @@ done
 
 # build the executable
 # shellcheck disable=SC2086
-$CXX -std=c++11 -fpermissive -Wl,-rpath,${RPATH} -o ${PREFIX}/ncvis ${SOURCES} ${WXFLAGS} ${NCFLAGS}
+$CXX -std=c++11 -fpermissive "-Wl,-rpath,${RPATH}" -o "${PREFIX}/ncvis" ${SOURCES} ${WXFLAGS} ${NCFLAGS}
