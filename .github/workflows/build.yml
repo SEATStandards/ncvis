@@ -141,12 +141,20 @@ jobs:
           # cannot test this. The file need not be valid, only present.
           : > empty.nc
           # shellcheck disable=SC2086
-          out=$(timeout 60 $NCVIS empty.nc 2>&1 || true)
+          out=$($NCVIS empty.nc 2>&1 || true)
           printf '%s\n' "$out"
           printf '%s\n' "$out" > inst-run.txt
           rm -f empty.nc
           if grep -q "Cannot find the resource directory" inst-run.txt; then
             echo "Installed tree could not locate its resources" >&2
+            exit 1
+          fi
+          # The empty file is not valid netCDF, so ncvis exits on its own with
+          # this error and no timeout is needed. Requiring the message also
+          # proves the binary actually ran: without it a failure to launch
+          # would leave the check above with nothing to match and pass.
+          if ! grep -q 'Unable to open file' inst-run.txt; then
+            echo "Installed binary did not run as expected" >&2
             exit 1
           fi
           rm -rf inst inst-run.txt
