@@ -25,7 +25,7 @@
 
 ////////////////////////////////////////////////////////////////////////////////
 
-static const char * szVersion = "NcVis 2024.01.26";
+static const char * szVersion = "NcVis 2026.10.07";
 
 static const char * szDevInfo = "Supported by the U.S. Department of Energy Office of Science Regional and Global Model Analysis (RGMA) Project Simplifying ESM Analysis Through Standards (SEATS)";
 
