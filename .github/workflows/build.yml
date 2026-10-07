@@ -65,18 +65,25 @@ jobs:
       # picked up by both with no edit anywhere, which is the drift this is
       # here to prevent.
       - name: Check a new source file is picked up automatically
-        if: matrix.method == 'cmake'
         run: |
+          if [ "${{ matrix.method }}" = "cmake" ]; then
+            rebuild() { cmake --build bld -j; }
+            NCVIS=bld/ncvis
+          else
+            rebuild() { sh ./build.sh; }
+            NCVIS=./ncvis
+          fi
+
           printf 'int ncvisGlobCanary() { return 42; }\n' > src/zzGlobCanary.cpp
-          cmake --build bld -j
+          rebuild
           # Write nm output to a file rather than piping into grep: grep -q
           # exits at the first match, and the resulting EPIPE fails nm under
           # the pipefail this shell runs with.
-          nm bld/ncvis > nm-with.txt
+          nm "$NCVIS" > nm-with.txt
           grep -q ncvisGlobCanary nm-with.txt
           rm src/zzGlobCanary.cpp
-          cmake --build bld -j
-          nm bld/ncvis > nm-without.txt
+          rebuild
+          nm "$NCVIS" > nm-without.txt
           # Not "! grep ...": a leading ! suppresses errexit, so a regression
           # here would pass silently.
           if grep -q ncvisGlobCanary nm-without.txt; then
