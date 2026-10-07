@@ -10,6 +10,10 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# This workflow only builds; it never writes to the repository.
+permissions:
+  contents: read
+
 jobs:
   build:
     name: ${{ matrix.os }} / ${{ matrix.method }}
@@ -50,12 +54,12 @@ jobs:
           cmake -S . -B bld -DCMAKE_BUILD_TYPE=Release
           cmake --build bld -j
 
-      # build.sh keeps its own explicit source list, separate from the one in
-      # src/CMakeLists.txt. Building both ways is what catches a new .cpp being
-      # added to one list and not the other.
+      # INSTALL.md documents "sh ./build.sh", so invoke it that way rather than
+      # via the shebang: the two differ, and the documented one is the one that
+      # has to keep working.
       - name: Build with build.sh
         if: matrix.method == 'build.sh'
-        run: ./build.sh
+        run: sh ./build.sh
 
       # Both build paths discover sources with a glob. Adding a file must be
       # picked up by both with no edit anywhere, which is the drift this is
