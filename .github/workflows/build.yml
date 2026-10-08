@@ -1,0 +1,123 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+# This workflow only builds; it never writes to the repository.
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: ${{ matrix.os }} / ${{ matrix.method }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        method: [cmake, build.sh]
+
+    defaults:
+      run:
+        shell: bash -el {0}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Matches the environment documented in INSTALL.md.
+      - uses: conda-incubator/setup-miniconda@v3
+        with:
+          channels: conda-forge
+          conda-remove-defaults: true
+          activate-environment: ncvis
+          auto-activate-base: false
+
+      - name: Install dependencies
+        run: conda install -y wxwidgets libnetcdf cxx-compiler cmake make
+
+      - name: Report toolchain
+        run: |
+          wx-config --version
+          nc-config --version
+          cmake --version | head -1
+
+      - name: Build with cmake
+        if: matrix.method == 'cmake'
+        run: |
+          cmake -S . -B bld -DCMAKE_BUILD_TYPE=Release
+          cmake --build bld -j
+
+      # INSTALL.md documents "sh ./build.sh", so invoke it that way rather than
+      # via the shebang: the two differ, and the documented one is the one that
+      # has to keep working.
+      - name: Build with build.sh
+        if: matrix.method == 'build.sh'
+        run: sh ./build.sh
+
+      # Both build paths discover sources with a glob. Adding a file must be
+      # picked up by both with no edit anywhere, which is the drift this is
+      # here to prevent.
+      - name: Check a new source file is picked up automatically
+        run: |
+          if [ "${{ matrix.method }}" = "cmake" ]; then
+            rebuild() { cmake --build bld -j; }
+            NCVIS=bld/ncvis
+          else
+            rebuild() { sh ./build.sh; }
+            NCVIS=./ncvis
+          fi
+
+          printf 'int ncvisGlobCanary() { return 42; }\n' > src/zzGlobCanary.cpp
+          rebuild
+          # Write nm output to a file rather than piping into grep: grep -q
+          # exits at the first match, and the resulting EPIPE fails nm under
+          # the pipefail this shell runs with.
+          nm "$NCVIS" > nm-with.txt
+          grep -q ncvisGlobCanary nm-with.txt
+          rm src/zzGlobCanary.cpp
+          rebuild
+          nm "$NCVIS" > nm-without.txt
+          # Not "! grep ...": a leading ! suppresses errexit, so a regression
+          # here would pass silently.
+          if grep -q ncvisGlobCanary nm-without.txt; then
+            echo "Removed source is still linked into the binary" >&2
+            exit 1
+          fi
+          rm -f nm-with.txt nm-without.txt
+
+      # The usage message is printed from wxApp::OnInit, which wxWidgets only
+      # reaches after GTK is initialized, so the Linux runs below go through
+      # xvfb. It is preinstalled on the GitHub Ubuntu images, so there is no
+      # apt-get step here: installing it added nothing and was the only part
+      # of this job that needed the network, which hung a run for 25 minutes.
+      - name: Check the binary runs
+        run: |
+          if [ "${{ matrix.method }}" = "cmake" ]; then
+            NCVIS=bld/ncvis
+          else
+            NCVIS=./ncvis
+          fi
+          test -x "$NCVIS"
+          if [ "$RUNNER_OS" = "Linux" ]; then
+            # Fail with a clear message if a future image drops xvfb, rather
+            # than reporting it as a build failure.
+            command -v xvfb-run > /dev/null || {
+              echo "xvfb-run not found on this runner image; install it here" >&2
+              exit 1
+            }
+            NCVIS="xvfb-run -a $NCVIS"
+          fi
+          # With no file arguments ncvis prints usage and exits non-zero
+          # rather than opening a window.
+          out=$($NCVIS 2>&1 || true)
+          printf '%s\n' "$out"
+          printf '%s\n' "$out" > ncvis-usage.txt
+          grep -q "Usage:" ncvis-usage.txt
+          rm -f ncvis-usage.txt

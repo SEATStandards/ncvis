@@ -13,33 +13,35 @@ set (CMAKE_CXX_STANDARD 11 CACHE STRING "The C++ standard to use")
 set (CMAKE_CXX_STANDARD_REQUIRED ON)
 set (CMAKE_CXX_EXTENSIONS OFF)
 set (CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR})
-set (CMAKE_SHARED_LINKER_FLAGS "-Wl,--as-needed")
-set (CMAKE_GNU_FLAGS "-fpermissive")
 
 # Find wxWidgets libraries
 find_package(wxWidgets REQUIRED gl core base OPTIONAL_COMPONENTS net)
 include(${wxWidgets_USE_FILE})
 
+# Prefer the netCDF-provided package config, which defines the netCDF::netcdf
+# imported target and carries its own include paths. Fall back to the bundled
+# FindNetCDF.cmake module for installations that ship no config file.
 # Configure with NetCDF_ROOT=$PATH_TO_NETCDF_INSTALL
-find_package(NetCDF REQUIRED)
+find_package(netCDF CONFIG QUIET)
+if (netCDF_FOUND AND TARGET netCDF::netcdf)
+  set(NCVIS_NETCDF_TARGET netCDF::netcdf)
+else()
+  find_package(NetCDF REQUIRED)
+  # FindNetCDF.cmake reports plain paths, so wrap them in an imported target to
+  # give the rest of the build a single uniform name to link against.
+  add_library(ncvis::netcdf INTERFACE IMPORTED)
+  set_target_properties(ncvis::netcdf PROPERTIES
+    INTERFACE_INCLUDE_DIRECTORIES "${NETCDF_INCLUDES}"
+    INTERFACE_LINK_LIBRARIES "${NETCDF_LIBRARIES}"
+  )
+  set(NCVIS_NETCDF_TARGET ncvis::netcdf)
+endif()
 
-find_program(NCCONFIG_EXE NAMES nc-config PATHS ${NETCDF_DIR}/bin ${NetCDF_ROOT}/bin)
-
-# Get all necessary config flags
+# wxWidgets has no package config; wx-config remains the supported way to query
+# it. Only compile flags and the install prefix are taken from it -- linking
+# uses the find_package() result, which keeps "-framework X" pairs intact.
 execute_process(COMMAND "${wxWidgets_CONFIG_EXECUTABLE}" "--cxxflags" OUTPUT_VARIABLE WX_COMPILE_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
 execute_process(COMMAND "${wxWidgets_CONFIG_EXECUTABLE}" "--prefix" OUTPUT_VARIABLE WXCONFIG_RPATH OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND "${wxWidgets_CONFIG_EXECUTABLE}" "--libs" OUTPUT_VARIABLE WX_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-execute_process(COMMAND "${NCCONFIG_EXE}" "--cflags" OUTPUT_VARIABLE NC_COMPILE_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND "${NCCONFIG_EXE}" "--includedir" OUTPUT_VARIABLE NC_INCLUDE_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND "${NCCONFIG_EXE}" "--libdir" OUTPUT_VARIABLE NC_LIB_DIR OUTPUT_STRIP_TRAILING_WHITESPACE)
-execute_process(COMMAND "${NCCONFIG_EXE}" "--libs" "--static" OUTPUT_VARIABLE NC_LINK_FLAGS OUTPUT_STRIP_TRAILING_WHITESPACE)
-
-set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} ${CMAKE_GNU_FLAGS} ${WX_COMPILE_FLAGS} ${NC_COMPILE_FLAGS} -I${NC_INCLUDE_DIR}")
-set(NCVIS_LINKER_FLAGS "${WX_LINK_FLAGS} -L${NC_LIB_DIR} -lnetcdf ${NC_LINK_FLAGS}")
-
-set (CMAKE_SHARED_LINKER_FLAGS "-Wl,--as-needed ")
-set (CMAKE_EXE_LINKER_FLAGS "-Wl,-rpath,${WXCONFIG_RPATH}/lib")
+separate_arguments(WX_COMPILE_FLAGS NATIVE_COMMAND "${WX_COMPILE_FLAGS}")
 
 add_subdirectory("src")
-

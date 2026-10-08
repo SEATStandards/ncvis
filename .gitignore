@@ -37,6 +37,9 @@ bin/*
 # vim swp files
 *.swp
 
+# macOS Finder metadata
+.DS_Store
+
 # netcdf files
 *.nc
 *.nc4
