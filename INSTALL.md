@@ -66,7 +66,8 @@ module unload netcdf
 ```
 # Environment variables
 
-Resources needed by `ncvis` for execution are normally found in the `resources`
-folder, which is assumed to be in the same folder as the `ncvis` executable.
+Resources needed by `ncvis` for execution are found in the `resources` folder.
+`ncvis` looks for it in the same folder as the executable, as in a build tree,
+and then in `../share/ncvis/resources`, where `make install` places it.
 If an alternate resource folder location is needed, the environment variable
 `NCVIS_RESOURCE_DIR` should be set to the resources path.

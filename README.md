@@ -15,7 +15,7 @@ Refer to INSTALL.md for specific instructions.
 
 ## Configuration
 
-In order for ncvis to run the `resources` directory must be in the same folder as `ncvis` or the `NCVIS_RESOURCE_DIR` environment variable must be set to the path of the ncvis resources folder. This directory is where ncvis stores fonts, colormaps and shapefiles.
+In order for ncvis to run it must be able to find the `resources` directory, which is where ncvis stores fonts, colormaps and shapefiles. It looks for that directory beside the `ncvis` executable, as in a build tree, and then in `../share/ncvis/resources`, which is where `make install` and the conda package put it. The `NCVIS_RESOURCE_DIR` environment variable overrides both.
 
 On Unix of Linux-based systems, ncvis uses GDK (via wxWidgets) for rendering of the interface.  The font size displayed in GDK can be adjusted by setting the `GDK_DPI_SCALE` environment variable, e.g. via `export GDK_DPI_SCALE=0.5`.
 

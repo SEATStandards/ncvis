@@ -107,12 +107,29 @@ bool wxNcVisApp::OnInit() {
 
 	wxString wxstrNcVisResourceDir = wxString(std::getenv("NCVIS_RESOURCE_DIR"));
 	if (wxstrNcVisResourceDir.length() == 0) {
-		wxFileName wxfn(wxStandardPaths::Get().GetExecutablePath());
-		wxfn.AppendDir(_T("resources"));
-		wxfn.MakeAbsolute();
-		wxstrNcVisResourceDir = wxfn.GetPath();
-		if (!wxfn.DirExists()) {
-			std::cout << "ERROR: Cannot open resource directory \"" << wxstrNcVisResourceDir << "\"" << std::endl;
+
+		// Look beside the executable first, which is the layout of a build
+		// tree, then in ../share/ncvis/resources, which is where "make
+		// install" and the conda package put it.
+		wxFileName wxfnLocal(wxStandardPaths::Get().GetExecutablePath());
+		wxfnLocal.AppendDir(_T("resources"));
+		wxfnLocal.MakeAbsolute();
+
+		wxFileName wxfnShared(wxStandardPaths::Get().GetExecutablePath());
+		wxfnShared.RemoveLastDir();
+		wxfnShared.AppendDir(_T("share"));
+		wxfnShared.AppendDir(_T("ncvis"));
+		wxfnShared.AppendDir(_T("resources"));
+		wxfnShared.MakeAbsolute();
+
+		if (wxfnLocal.DirExists()) {
+			wxstrNcVisResourceDir = wxfnLocal.GetPath();
+		} else if (wxfnShared.DirExists()) {
+			wxstrNcVisResourceDir = wxfnShared.GetPath();
+		} else {
+			std::cout << "ERROR: Cannot find the resource directory; tried \""
+				<< wxfnLocal.GetPath() << "\" and \""
+				<< wxfnShared.GetPath() << "\"" << std::endl;
 			std::cout << "Set environment variable NCVIS_RESOURCE_DIR instead" << std::endl;
 			exit(-1);
 		}
