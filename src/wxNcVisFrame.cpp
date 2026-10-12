@@ -560,8 +560,8 @@ void wxNcVisFrame::OpenFiles(
 			size_t sVarDims = static_cast<size_t>(var->num_dims());
 			if (var->num_dims() >= NcVarMaximumDimensions) {
 				std::cout << "WARNING: Skipping variable \"" << var->name()
-					<< "\" with " << var->num_dims() << " dimensions; only variables of dimension <= "
-					<< NcVarMaximumDimensions << " supported" << std::endl;
+					<< "\" with " << var->num_dims() << " dimensions; only variables with fewer than "
+					<< NcVarMaximumDimensions << " dimensions supported" << std::endl;
 				continue;
 			}
 
