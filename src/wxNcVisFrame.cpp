@@ -376,6 +376,9 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
 		NcAtt * attFillValue = varLon->get_att("_FillValue");
+		if (attFillValue == NULL) {
+			attFillValue = varLon->get_att("missing_value");
+		}
 		if (attFillValue != NULL) {
 			dFillValue = attFillValue->as_double(0);
 		}
@@ -400,6 +403,9 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		_ASSERT(varLat != NULL);
 
 		NcAtt * attFillValue = varLon->get_att("_FillValue");
+		if (attFillValue == NULL) {
+			attFillValue = varLon->get_att("missing_value");
+		}
 		if (attFillValue != NULL) {
 			dFillValue = attFillValue->as_double(0);
 		}
@@ -2703,6 +2709,9 @@ void wxNcVisFrame::OnVariableSelected(
 	{
 		NcError error(NcError::silent_nonfatal);
 		NcAtt * attMissingValue = m_varActive->get_att("_FillValue");
+		if (attMissingValue == NULL) {
+			attMissingValue = m_varActive->get_att("missing_value");
+		}
 		if (attMissingValue != NULL) {
 			m_fDataHasMissingValue = true;
 			m_dMissingValueFloat = attMissingValue->as_float(0);
