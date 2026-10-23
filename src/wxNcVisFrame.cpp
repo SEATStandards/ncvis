@@ -294,6 +294,36 @@ void wxNcVisFrame::BuildGlobalTimeIndex(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+///	<summary>
+///		Get the fill value declared by the coordinate variables, checking both
+///		"_FillValue" and "missing_value" on each.
+///	</summary>
+static bool GetCoordinateFillValue(
+	NcVar * varLon,
+	NcVar * varLat,
+	double & dFillValue
+) {
+	NcVar * vecVar[2] = {varLon, varLat};
+
+	for (int i = 0; i < 2; i++) {
+		if (vecVar[i] == NULL) {
+			continue;
+		}
+		NcAtt * attFillValue = vecVar[i]->get_att("_FillValue");
+		if (attFillValue == NULL) {
+			attFillValue = vecVar[i]->get_att("missing_value");
+		}
+		if (attFillValue != NULL) {
+			dFillValue = attFillValue->as_double(0);
+			return true;
+		}
+	}
+
+	return false;
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 bool wxNcVisFrame::GetLonLatVariableNameIter(
 	VariableNameFileIxMap::const_iterator & itLon,
 	VariableNameFileIxMap::const_iterator & itLat
@@ -375,13 +405,7 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
 		varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
-		NcAtt * attFillValue = varLon->get_att("_FillValue");
-		if (attFillValue == NULL) {
-			attFillValue = varLon->get_att("missing_value");
-		}
-		if (attFillValue != NULL) {
-			dFillValue = attFillValue->as_double(0);
-		}
+		GetCoordinateFillValue(varLon, varLat, dFillValue);
 
 	// Multidimensional latitude and longitude already specified
 	} else {
@@ -402,13 +426,7 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(m_strVarActiveMultidimLat.c_str());
 		_ASSERT(varLat != NULL);
 
-		NcAtt * attFillValue = varLon->get_att("_FillValue");
-		if (attFillValue == NULL) {
-			attFillValue = varLon->get_att("missing_value");
-		}
-		if (attFillValue != NULL) {
-			dFillValue = attFillValue->as_double(0);
-		}
+		GetCoordinateFillValue(varLon, varLat, dFillValue);
 
 		_ASSERT(varLon->num_dims() == m_varActive->num_dims());
 		_ASSERT(varLat->num_dims() == m_varActive->num_dims());
