@@ -453,7 +453,7 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 			}
 
 			varLon->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
-			varLat->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
+			varLat->gets(&(dLat[0]), &(vecSize[0]), &(vecStride[0]));
 		}
 	}
 
