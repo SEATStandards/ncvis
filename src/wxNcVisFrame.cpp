@@ -294,6 +294,58 @@ void wxNcVisFrame::BuildGlobalTimeIndex(
 
 ////////////////////////////////////////////////////////////////////////////////
 
+///	<summary>
+///		Apply the fill values declared by the coordinate variables, marking
+///		missing cells with the single sentinel the samplers compare against.
+///	</summary>
+///	<remarks>
+///		Each coordinate is tested against the fill value declared by its own
+///		variable: a sentinel declared only on latitude says nothing about a
+///		longitude that happens to hold the same number.
+///	</remarks>
+static void ApplyCoordinateFillValues(
+	NcVar * varLon,
+	NcVar * varLat,
+	std::vector<double> & dLon,
+	std::vector<double> & dLat,
+	double & dFillValue
+) {
+	double dVarFillValue[2];
+	bool fHasFillValue[2] = {false, false};
+	NcVar * vecVar[2] = {varLon, varLat};
+
+	for (int i = 0; i < 2; i++) {
+		if (vecVar[i] == NULL) {
+			continue;
+		}
+		NcAtt * attFillValue = vecVar[i]->get_att("_FillValue");
+		if (attFillValue == NULL) {
+			attFillValue = vecVar[i]->get_att("missing_value");
+		}
+		if (attFillValue != NULL) {
+			dVarFillValue[i] = attFillValue->as_double(0);
+			fHasFillValue[i] = true;
+		}
+	}
+
+	if (!fHasFillValue[0] && !fHasFillValue[1]) {
+		return;
+	}
+
+	// Both coordinates of a cell are dropped together, so a sentinel in
+	// either one marks the pair.
+	for (size_t i = 0; i < dLon.size() && i < dLat.size(); i++) {
+		if ((fHasFillValue[0] && (dLon[i] == dVarFillValue[0])) ||
+		    (fHasFillValue[1] && (dLat[i] == dVarFillValue[1]))
+		) {
+			dLon[i] = dFillValue;
+			dLat[i] = dFillValue;
+		}
+	}
+}
+
+////////////////////////////////////////////////////////////////////////////////
+
 bool wxNcVisFrame::GetLonLatVariableNameIter(
 	VariableNameFileIxMap::const_iterator & itLon,
 	VariableNameFileIxMap::const_iterator & itLat
@@ -375,13 +427,7 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		varLon->get(&(dLon[0]), varLon->get_dim(0)->size());
 		varLat->get(&(dLat[0]), varLat->get_dim(0)->size());
 
-		NcAtt * attFillValue = varLon->get_att("_FillValue");
-		if (attFillValue == NULL) {
-			attFillValue = varLon->get_att("missing_value");
-		}
-		if (attFillValue != NULL) {
-			dFillValue = attFillValue->as_double(0);
-		}
+		ApplyCoordinateFillValues(varLon, varLat, dLon, dLat, dFillValue);
 
 	// Multidimensional latitude and longitude already specified
 	} else {
@@ -401,14 +447,6 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 		_ASSERT(varLon != NULL);
 		NcVar * varLat = m_vecpncfiles[itLat->second[0]]->get_var(m_strVarActiveMultidimLat.c_str());
 		_ASSERT(varLat != NULL);
-
-		NcAtt * attFillValue = varLon->get_att("_FillValue");
-		if (attFillValue == NULL) {
-			attFillValue = varLon->get_att("missing_value");
-		}
-		if (attFillValue != NULL) {
-			dFillValue = attFillValue->as_double(0);
-		}
 
 		_ASSERT(varLon->num_dims() == m_varActive->num_dims());
 		_ASSERT(varLat->num_dims() == m_varActive->num_dims());
@@ -435,8 +473,10 @@ void wxNcVisFrame::InitializeGridDataSampler() {
 			}
 
 			varLon->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
-			varLat->gets(&(dLon[0]), &(vecSize[0]), &(vecStride[0]));
+			varLat->gets(&(dLat[0]), &(vecSize[0]), &(vecStride[0]));
 		}
+
+		ApplyCoordinateFillValues(varLon, varLat, dLon, dLat, dFillValue);
 	}
 
 	// Initialize the GridDataSampler
